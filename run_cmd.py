@@ -117,7 +117,7 @@ class Resource(object):
             time.sleep(5)
 
 
-class run_nested_cmd():
+class RunNestedCmd():
     def __init__(self, cmd_config, retry=True, threads=3, check_resource=True):
         self.parser = configparser.ConfigParser()
         self.parser.read(cmd_config)
@@ -160,11 +160,11 @@ class run_nested_cmd():
                     self.queue.put(each)
 
     def _log_state(self):
-        with open('cmd_state.txt', 'w') as f:
-            f.write("success: {}\n".format(','.join(self.success)))
-            f.write("failed: {}\n".format(','.join(self.failed)))
+        with open('cmd_state.ini', 'w') as f:
+            f.write("[success]\nsteps = {}\n".format(','.join(self.success)))
+            f.write("[failed]\nsteps = {}\n".format(','.join(self.failed)))
             run_or_wait = set(self.all) - set(self.success) - set(self.failed)
-            f.write("running|waiting: {}\n".format(','.join(run_or_wait)))
+            f.write("[running|waiting]\nsteps = {}\n".format(','.join(run_or_wait)))
 
     def run_cmd(self, name):
         tmp_dict = dict(self.parser[name])
@@ -220,7 +220,20 @@ class run_nested_cmd():
             for i in range(self.threads):
                 pool.submit(run)
 
+    def continue_run(self):
+        parser = configparser.ConfigParser()
+        parser.read('cmd_state.ini')
+        success = [x.strip() for x in parser['success']['steps'].split(',')]
+        # failed = [x.strip() for x in parser['failed']['steps'].split(',')]
+        self.success = success
+        self.queue = queue.Queue()
+        self._update_queue()
+        if self.queue.empty():
+            exit('No need to continue for all steps are completed!')
+        self.run_all()
+
 
 if __name__ == '__main__':
-    a = run_nested_cmd('cmds.ini', check_resource=True)
-    a.run_all()
+    a = RunNestedCmd('cmds.ini', check_resource=True)
+    # a.run_all()
+    a.continue_run()
