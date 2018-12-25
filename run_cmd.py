@@ -118,17 +118,19 @@ class Resource(object):
 
 
 class RunNestedCmd():
-    def __init__(self, cmd_config, retry=True, threads=3, check_resource=True):
+    def __init__(self, cmd_config):
         self.parser = configparser.ConfigParser()
         self.parser.read(cmd_config)
         self.all = self.parser.sections()
+        self.all.pop(self.all.index('mode'))
         self.depend = dict()
         self.queue = self._init_queue()
         self.success = list()
         self.failed = list()
-        self.retry = retry
-        self.threads = threads
-        self.check_resource = check_resource
+        self.retry = self.parser.getboolean('mode', 'retry')
+        self.threads = self.parser.getint('mode', 'threads')
+        self.check_resource = self.parser.getboolean('mode', 'check_resource')
+        self.monitor_resource = self.parser.getboolean('mode', 'monitor_resource')
         self.checked_list = list()
         self.ever_queued = set()
 
@@ -170,7 +172,7 @@ class RunNestedCmd():
         tmp_dict = dict(self.parser[name])
         tmp_dict['name'] = name
         if 'monitor' not in tmp_dict:
-            tmp_dict['monitor'] = True
+            tmp_dict['monitor'] = self.monitor_resource
         if 'timeout' not in tmp_dict:
             tmp_dict['timeout'] = 3600*24*7
         if 'monitor_time_step' not in tmp_dict:
@@ -234,6 +236,6 @@ class RunNestedCmd():
 
 
 if __name__ == '__main__':
-    a = RunNestedCmd('cmds.ini', check_resource=True)
-    # a.run_all()
-    a.continue_run()
+    a = RunNestedCmd('cmds.ini')
+    a.run_all()
+    # a.continue_run()
