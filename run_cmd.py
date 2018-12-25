@@ -50,14 +50,20 @@ class Command(object):
             if self.proc is None:
                 continue
             if self.proc.is_running():
-                cpu_num = self.proc.cpu_num()
-                if cpu_num > max_cpu:
-                    max_cpu = cpu_num
+                try:
+                    cpu_num = self.proc.cpu_num()
+                    if cpu_num > max_cpu:
+                        max_cpu = cpu_num
+                except Exception as e:
+                    print(self.name, ': failed to capture cpu info, maybe for being too fast')
 
-                memory_obj = self.proc.memory_info()
-                memory = (memory_obj.vms - memory_obj.shared)/1024/1024
-                if memory > max_mem:
-                    max_cpu = memory
+                try:
+                    memory_obj = self.proc.memory_info()
+                    memory = (memory_obj.vms - memory_obj.shared)/1024/1024
+                    if memory > max_mem:
+                        max_cpu = memory
+                except Exception as e:
+                    print(self.name, ': failed to capture memory info, maybe for being too fast')
 
                 if time.time() - self.proc.create_time() > self.timeout:
                     self.max_cpu = max_cpu
@@ -165,8 +171,6 @@ class run_nested_cmd():
             tmp_dict['timeout'] = 3600*24*7
         if 'monitor_time_step' not in tmp_dict:
             tmp_dict['monitor_time_step'] = 2
-        print('running:', tmp_dict['cmd'])
-        print(tmp_dict)
         cmd = Command(**tmp_dict)
         cmd.run()
         if cmd.returncode == 0:
@@ -185,7 +189,7 @@ class run_nested_cmd():
         def run(check_resource=self.check_resource):
             while True:
                 name = self.queue.get()
-                print('get worker: ', name)
+                print('Start: ', name)
                 if name is None:
                     self.queue.put(None)
                     break
@@ -198,6 +202,7 @@ class run_nested_cmd():
                             self.failed.append(name)
                             raise Exception(name+" cannot be started after checking resource!")
                         else:
+                            print(name, ': get back to wait for resource')
                             self.queue.put(name)
                             continue
                 self.run_cmd(name)
@@ -212,5 +217,5 @@ class run_nested_cmd():
 
 
 if __name__ == '__main__':
-    a = run_nested_cmd('cmds.ini', check_resource=False)
+    a = run_nested_cmd('cmds.ini', check_resource=True)
     a.run_all()
