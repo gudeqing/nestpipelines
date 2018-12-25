@@ -5,8 +5,10 @@ import psutil
 import queue
 from subprocess import PIPE
 import threading
-from threading import Timer
+from threading import Timer, Semaphore
 from concurrent.futures import ThreadPoolExecutor
+
+semaphore = Semaphore(1)
 
 
 class Command(object):
@@ -30,7 +32,7 @@ class Command(object):
             thread.start()
 
         self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
-        print("exec: ", self.cmd)
+        print("Run {}: ".format(self.name), self.cmd)
         timer = Timer(self.timeout, self.proc.kill)
         try:
             timer.start()
@@ -59,7 +61,8 @@ class Command(object):
 
                 try:
                     memory_obj = self.proc.memory_info()
-                    memory = (memory_obj.vms - memory_obj.shared)/1024/1024
+                    # memory = (memory_obj.vms - memory_obj.shared)/1024/1024
+                    memory = memory_obj.vms/1024/1024
                     if memory > max_mem:
                         max_cpu = memory
                 except Exception as e:
@@ -127,6 +130,7 @@ class run_nested_cmd():
         self.threads = threads
         self.check_resource = check_resource
         self.checked_list = list()
+        self.ever_queued = set()
 
     def _init_queue(self):
         cmd_pool = queue.Queue()
@@ -148,12 +152,12 @@ class run_nested_cmd():
         return cmd_pool
 
     def _update_queue(self):
-        for each in set(self.all) - set(self.success):
-            if each in self.failed:
-                continue
+        for each in set(self.all) - set(self.success) - set(self.failed):
             if not (set(self.depend[each]) - set(self.success)):
-                print(each, ' is ready!')
-                self.queue.put(each)
+                if each not in self.ever_queued:
+                    print(each, ": It's dependencies finished!")
+                    self.ever_queued.add(each)
+                    self.queue.put(each)
 
     def _log_state(self):
         with open('cmd_state.txt', 'w') as f:
@@ -173,23 +177,23 @@ class run_nested_cmd():
             tmp_dict['monitor_time_step'] = 2
         cmd = Command(**tmp_dict)
         cmd.run()
-        if cmd.returncode == 0:
-            self.success.append(name)
-        else:
-            if self.retry:
-                cmd.run()
+        with semaphore:
             if cmd.returncode == 0:
                 self.success.append(name)
             else:
-                self.failed.append(name)
-        self._update_queue()
-        self._log_state()
+                if self.retry:
+                    cmd.run()
+                if cmd.returncode == 0:
+                    self.success.append(name)
+                else:
+                    self.failed.append(name)
+            self._update_queue()
+            self._log_state()
 
     def run_all(self):
         def run(check_resource=self.check_resource):
             while True:
-                name = self.queue.get()
-                print('Start: ', name)
+                name = self.queue.get(block=True)
                 if name is None:
                     self.queue.put(None)
                     break
@@ -197,14 +201,15 @@ class run_nested_cmd():
                     cpu = self.parser.get(name, 'cpu')
                     mem = self.parser.get(name, 'mem')
                     if not Resource().is_enough(cpu, mem):
-                        self.checked_list.append(name)
-                        if self.checked_list.count(name) >= 5:
-                            self.failed.append(name)
-                            raise Exception(name+" cannot be started after checking resource!")
-                        else:
-                            print(name, ': get back to wait for resource')
-                            self.queue.put(name)
-                            continue
+                        with semaphore:
+                            if self.checked_list.count(name) >= 5:
+                                self.failed.append(name)
+                                raise Exception(name+" cannot be started after checking resource!")
+                            else:
+                                self.checked_list.append(name)
+                                print(name, ': get back to wait for resource')
+                                self.queue.put(name, block=True)
+                                continue
                 self.run_cmd(name)
                 time.sleep(1)
                 if len(self.success) + len(self.failed) == len(self.all):
