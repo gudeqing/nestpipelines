@@ -115,7 +115,7 @@ class Resource(object):
                 enough_num += 1
                 if enough_num >= 3:
                     return True
-                if enough_num >=1 and timeout <= 15:
+                if enough_num >=1 and timeout <= 10:
                     return True
             if time.time() - start_time >= timeout:
                 return False
