@@ -1,5 +1,6 @@
 # coding=utf-8
 import time
+import os
 import configparser
 import psutil
 import queue
@@ -7,6 +8,7 @@ from subprocess import PIPE
 import threading
 from threading import Timer, Semaphore
 from concurrent.futures import ThreadPoolExecutor
+__author__ = 'gdq'
 
 semaphore = Semaphore(1)
 
@@ -25,12 +27,13 @@ class Command(object):
         self.max_cpu = 0
         self.monitor = monitor
         self.monitor_time_step = int(monitor_time_step)
+        self.used_time = 0
 
     def run(self):
+        start_time = time.time()
         if self.monitor:
             thread = threading.Thread(target=self.monitor_resource, daemon=True)
             thread.start()
-
         self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
         print("Run {}: ".format(self.name), self.cmd)
         timer = Timer(self.timeout, self.proc.kill)
@@ -43,7 +46,9 @@ class Command(object):
             timer.cancel()
         self.returncode = self.proc.returncode
         self.write_log()
-        return self.returncode, self.max_mem, self.max_cpu
+        end_time = time.time()
+        self.used_time = round(end_time - start_time, 4)
+        return self.returncode, self.max_mem, self.max_cpu, self.used_time
 
     def monitor_resource(self):
         max_cpu = 0
@@ -94,14 +99,14 @@ class Command(object):
 class Resource(object):
     @staticmethod
     def available_mem():
-        return psutil.virtual_memory().free*0.8
+        return psutil.virtual_memory().free*0.9
 
     @staticmethod
     def available_cpu():
         total = psutil.cpu_count()
         return int(total - total*psutil.cpu_percent())-1
 
-    def is_enough(self, cpu, mem, timeout=15):
+    def is_enough(self, cpu, mem, timeout=10):
         start_time = time.time()
         enough_num = 0
         while True:
@@ -114,7 +119,7 @@ class Resource(object):
                     return True
             if time.time() - start_time >= timeout:
                 return False
-            time.sleep(5)
+            time.sleep(3)
 
 
 class RunNestedCmd():
@@ -133,6 +138,10 @@ class RunNestedCmd():
         self.monitor_resource = self.parser.getboolean('mode', 'monitor_resource')
         self.checked_list = list()
         self.ever_queued = set()
+        self.pid = dict()
+        self.time = dict()
+        self.cpu =  dict()
+        self.mem = dict()
 
     def _init_queue(self):
         cmd_pool = queue.Queue()
@@ -156,17 +165,43 @@ class RunNestedCmd():
     def _update_queue(self):
         for each in set(self.all) - set(self.success) - set(self.failed):
             if not (set(self.depend[each]) - set(self.success)):
+                if set(self.depend[each]) & set(self.failed):
+                    self.failed.append(each)
+                    continue
                 if each not in self.ever_queued:
                     print(each, ": It's dependencies finished!")
                     self.ever_queued.add(each)
                     self.queue.put(each)
 
     def _log_state(self):
-        with open('cmd_state.ini', 'w') as f:
-            f.write("[success]\nsteps = {}\n".format(','.join(self.success)))
-            f.write("[failed]\nsteps = {}\n".format(','.join(self.failed)))
-            run_or_wait = set(self.all) - set(self.success) - set(self.failed)
-            f.write("[running|waiting]\nsteps = {}\n".format(','.join(run_or_wait)))
+        run_or_wait = set(self.all) - set(self.success) - set(self.failed)
+        running = set()
+        waiting = set()
+        for each in run_or_wait:
+            if each in self.pid:
+                if psutil.pid_exists(self.pid[each]):
+                    running.add(each)
+            else:
+                waiting.add(each)
+        with open('state_detail.txt', 'w') as f:
+            f.write('name\tstate\tused_time\tmemory\tcpu\tpid\tcmd\n')
+            for each in self.all:
+                if each in self.success:
+                    state = 'success'
+                elif each in self.failed:
+                    state = 'failed'
+                elif each in running:
+                    state = 'running'
+                elif each in waiting:
+                    state = 'waiting'
+                else:
+                    state = 'unknown'
+                used_time = self.time[each] if each in self.time else 'unknown'
+                mem = self.mem[each] if each in self.mem else 'unknown'
+                cpu = self.cpu[each] if each in self.cpu else 'unknown'
+                pid = self.pid[each] if each in self.pid else 'unknown'
+                cmd = self.parser.get(each, 'cmd')
+                f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(each, state, used_time, mem, cpu, pid, cmd))
 
     def run_cmd(self, name):
         tmp_dict = dict(self.parser[name])
@@ -189,6 +224,10 @@ class RunNestedCmd():
                     self.success.append(name)
                 else:
                     self.failed.append(name)
+            self.pid[name] = cmd.proc.pid
+            self.time[name] = cmd.used_time
+            self.cpu[name] = cmd.max_cpu
+            self.mem[name] = cmd.max_mem
             self._update_queue()
             self._log_state()
 
@@ -214,19 +253,25 @@ class RunNestedCmd():
                                 continue
                 self.run_cmd(name)
                 time.sleep(1)
-                if len(self.success) + len(self.failed) == len(self.all):
-                    self.queue.put(None)
-                    break
+                with semaphore:
+                    if len(self.success) + len(self.failed) == len(self.all):
+                        self.queue.put(None)
+                        break
 
         with ThreadPoolExecutor(self.threads) as pool:
             for i in range(self.threads):
                 pool.submit(run)
 
     def continue_run(self):
-        parser = configparser.ConfigParser()
-        parser.read('cmd_state.ini')
-        success = [x.strip() for x in parser['success']['steps'].split(',')]
-        # failed = [x.strip() for x in parser['failed']['steps'].split(',')]
+        if not os.path.exists('state_detail.txt'):
+            exit('Cannot find previous log file: state_detail.txt')
+        with open('state_detail.txt', 'r') as f:
+            success = list()
+            _ = f.readline()
+            for line in f:
+                name, state, _ = line.split('\t', 3)
+                if state == 'success':
+                    success.append(name)
         self.success = success
         self.queue = queue.Queue()
         self._update_queue()
