@@ -248,6 +248,7 @@ class RunNestedCommands(CommandNetwork):
                 cmd.run()
             self._update_state(cmd)
             self._update_queue()
+            self._write_state()
             self._send_end_signal()
 
     def run(self):
