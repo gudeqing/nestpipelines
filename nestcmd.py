@@ -108,7 +108,7 @@ class CommandNetwork(object):
         if 'retry' not in tmp_dict:
             tmp_dict['retry'] = self.parser.getint('mode', 'retry')
         if 'monitor' not in tmp_dict:
-            tmp_dict['monitor'] = self.parser.getboolean('mode','monitor_resource')
+            tmp_dict['monitor'] = self.parser.getboolean('mode', 'monitor_resource')
         if 'timeout' not in tmp_dict:
             tmp_dict['timeout'] = 3600*24*7
         if 'monitor_time_step' not in tmp_dict:
@@ -169,7 +169,7 @@ class CheckResource(object):
                 enough_num += 1
                 if enough_num >= 3:
                     return True
-                if enough_num >=1 and timeout <= 15:
+                if enough_num >= 1 and timeout <= 15:
                     return True
             if time.time() - start_time >= timeout:
                 return False
@@ -178,6 +178,7 @@ class CheckResource(object):
 
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
+
     def __init__(self, cmd_config):
         super().__init__(cmd_config)
         self.ever_queued = set()
@@ -216,12 +217,12 @@ class RunCommands(CommandNetwork):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
 
-    def _update_state(self, cmd:Command):
+    def _update_state(self, cmd: Command):
         cmd_state = self.state[cmd.name]
         if cmd.proc is None:
             cmd_state['state'] = 'failed'
         else:
-            cmd_state['state'] = 'success' if cmd.proc.returncode==0 else 'failed'
+            cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
         cmd_state['used_time'] = cmd.used_time
         cmd_state['mem'] = cmd.max_cpu
         cmd_state['cpu'] = cmd.max_cpu
@@ -283,12 +284,5 @@ class RunCommands(CommandNetwork):
 
 if __name__ == '__main__':
     workflow = RunCommands('cmds.ini')
-    # workflow.parallel_run()
-    workflow.continue_run()
-
-
-
-
-
-
-
+    workflow.parallel_run()
+    # workflow.continue_run()
