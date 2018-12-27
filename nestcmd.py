@@ -235,7 +235,7 @@ class RunCommands(CommandNetwork):
                 content = '\t'.join([str(self.state[name][x]) for x in fields[1:]])
                 f.write(name+'\t'+content+'\n')
 
-    def _run(self):
+    def single_run(self):
         while True:
             name = self.queue.get(block=True)
             if name is None:
@@ -260,17 +260,31 @@ class RunCommands(CommandNetwork):
                 self._update_queue()
                 self._write_state()
 
-    def run(self):
-        # self._run()
+    def parallel_run(self):
         pool_size = self.parser.getint('mode', 'threads')
         with ThreadPoolExecutor(pool_size) as pool:
             for i in range(pool_size):
-                pool.submit(self._run)
+                pool.submit(self.single_run)
+
+    def continue_run(self):
+        self.ever_queued = set()
+        with open('cmd_state.txt', 'r') as f:
+            header = f.readline()
+            for line in f:
+                line_lst = line.strip().split('\t')
+                fields = ['state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
+                if line_lst[1] == 'success':
+                    self.ever_queued.add(line_lst[0])
+                    self.state[line_lst[0]] = dict(zip(fields, line_lst[1:]))
+        self.queue = queue.Queue()
+        self._update_queue()
+        self.parallel_run()
 
 
 if __name__ == '__main__':
     workflow = RunCommands('cmds.ini')
-    workflow.run()
+    # workflow.parallel_run()
+    workflow.continue_run()
 
 
 
