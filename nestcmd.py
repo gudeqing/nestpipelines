@@ -6,14 +6,14 @@ import psutil
 import queue
 from subprocess import PIPE
 import threading
-from threading import Timer, Lock
+from threading import Timer, Lock, Semaphore
 from concurrent.futures import ThreadPoolExecutor
 __author__ = 'gdq'
 
 
 class Command(object):
     def __init__(self, cmd, name, timeout=604800,
-                 monitor=True, monitor_time_step=2, **kwargs):
+                 monitor_resource=True, monitor_time_step=2, **kwargs):
         self.name = name
         self.cmd = cmd
         self.proc = None
@@ -23,12 +23,12 @@ class Command(object):
         self.used_time = 0
         self.max_mem = 0
         self.max_cpu = 0
-        self.monitor = monitor
+        self.monitor = monitor_resource
         self.monitor_time_step = int(monitor_time_step)
 
     def _monitor_resource(self):
         if not isinstance(self.proc, psutil.Process):
-            raise Exception('Please provide vaild process instance of psutil')
+            raise Exception('Please provide valid process instance of psutil')
         mr = MonitorResource(self.proc, time_step=self.monitor_time_step)
         mr.monitoring()
         self.max_cpu = mr.max_cpu
@@ -47,7 +47,7 @@ class Command(object):
             self.stdout, self.stderr = self.proc.communicate()
         finally:
             timer.cancel()
-        self._write_log()
+        # self._write_log()
         end_time = time.time()
         self.used_time = round(end_time - start_time, 4)
 
@@ -68,7 +68,6 @@ class CommandNetwork(object):
     def __init__(self, cmd_config):
         self.parser = configparser.ConfigParser()
         self.parser.read(cmd_config)
-        self.mode = dict(self.parser['mode'])
 
     def names(self):
         sections = self.parser.sections()
@@ -89,11 +88,11 @@ class CommandNetwork(object):
 
     def get_dependency(self, name):
         if 'depend' not in self.parser[name]:
-            return None
+            return []
         else:
             depend = self.parser[name]['depend'].strip()
             if not depend:
-                return None
+                return []
             else:
                 return [x.strip() for x in depend.split(',')]
 
@@ -106,42 +105,52 @@ class CommandNetwork(object):
             tmp_dict['mem'] = 0
         if 'depend' not in tmp_dict:
             tmp_dict['depend'] = None
+        if 'retry' not in tmp_dict:
+            tmp_dict['retry'] = self.parser.getint('mode', 'retry')
         if 'monitor' not in tmp_dict:
-            tmp_dict['monitor'] = self.mode['monitor_resource']
+            tmp_dict['monitor'] = self.parser.getboolean('mode','monitor_resource')
         if 'timeout' not in tmp_dict:
             tmp_dict['timeout'] = 3600*24*7
         if 'monitor_time_step' not in tmp_dict:
-            tmp_dict['monitor_time_step'] = self.mode['monitor_time_step']
+            tmp_dict['monitor_time_step'] = self.parser.getint('mode', 'monitor_time_step')
         if 'check_resource_before_run' not in tmp_dict:
-            tmp_dict['check_resource_before_run'] = self.mode['check_resource_before_run']
+            tmp_dict['check_resource_before_run'] = self.parser.getboolean('mode', 'check_resource_before_run')
         return tmp_dict
 
 
 class MonitorResource(object):
     def __init__(self, proc, time_step=1):
+        if not isinstance(proc, psutil.Process):
+            raise Exception('Please provide valid process instance of psutil')
         self.proc = proc
-        self.time_step = time_step
+        self.time_step = int(time_step)
         self.max_mem = 0
         self.max_cpu = 0
 
     def monitoring(self):
         while self.proc.is_running():
             try:
-                cpu_num = self.proc.cpu_num()
-                if cpu_num > self.max_cpu:
-                    self.max_cpu = cpu_num
+                if os.name == 'posix':
+                    cpu_num = self.proc.cpu_num()
+                elif os.name == 'nt':
+                    cpu_num = psutil.cpu_count()
+                else:
+                    cpu_num = 0
+                cpu_percent = self.proc.cpu_percent(self.time_step)
+                used_cpu = round(cpu_num*cpu_percent, 4)
+                if used_cpu > self.max_cpu:
+                    self.max_cpu = used_cpu
                 memory_obj = self.proc.memory_info()
                 # memory = (memory_obj.vms - memory_obj.shared)/1024/1024
                 memory = memory_obj.vms/1024/1024
                 if memory > self.max_mem:
                     self.max_cpu = memory
             except Exception as e:
-                print(self.proc.name(),'failed to capture resource for: ', e)
+                print('Failed to capture cpu/mem info for: ', e)
                 break
-            time.sleep(self.time_step)
 
 
-class Resource(object):
+class CheckResource(object):
     @staticmethod
     def available_mem():
         return psutil.virtual_memory().free
@@ -167,13 +176,12 @@ class Resource(object):
             time.sleep(3)
 
 
-class RunNestedCommands(CommandNetwork):
+class RunCommands(CommandNetwork):
+    __LOCK__ = Lock()
     def __init__(self, cmd_config):
-        super(CommandNetwork).__init__(cmd_config)
-        self.mode = dict(self.parser['mode'])
+        super().__init__(cmd_config)
         self.queue = self.__init_queue()
         self.state = self.__init_state()
-        self.__LOCK__ = Lock()
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -193,19 +201,21 @@ class RunNestedCommands(CommandNetwork):
         return state_dict
 
     def _update_queue(self):
-        with self.__LOCK__:
-            success = set(name for name in self.state if self.state[name]['state']=='success')
-            failed = set(name for name in self.state if self.state[name]['state']=='failed')
+        # with self.__LOCK1__:
+            success = set(x for x in self.state if self.state[x]['state'] == 'success')
+            failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
             waiting = set(self.names()) - success - failed
+            if not waiting:
+                self.queue.put(None)
             for each in waiting:
                 dependency = set(self.get_dependency(each))
                 if dependency & failed:
                     self.state[each]['state'] = 'failed'
                 if not (dependency - success):
-                    self.queue.put(each)
+                    self.queue.put(each, block=True)
 
     def _update_state(self, cmd:Command):
-        with self.__LOCK__:
+        # with self.__LOCK2__:
             cmd_state = self.state[cmd.name]
             if cmd.proc is None:
                 cmd_state['state'] = 'failed'
@@ -217,47 +227,52 @@ class RunNestedCommands(CommandNetwork):
             cmd_state['pid'] = cmd.proc.pid if cmd.proc else 'unknown'
 
     def _write_state(self):
-        with self.__LOCK__:
+        # with self.__LOCK3__:
             with open('cmd_state.txt', 'w') as f:
                 fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
                 f.write('\t'.join(fields)+'\n')
                 for name in self.state:
-                    content = '\t'.join(self.state[name][x] for x in fields[1:])
+                    content = '\t'.join([str(self.state[name][x]) for x in fields[1:]])
                     f.write(name+'\t'+content+'\n')
 
-    def _send_end_signal(self):
-        with self.__LOCK__:
-            success = set(name for name in self.state if self.state[name]['state']=='success')
-            failed = set(name for name in self.state if self.state[name]['state']=='failed')
-            if len(self.names()) - len(success) - len(failed) == 0:
-                self.queue.put(None)
-
     def _run(self):
-        while 1:
-            name = self.queue.get()
+        while True:
+            name = self.queue.get(block=True)
+            print('gggggg ',name)
             if name is None:
                 self.queue.put(None)
                 break
             tmp_dict = self.get_cmd_description_dict(name)
-            enough = True
-            if tmp_dict['check_resource_before_run']:
-                if not Resource().is_enough(tmp_dict['cpu'], tmp_dict['mem']):
-                    enough = False
+
+            try_times = 0
             cmd = Command(**tmp_dict)
-            if enough:
-                cmd.run()
-            self._update_state(cmd)
-            self._update_queue()
-            self._write_state()
-            self._send_end_signal()
+            while try_times <= tmp_dict['retry']:
+                try_times += 1
+                enough = True
+                if tmp_dict['check_resource_before_run']:
+                    if not CheckResource().is_enough(tmp_dict['cpu'], tmp_dict['mem']):
+                        enough = False
+                if enough:
+                    cmd.run()
+                    if cmd.proc.returncode == 0:
+                        try_times = tmp_dict['retry'] + 2
+            with self.__LOCK__:
+                self._update_state(cmd)
+                self._update_queue()
+                self._write_state()
+            # print('looping')
 
     def run(self):
-        pool_size = int(self.mode['threads'])
+        # self._run()
+        pool_size = self.parser.getint('mode', 'threads')
         with ThreadPoolExecutor(pool_size) as pool:
             for i in range(pool_size):
                 pool.submit(self._run)
 
 
+if __name__ == '__main__':
+    workflow = RunCommands('cmds.ini')
+    workflow.run()
 
 
 
