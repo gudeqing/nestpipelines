@@ -6,9 +6,9 @@ import psutil
 import queue
 from subprocess import PIPE
 import threading
-from threading import Timer, Lock, Semaphore
+from threading import Timer, Lock
 from concurrent.futures import ThreadPoolExecutor
-__author__ = 'gdq'
+__author__ = 'gdq and dp'
 
 
 class Command(object):
@@ -203,41 +203,37 @@ class RunCommands(CommandNetwork):
         return state_dict
 
     def _update_queue(self):
-        # with self.__LOCK1__:
-            success = set(x for x in self.state if self.state[x]['state'] == 'success')
-            failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
-            waiting = set(self.names()) - self.ever_queued
-            if not waiting:
-                self.queue.put(None)
-            for each in waiting:
-                dependency = set(self.get_dependency(each))
-                if dependency & failed:
-                    self.state[each]['state'] = 'failed'
-                if not (dependency - success):
-                    self.ever_queued.add(each)
-                    self.queue.put(each, block=True)
-
+        success = set(x for x in self.state if self.state[x]['state'] == 'success')
+        failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
+        waiting = set(self.names()) - self.ever_queued
+        if not waiting:
+            self.queue.put(None)
+        for each in waiting:
+            dependency = set(self.get_dependency(each))
+            if dependency & failed:
+                self.state[each]['state'] = 'failed'
+            if not (dependency - success):
+                self.ever_queued.add(each)
+                self.queue.put(each, block=True)
 
     def _update_state(self, cmd:Command):
-        # with self.__LOCK2__:
-            cmd_state = self.state[cmd.name]
-            if cmd.proc is None:
-                cmd_state['state'] = 'failed'
-            else:
-                cmd_state['state'] = 'success' if cmd.proc.returncode==0 else 'failed'
-            cmd_state['used_time'] = cmd.used_time
-            cmd_state['mem'] = cmd.max_cpu
-            cmd_state['cpu'] = cmd.max_cpu
-            cmd_state['pid'] = cmd.proc.pid if cmd.proc else 'unknown'
+        cmd_state = self.state[cmd.name]
+        if cmd.proc is None:
+            cmd_state['state'] = 'failed'
+        else:
+            cmd_state['state'] = 'success' if cmd.proc.returncode==0 else 'failed'
+        cmd_state['used_time'] = cmd.used_time
+        cmd_state['mem'] = cmd.max_cpu
+        cmd_state['cpu'] = cmd.max_cpu
+        cmd_state['pid'] = cmd.proc.pid if cmd.proc else 'unknown'
 
     def _write_state(self):
-        # with self.__LOCK3__:
-            with open('cmd_state.txt', 'w') as f:
-                fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
-                f.write('\t'.join(fields)+'\n')
-                for name in self.state:
-                    content = '\t'.join([str(self.state[name][x]) for x in fields[1:]])
-                    f.write(name+'\t'+content+'\n')
+        with open('cmd_state.txt', 'w') as f:
+            fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
+            f.write('\t'.join(fields)+'\n')
+            for name in self.state:
+                content = '\t'.join([str(self.state[name][x]) for x in fields[1:]])
+                f.write(name+'\t'+content+'\n')
 
     def _run(self):
         while True:
@@ -263,7 +259,6 @@ class RunCommands(CommandNetwork):
                 self._update_state(cmd)
                 self._update_queue()
                 self._write_state()
-            # print('looping')
 
     def run(self):
         # self._run()
