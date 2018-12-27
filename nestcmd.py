@@ -47,7 +47,7 @@ class Command(object):
             self.stdout, self.stderr = self.proc.communicate()
         finally:
             timer.cancel()
-        # self._write_log()
+        self._write_log()
         end_time = time.time()
         self.used_time = round(end_time - start_time, 4)
 
@@ -180,6 +180,7 @@ class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
     def __init__(self, cmd_config):
         super().__init__(cmd_config)
+        self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
 
@@ -187,6 +188,7 @@ class RunCommands(CommandNetwork):
         cmd_pool = queue.Queue()
         for each in self.orphans():
             cmd_pool.put(each)
+            self.ever_queued.add(each)
         return cmd_pool
 
     def __init_state(self):
@@ -204,7 +206,7 @@ class RunCommands(CommandNetwork):
         # with self.__LOCK1__:
             success = set(x for x in self.state if self.state[x]['state'] == 'success')
             failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
-            waiting = set(self.names()) - success - failed
+            waiting = set(self.names()) - self.ever_queued
             if not waiting:
                 self.queue.put(None)
             for each in waiting:
@@ -212,7 +214,9 @@ class RunCommands(CommandNetwork):
                 if dependency & failed:
                     self.state[each]['state'] = 'failed'
                 if not (dependency - success):
+                    self.ever_queued.add(each)
                     self.queue.put(each, block=True)
+
 
     def _update_state(self, cmd:Command):
         # with self.__LOCK2__:
@@ -238,7 +242,6 @@ class RunCommands(CommandNetwork):
     def _run(self):
         while True:
             name = self.queue.get(block=True)
-            print('gggggg ',name)
             if name is None:
                 self.queue.put(None)
                 break
