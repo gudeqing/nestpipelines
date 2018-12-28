@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 __author__ = 'gdq and dp'
 
 
-class Command(object):
+class Command():
     def __init__(self, cmd, name, timeout=604800,
                  monitor_resource=True, monitor_time_step=2, **kwargs):
         self.name = name
@@ -31,12 +31,26 @@ class Command(object):
         self.monitor_time_step = int(monitor_time_step)
 
     def _monitor_resource(self):
-        if not isinstance(self.proc, psutil.Process):
-            raise Exception('Please provide valid process instance of psutil')
-        mr = MonitorResource(self.proc, time_step=self.monitor_time_step)
-        mr.monitoring()
-        self.max_cpu = mr.max_cpu
-        self.max_mem = mr.max_mem
+        while self.proc.is_running():
+            try:
+                if os.name == 'posix':
+                    cpu_num = self.proc.cpu_num()
+                elif os.name == 'nt':
+                    cpu_num = psutil.cpu_count()
+                else:
+                    cpu_num = 0
+                cpu_percent = self.proc.cpu_percent(self.monitor_time_step)
+                used_cpu = round(cpu_num*cpu_percent*0.01, 4)
+                if used_cpu > self.max_cpu:
+                    self.max_cpu = used_cpu
+                memory_obj = self.proc.memory_info()
+                # memory = (memory_obj.vms - memory_obj.shared)/1024/1024
+                memory = round(memory_obj.vms/1024/1024, 4)
+                if memory > self.max_mem:
+                    self.max_mem = memory
+            except Exception as e:
+                print('Failed to capture cpu/mem info for: ', e)
+                break
 
     def run(self):
         start_time = time.time()
@@ -68,7 +82,7 @@ class Command(object):
         if self.max_cpu or self.max_mem:
             with open(prefix+'.resource.txt', 'w') as f:
                 f.write('max_cpu: {}\n'.format(self.max_cpu))
-                f.write('max_mem: {}\n'.format(self.max_mem))
+                f.write('max_mem: {}M\n'.format(round(self.max_mem, 4)))
 
 
 class CommandNetwork(object):
@@ -123,38 +137,6 @@ class CommandNetwork(object):
         if 'check_resource_before_run' not in tmp_dict:
             tmp_dict['check_resource_before_run'] = self.parser.getboolean('mode', 'check_resource_before_run')
         return tmp_dict
-
-
-class MonitorResource(object):
-    def __init__(self, proc, time_step=1):
-        if not isinstance(proc, psutil.Process):
-            raise Exception('Please provide valid process instance of psutil')
-        self.proc = proc
-        self.time_step = int(time_step)
-        self.max_mem = 0
-        self.max_cpu = 0
-
-    def monitoring(self):
-        while self.proc.is_running():
-            try:
-                if os.name == 'posix':
-                    cpu_num = self.proc.cpu_num()
-                elif os.name == 'nt':
-                    cpu_num = psutil.cpu_count()
-                else:
-                    cpu_num = 0
-                cpu_percent = self.proc.cpu_percent(self.time_step)
-                used_cpu = round(cpu_num*cpu_percent, 4)
-                if used_cpu > self.max_cpu:
-                    self.max_cpu = used_cpu
-                memory_obj = self.proc.memory_info()
-                # memory = (memory_obj.vms - memory_obj.shared)/1024/1024
-                memory = memory_obj.vms/1024/1024
-                if memory > self.max_mem:
-                    self.max_cpu = memory
-            except Exception as e:
-                print('Failed to capture cpu/mem info for: ', e)
-                break
 
 
 class CheckResource(object):
@@ -297,7 +279,7 @@ class RunCommands(CommandNetwork):
         else:
             cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
         cmd_state['used_time'] = cmd.used_time
-        cmd_state['mem'] = cmd.max_cpu
+        cmd_state['mem'] = cmd.max_mem
         cmd_state['cpu'] = cmd.max_cpu
         cmd_state['pid'] = cmd.proc.pid if cmd.proc else 'unknown'
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
