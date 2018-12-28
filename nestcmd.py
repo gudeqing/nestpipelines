@@ -22,9 +22,9 @@ PROCESS_SET = weakref.WeakSet()
 
 @atexit.register
 def _kill_processes_when_exit():
-    print("Shutting down running tasks...")
     for proc in PROCESS_SET:
         if psutil.pid_exists(proc.pid):
+            print("Shutting down running tasks...")
             print('killing process {}:{}'.format(proc.pid, proc.name()))
             proc.kill()
 
@@ -284,6 +284,7 @@ class RunCommands(CommandNetwork):
             if dependency & failed:
                 self.ever_queued.add(each)
                 self.state[each]['state'] = 'failed'
+                self.state[each]['used_time'] = 'FailedDependencies'
                 print(each, 'cannot be started for some failed dependencies!')
             if not (dependency - success):
                 self.ever_queued.add(each)
