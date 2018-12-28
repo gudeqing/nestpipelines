@@ -6,6 +6,10 @@ import psutil
 import queue
 from subprocess import PIPE
 import threading
+import matplotlib
+matplotlib.use('agg')
+from matplotlib import pyplot as plt
+import networkx as nx
 from threading import Timer, Lock
 from concurrent.futures import ThreadPoolExecutor
 __author__ = 'gdq and dp'
@@ -52,14 +56,17 @@ class Command(object):
         self.used_time = round(end_time - start_time, 4)
 
     def _write_log(self):
+        if not os.path.exists('logs'):
+            os.mkdir('logs')
+        prefix = os.path.join('logs', self.name+'.'+str(self.proc.pid))
         if self.stderr:
-            with open(self.name+'.'+str(self.proc.pid)+'.stderr.txt', 'wb') as f:
+            with open(prefix+'.stderr.txt', 'wb') as f:
                 f.write(self.stderr)
         if self.stdout:
-            with open(self.name+'.'+str(self.proc.pid)+'.stdout.txt', 'wb') as f:
+            with open(prefix+'.stdout.txt', 'wb') as f:
                 f.write(self.stdout)
         if self.max_cpu or self.max_mem:
-            with open(self.name+'.'+str(self.proc.pid)+'.resource.txt', 'w') as f:
+            with open(prefix+'.resource.txt', 'w') as f:
                 f.write('max_cpu: {}\n'.format(self.max_cpu))
                 f.write('max_mem: {}\n'.format(self.max_mem))
 
@@ -176,6 +183,72 @@ class CheckResource(object):
             time.sleep(3)
 
 
+class StateGraph(object):
+    def __init__(self, state):
+        """
+        drawing
+        :param state: state dict from RunCommands.state
+        """
+        self.state = state
+        self.graph = nx.DiGraph()
+
+    def add_edges(self):
+        for target in self.state:
+            sources = self.state[target]['depend'].strip()
+            if sources:
+                sources = sources.split(',')
+                edges = zip(sources, [target]*len(sources))
+                self.graph.add_edges_from(edges)
+
+    def get_color_dict(self):
+        colors = list()
+        all_nodes = self.graph.nodes()
+        for node in all_nodes:
+            state = self.state[node]['state']
+            if state == 'success':
+                colors.append('lightgreen')
+            elif state == 'failed':
+                colors.append('orange')
+            elif state == 'waiting':
+                colors.append('lightgray')
+            else:
+                colors.append('lightblue')
+        return dict(zip(all_nodes, colors))
+
+    def get_label_dict(self):
+        node_label_dict = dict()
+        for each in self.graph.nodes():
+            used_time = str(self.state[each]['used_time'])
+            if used_time == 'unknown' or float(used_time) <= 0:
+                node_label_dict[each] = each
+            else:
+                node_label_dict[each] = each + '\n' + used_time + 's'
+        return node_label_dict
+
+    def draw(self):
+        self.add_edges()
+        pos = nx.kamada_kawai_layout(self.graph)
+        node_label_dict = self.get_label_dict()
+        color_dict = self.get_color_dict()
+        tmp_dict = dict()
+        for k, v in color_dict.items():
+            tmp_dict.setdefault(v, list())
+            tmp_dict[v].append(k)
+        for color, group in tmp_dict.items():
+            state = self.state[group[0]]['state']
+            nx.draw_networkx_nodes(
+                self.graph, pos=pos, nodelist=group,
+                node_color=color, label=state, alpha=1
+            )
+        nx.draw_networkx_labels(self.graph, pos=pos, labels=node_label_dict,
+                                font_size=8, alpha=0.8)
+        nx.draw_networkx_edges(self.graph, pos=pos, style='dashed', width=0.8,)
+        plt.axis('off')
+        plt.legend(loc='best', fontsize='small', markerscale=0.7, frameon=False)
+        plt.savefig('state_graph.png', dpi=150, bbox_inches='tight')
+        plt.close()
+
+
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
@@ -227,6 +300,14 @@ class RunCommands(CommandNetwork):
         cmd_state['mem'] = cmd.max_cpu
         cmd_state['cpu'] = cmd.max_cpu
         cmd_state['pid'] = cmd.proc.pid if cmd.proc else 'unknown'
+        success = set(x for x in self.state if self.state[x]['state'] == 'success')
+        failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
+        running = self.ever_queued - success - failed
+        waiting = set(self.names()) - self.ever_queued
+        for each in running:
+            self.state[each]['state'] = 'running'
+        for each in waiting:
+            self.state[each]['state'] = 'waiting'
 
     def _write_state(self):
         with open('cmd_state.txt', 'w') as f:
@@ -235,6 +316,9 @@ class RunCommands(CommandNetwork):
             for name in self.state:
                 content = '\t'.join([str(self.state[name][x]) for x in fields[1:]])
                 f.write(name+'\t'+content+'\n')
+
+    def _draw_state(self):
+        StateGraph(self.state).draw()
 
     def single_run(self):
         while True:
@@ -260,6 +344,7 @@ class RunCommands(CommandNetwork):
                 self._update_state(cmd)
                 self._update_queue()
                 self._write_state()
+                self._draw_state()
 
     def parallel_run(self):
         pool_size = self.parser.getint('mode', 'threads')
@@ -284,5 +369,6 @@ class RunCommands(CommandNetwork):
 
 if __name__ == '__main__':
     workflow = RunCommands('cmds.ini')
+    # workflow.single_run()
     workflow.parallel_run()
     # workflow.continue_run()
