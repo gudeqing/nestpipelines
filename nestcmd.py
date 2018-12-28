@@ -293,6 +293,7 @@ class RunCommands(CommandNetwork):
         cmd_state = self.state[cmd.name]
         if cmd.proc is None:
             cmd_state['state'] = 'failed'
+            cmd_state['used_time'] = 'NotEnoughResource'
             print(cmd.name, 'cannot be started for not enough resource!')
         else:
             cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
