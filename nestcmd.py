@@ -12,7 +12,20 @@ from matplotlib import pyplot as plt
 import networkx as nx
 from threading import Timer, Lock
 from concurrent.futures import ThreadPoolExecutor
+import weakref
+import atexit
 __author__ = 'gdq and dp'
+
+
+PROCESS_SET = weakref.WeakSet()
+
+
+@atexit.register
+def _kill_processes_when_exit():
+    for proc in PROCESS_SET:
+        if psutil.pid_exists(proc.pid):
+            print('killing process {}:{}'.format(proc.pid, proc.name()))
+            proc.kill()
 
 
 class Command():
@@ -56,6 +69,7 @@ class Command():
         start_time = time.time()
         print("Run {}: ".format(self.name), self.cmd)
         self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
+        PROCESS_SET.add(self.proc)
         if self.monitor:
             thread = threading.Thread(target=self._monitor_resource, daemon=True)
             thread.start()
@@ -351,6 +365,6 @@ class RunCommands(CommandNetwork):
 
 if __name__ == '__main__':
     workflow = RunCommands('cmds.ini')
-    # workflow.single_run()
-    workflow.parallel_run()
+    workflow.single_run()
+    # workflow.parallel_run()
     # workflow.continue_run()
