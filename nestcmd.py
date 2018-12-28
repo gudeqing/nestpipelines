@@ -282,7 +282,9 @@ class RunCommands(CommandNetwork):
         for each in waiting:
             dependency = set(self.get_dependency(each))
             if dependency & failed:
+                self.ever_queued.add(each)
                 self.state[each]['state'] = 'failed'
+                print(each, 'cannot be started for some failed dependencies!')
             if not (dependency - success):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
@@ -291,12 +293,13 @@ class RunCommands(CommandNetwork):
         cmd_state = self.state[cmd.name]
         if cmd.proc is None:
             cmd_state['state'] = 'failed'
+            print(cmd.name, 'cannot be started for not enough resource!')
         else:
             cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
-        cmd_state['used_time'] = cmd.used_time
-        cmd_state['mem'] = cmd.max_mem
-        cmd_state['cpu'] = cmd.max_cpu
-        cmd_state['pid'] = cmd.proc.pid if cmd.proc else 'unknown'
+            cmd_state['used_time'] = cmd.used_time
+            cmd_state['mem'] = cmd.max_mem
+            cmd_state['cpu'] = cmd.max_cpu
+            cmd_state['pid'] = cmd.proc.pid
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
         running = self.ever_queued - success - failed
