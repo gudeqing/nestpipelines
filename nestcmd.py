@@ -11,20 +11,17 @@ matplotlib.use('agg')
 from matplotlib import pyplot as plt
 import networkx as nx
 from threading import Timer, Lock
-from concurrent.futures import ThreadPoolExecutor
 import weakref
 import atexit
 __author__ = 'gdq and dp'
 
 
 PROCESS_SET = weakref.WeakSet()
-END_SIGNAL = 0
 
 
 @atexit.register
 def _kill_processes_when_exit():
-    global END_SIGNAL
-    END_SIGNAL = 1
+    print("....Ending....")
     for proc in PROCESS_SET:
         if psutil.pid_exists(proc.pid):
             print("Shutting down running tasks...")
@@ -219,11 +216,16 @@ class StateGraph(object):
     def get_label_dict(self):
         node_label_dict = dict()
         for each in self.graph.nodes():
-            used_time = str(self.state[each]['used_time'])
-            if used_time == 'unknown' or float(used_time) <= 0:
+            used_time = self.state[each]['used_time']
+            if isinstance(used_time, str):
+                if used_time == 'unknown':
+                    node_label_dict[each] = each
+                else:
+                    node_label_dict[each] = each + '\n' + used_time
+            elif float(used_time) <= 0:
                 node_label_dict[each] = each
             else:
-                node_label_dict[each] = each + '\n' + used_time + 's'
+                node_label_dict[each] = each + '\n' + str(used_time) + 's'
         return node_label_dict
 
     def draw(self):
@@ -328,8 +330,6 @@ class RunCommands(CommandNetwork):
 
     def single_run(self):
         while True:
-            if END_SIGNAL:
-                break
             name = self.queue.get(block=True)
             if name is None:
                 self.queue.put(None)
@@ -347,7 +347,7 @@ class RunCommands(CommandNetwork):
                 if enough:
                     cmd.run()
                     if cmd.proc.returncode == 0:
-                        try_times = tmp_dict['retry'] + 2
+                        break
             with self.__LOCK__:
                 self._update_state(cmd)
                 self._update_queue()
@@ -356,9 +356,12 @@ class RunCommands(CommandNetwork):
 
     def parallel_run(self):
         pool_size = self.parser.getint('mode', 'threads')
-        with ThreadPoolExecutor(pool_size) as pool:
-            for i in range(pool_size):
-                pool.submit(self.single_run)
+        threads = list()
+        for _ in range(pool_size):
+            thread = threading.Thread(target=self.single_run, daemon=True)
+            threads.append(thread)
+            thread.start()
+        _ = [x.join() for x in threads]
 
     def continue_run(self):
         self.ever_queued = set()
