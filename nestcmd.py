@@ -330,6 +330,11 @@ class RunCommands(CommandNetwork):
 
     def single_run(self):
         while True:
+            if self.queue.empty():
+                time.sleep(1)
+                with self.__LOCK__:
+                    self._update_queue()
+                continue
             name = self.queue.get(block=True)
             if name is None:
                 self.queue.put(None)
