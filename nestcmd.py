@@ -18,10 +18,13 @@ __author__ = 'gdq and dp'
 
 
 PROCESS_SET = weakref.WeakSet()
+END_SIGNAL = 0
 
 
 @atexit.register
 def _kill_processes_when_exit():
+    global END_SIGNAL
+    END_SIGNAL = 1
     for proc in PROCESS_SET:
         if psutil.pid_exists(proc.pid):
             print("Shutting down running tasks...")
@@ -29,7 +32,7 @@ def _kill_processes_when_exit():
             proc.kill()
 
 
-class Command():
+class Command(object):
     def __init__(self, cmd, name, timeout=604800,
                  monitor_resource=True, monitor_time_step=2, **kwargs):
         self.name = name
@@ -57,9 +60,10 @@ class Command():
                 used_cpu = round(cpu_num*cpu_percent*0.01, 4)
                 if used_cpu > self.max_cpu:
                     self.max_cpu = used_cpu
-                memory_obj = self.proc.memory_info()
+                memory_obj = self.proc.memory_full_info()
                 # memory = (memory_obj.vms - memory_obj.shared)/1024/1024
-                memory = round(memory_obj.vms/1024/1024, 4)
+                # memory = round(memory_obj.vms/1024/1024, 4)
+                memory = round(memory_obj.uss/1024/1024, 4)
                 if memory > self.max_mem:
                     self.max_mem = memory
             except Exception as e:
@@ -324,6 +328,8 @@ class RunCommands(CommandNetwork):
 
     def single_run(self):
         while True:
+            if END_SIGNAL:
+                break
             name = self.queue.get(block=True)
             if name is None:
                 self.queue.put(None)
@@ -371,6 +377,6 @@ class RunCommands(CommandNetwork):
 
 if __name__ == '__main__':
     workflow = RunCommands('cmds.ini')
-    workflow.single_run()
-    # workflow.parallel_run()
+    # workflow.single_run()
+    workflow.parallel_run()
     # workflow.continue_run()
