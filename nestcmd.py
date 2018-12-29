@@ -219,13 +219,13 @@ class StateGraph(object):
             used_time = self.state[each]['used_time']
             if isinstance(used_time, str):
                 if used_time == 'unknown':
-                    node_label_dict[each] = each
+                    node_label_dict[each] = ''
                 else:
-                    node_label_dict[each] = each + '\n' + used_time
+                    node_label_dict[each] =  used_time
             elif float(used_time) <= 0:
-                node_label_dict[each] = each
+                node_label_dict[each] = ''
             else:
-                node_label_dict[each] = each + '\n' + str(used_time) + 's'
+                node_label_dict[each] = str(used_time) + 's'
         return node_label_dict
 
     def draw(self):
@@ -239,13 +239,17 @@ class StateGraph(object):
             tmp_dict[v].append(k)
         for color, group in tmp_dict.items():
             state = self.state[group[0]]['state']
-            nx.draw_networkx_nodes(
-                self.graph, pos=pos, nodelist=group,
-                node_color=color, label=state, alpha=1
+            nx.draw(self.graph, pos=pos, nodelist=group, with_labels=True,
+                node_color=color, label=state, alpha=1, width=0.7, style='dashed'
             )
-        nx.draw_networkx_labels(self.graph, pos=pos, labels=node_label_dict,
+
+        pos_attrs = {}
+        for node, coords in pos.items():
+            pos_attrs[node] = (coords[0], coords[1] - 0.08)
+
+        nx.draw_networkx_labels(self.graph, pos=pos_attrs, labels=node_label_dict,
                                 font_size=8, alpha=0.8)
-        nx.draw_networkx_edges(self.graph, pos=pos, style='dashed', width=0.8,)
+        # nx.draw_networkx_edges(self.graph, pos=pos, style='dashed', width=0.8,)
         plt.axis('off')
         plt.legend(loc='best', fontsize='small', markerscale=0.7, frameon=False)
         plt.savefig('state_graph.png', dpi=150, bbox_inches='tight')
