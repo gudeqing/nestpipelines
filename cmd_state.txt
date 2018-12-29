@@ -1,0 +1,8 @@
+name	state	used_time	mem	cpu	pid	depend	cmd
+A	success	5.5817	0.6211	0	7932		python step1.py
+B	success	0.0289	0	0	10616		echo I am worker B
+C	success	0.0166	0	0	2544		echo I am worker C
+D	success	0.1807	0	0	2804	A,B	echo I am worker D
+E	success	0.0512	0	0	6036	B,C	echo I am worker E
+F	success	0.0833	0	0	768	E	echo I am worker F
+G	success	0.1453	0	0	7792	D,F	echo I am worker G
