@@ -10,7 +10,7 @@ def fastqc(**kwargs):
     if 'adapters' in kwargs and kwargs['adapters']:
         cmd += '--adapters {} '.format(kwargs['adapters'])
     cmd += '--extract '
-    cmd += '{seqfile} '.format(seqfile=kwargs['fastq'])
+    cmd += '{fastqs} '.format(fastq=kwargs['fastqs'])
     return cmd
 
 
