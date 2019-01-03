@@ -37,7 +37,7 @@ class Command(object):
         self.proc = None
         self.stdout = None
         self.stderr = None
-        self.timeout = timeout
+        self.timeout = int(timeout)
         self.used_time = 0
         self.max_mem = 0
         self.max_cpu = 0
@@ -144,14 +144,24 @@ class CommandNetwork(object):
             tmp_dict['depend'] = None
         if 'retry' not in tmp_dict:
             tmp_dict['retry'] = self.parser.getint('mode', 'retry')
-        if 'monitor' not in tmp_dict:
-            tmp_dict['monitor'] = self.parser.getboolean('mode', 'monitor_resource')
+        else:
+            tmp_dict['retry'] = self.parser.getint(name, 'retry')
+        if 'monitor_resource' not in tmp_dict:
+            tmp_dict['monitor_resource'] = self.parser.getboolean('mode', 'monitor_resource')
+        else:
+            tmp_dict['monitor_resource'] = self.parser.getboolean(name, 'monitor_resource')
         if 'timeout' not in tmp_dict:
             tmp_dict['timeout'] = 3600*24*7
+        else:
+            tmp_dict['timeout'] = self.parser.getint(name, 'timeout')
         if 'monitor_time_step' not in tmp_dict:
             tmp_dict['monitor_time_step'] = self.parser.getint('mode', 'monitor_time_step')
+        else:
+            tmp_dict['monitor_time_step'] = self.parser.getint(name, 'monitor_time_step')
         if 'check_resource_before_run' not in tmp_dict:
             tmp_dict['check_resource_before_run'] = self.parser.getboolean('mode', 'check_resource_before_run')
+        else:
+            tmp_dict['check_resource_before_run'] = self.parser.getboolean(name, 'check_resource_before_run')
         return tmp_dict
 
 
@@ -174,7 +184,7 @@ class CheckResource(object):
                 enough_num += 1
                 if enough_num >= 3:
                     return True
-                if enough_num >= 1 and timeout <= 15:
+                if enough_num >= 1 and timeout <= 10:
                     return True
             if time.time() - start_time >= timeout:
                 return False
@@ -338,6 +348,8 @@ class RunCommands(CommandNetwork):
                 time.sleep(1)
                 with self.__LOCK__:
                     self._update_queue()
+                    self._write_state()
+                    self._draw_state()
                 continue
             name = self.queue.get(block=True)
             if name is None:
@@ -347,13 +359,15 @@ class RunCommands(CommandNetwork):
 
             try_times = 0
             cmd = Command(**tmp_dict)
-            while try_times <= tmp_dict['retry']:
+            while try_times <= int(tmp_dict['retry']):
                 try_times += 1
                 enough = True
                 if tmp_dict['check_resource_before_run']:
                     if not CheckResource().is_enough(tmp_dict['cpu'], tmp_dict['mem']):
                         enough = False
                 if enough:
+                    if try_times > 1:
+                        print('{}th run {}'.format(try_times, cmd.name))
                     cmd.run()
                     if cmd.proc.returncode == 0:
                         break
