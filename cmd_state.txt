@@ -1,7 +1,7 @@
 name	state	used_time	mem	cpu	pid	depend	cmd
-A	success	6.0593	0.6367	0	4144		python step1.py
+A	success	6.0299	0.6328	0	7956		python step1.py
 B	failed	NotEnoughResource	unknown	unknown	unknown		echo I am worker B
-C	success	0.0156	0	0	18088		echo I am worker C
+C	success	0.0	0	0	14516		echo I am worker C
 D	failed	FailedDependencies	unknown	unknown	unknown	A,B	echo I am worker D
 E	failed	FailedDependencies	unknown	unknown	unknown	B,C	echo I am worker E
 F	failed	FailedDependencies	unknown	unknown	unknown	E	echo I am worker F

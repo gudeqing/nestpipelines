@@ -2,6 +2,18 @@
 import os
 
 
+def fastqc(**kwargs):
+    cmd = '{} '.format(kwargs['fastqc'])
+    cmd += '--outdir {} '.format(kwargs['outdir'])
+    cmd += '--threads {} '.format(kwargs['threads'])
+    cmd += '--dir {} '.format(kwargs['tmpdir'])
+    if 'adapters' in kwargs and kwargs['adapters']:
+        cmd += '--adapters {} '.format(kwargs['adapters'])
+    cmd += '--extract '
+    cmd += '{seqfile} '.format(seqfile=kwargs['fastq'])
+    return cmd
+
+
 def trimmomatic(**kwargs):
     cmd = '{} '.format(kwargs['java'])
     cmd += '{} '.format(kwargs['trimmomatic'])
@@ -19,7 +31,7 @@ def trimmomatic(**kwargs):
     cmd += ':{} '.format(kwargs['simple_clip_threshold'])
     cmd += 'LEADING:{} '.format(kwargs['leading'])
     cmd += 'TRAILING:{} '.format(kwargs['trailing'])
-    cmd += 'SLIDINGWINDOW:{} '.format(kwargs['sliding_window'])
+    cmd += 'SLIDINGWINDOW:{}:{} '.format(kwargs['sliding_window_size'], kwargs['sliding_window_quality'])
     cmd += 'MINLEN:{} '.format(kwargs['min_length'])
     cmd += '-trimlog {} '.format(os.path.dirname(kwargs['trimmed_fq1'])+'/trim.log')
     return cmd
@@ -68,6 +80,23 @@ def samtools_index(**kwargs):
     return cmd
 
 
+def scallop(**kwargs):
+    cmd = '{} '.format(kwargs['scallop'])
+    cmd += '-i {}'.format(kwargs['bam'])
+    cmd += '-o {}'.format(kwargs['out_gtf'])
+    cmd += '--library_type {} '.format(kwargs['library_type'])
+    cmd += '--min_transcript_coverage {} '.format(kwargs['min_transcript_coverage'])
+    cmd += '--min_single_exon_coverage {} '.format(kwargs['min_single_exon_coverage'])
+    cmd += '--min_transcript_length_increase {} '.format(kwargs['min_transcript_length_increase'])
+    cmd += '--min_transcript_length_base {} '.format(kwargs['min_transcript_length_base'])
+    cmd += '--min_mapping_quality {} '.format(kwargs['min_mapping_quality'])
+    cmd += '--max_num_cigar {} '.format(kwargs['max_num_cigar'])
+    cmd += '--min_bundle_gap {} '.format(kwargs['min_bundle_gap'])
+    cmd += '--min_num_hits_in_bundle {} '.format(kwargs['min_num_hits_in_bundle'])
+    cmd += '--min_flank_length {} '.format(kwargs['min_flank_length'])
+    cmd += '--min_splice_bundary_hits {} '.format(kwargs['min_splice_bundary_hits'])
+
+
 def salmon_index(**kwargs):
     cmd = 'salmon index '.format(kwargs['salmon'])
     cmd += '-t {} '.format(kwargs['transcript_fasta'])
@@ -93,3 +122,13 @@ def salmon_quant(**kwargs):
     return cmd
 
 
+def get_new_transcript(**kwargs):
+    """
+    gffcompare -o gffall -r reference.gtf scallop.gtf
+    gtfcuff puniq gffall.scallop.gtf.tmap scallop.gtf reference.gtf unique.gtf
+    gffread unique.gtf -g genome -w unique.fa
+    cat unique.fa reference.fa > union.fa
+    """
+
+def abundance_estimates_to_matrix(**kwargs):
+    pass
