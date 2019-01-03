@@ -395,6 +395,8 @@ class RunCommands(CommandNetwork):
                 if line_lst[1] == 'success':
                     self.ever_queued.add(line_lst[0])
                     self.state[line_lst[0]] = dict(zip(fields, line_lst[1:]))
+        failed = set(self.names()) - self.ever_queued
+        print('continue to run: ', failed)
         self.queue = queue.Queue()
         self._update_queue()
         self.parallel_run()
@@ -403,5 +405,5 @@ class RunCommands(CommandNetwork):
 if __name__ == '__main__':
     workflow = RunCommands('cmds.ini')
     # workflow.single_run()
-    workflow.parallel_run()
-    # workflow.continue_run()
+    # workflow.parallel_run()
+    workflow.continue_run()
