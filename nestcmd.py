@@ -231,7 +231,7 @@ class StateGraph(object):
                 if used_time == 'unknown':
                     node_label_dict[each] = ''
                 else:
-                    node_label_dict[each] =  used_time
+                    node_label_dict[each] = used_time
             elif float(used_time) <= 0:
                 node_label_dict[each] = ''
             else:
@@ -250,8 +250,7 @@ class StateGraph(object):
         for color, group in tmp_dict.items():
             state = self.state[group[0]]['state']
             nx.draw(self.graph, pos=pos, nodelist=group, with_labels=True,
-                node_color=color, label=state, alpha=1, width=0.7, style='dashed'
-            )
+                    node_color=color, label=state, alpha=1, width=0.7, style='dashed')
 
         pos_attrs = {}
         for node, coords in pos.items():
