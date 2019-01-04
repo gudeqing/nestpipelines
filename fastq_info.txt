@@ -1,0 +1,3 @@
+sampleA path_of_fq1 path_of_fq2
+sampleB path_of_fq1 path_of_fq2
+sampleC path_of_fq1
