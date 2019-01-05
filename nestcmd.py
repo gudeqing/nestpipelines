@@ -47,14 +47,14 @@ class Command(object):
     def _monitor_resource(self):
         while self.proc.is_running():
             try:
-                if os.name == 'posix':
-                    cpu_num = self.proc.cpu_num()
-                elif os.name == 'nt':
-                    cpu_num = psutil.cpu_count()
-                else:
-                    cpu_num = 0
+                # if os.name == 'posix':
+                #     cpu_num = self.proc.cpu_num()
+                # elif os.name == 'nt':
+                #     cpu_num = psutil.cpu_count()
+                # else:
+                #     cpu_num = 0
                 cpu_percent = self.proc.cpu_percent(self.monitor_time_step)
-                used_cpu = round(cpu_num*cpu_percent*0.01, 4)
+                used_cpu = round(cpu_percent*0.01, 4)
                 if used_cpu > self.max_cpu:
                     self.max_cpu = used_cpu
                 memory_obj = self.proc.memory_full_info()
