@@ -1,3 +1,2 @@
-sampleA path_of_fq1 path_of_fq2
-sampleB path_of_fq1 path_of_fq2
-sampleC path_of_fq1
+sampleA /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.left.fq.gz /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.right.fq.gz
+sampleB /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.left.fq.gz /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.right.fq.gz

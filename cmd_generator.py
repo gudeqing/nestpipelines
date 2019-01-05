@@ -129,7 +129,7 @@ def salmon_quant(**kwargs):
     return cmd
 
 
-def get_new_transcript(**kwargs):
+def merge_new_and_known_transcript(**kwargs):
     """
     gffcompare -o gffall -r reference.gtf scallop.gtf
     gtfcuff puniq gffall.scallop.gtf.tmap scallop.gtf reference.gtf unique.gtf
@@ -140,8 +140,28 @@ def get_new_transcript(**kwargs):
 
 
 def abundance_estimates_to_matrix(**kwargs):
+    cmd = '{} '.format(kwargs['perl'])
+    cmd += '{} '.format(kwargs['program'])
+    cmd += '--est_method {} '.format(kwargs['est_method'])
+    cmd += '--cross_sample_norm {} '.format(kwargs['cross_sample_norm'])
+    cmd += '--name_sample_by_basedir '
+    cmd += '--gene_trans_map none '
+    cmd += '--out_prefix {} '.format(kwargs['out_prefix'])
+    cmd += '{} '.format(kwargs['quant_result'])
+    return cmd
+
+
+def diff_exp(**kwargs):
     pass
 
 
-class toolbox():
+def star_fusion(**kwargs):
+    pass
+
+
+def go_enrich(**kwargs):
+    pass
+
+
+def kegg_enrich(**kwargs):
     pass
