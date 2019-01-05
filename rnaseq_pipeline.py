@@ -363,6 +363,8 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, step_name='Quant', index_st
 def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon'):
     commands = dict()
     depend = list()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
     result_dir = ''
     for step, cmd_info in quant_cmds.items():
         if 'sample_name' not in cmd_info:
@@ -372,7 +374,7 @@ def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon'):
     args = dict(arg_pool['abundance_estimates_to_matrix'])
     args['est_method'] = quant_method
     args['quant_result'] = result_dir + '/*/quant.sf'
-    args['out_prefix'] = os.path.join(result_dir, 'all')
+    args['out_prefix'] = os.path.join(out_dir, 'all')
     cmd = abundance_estimates_to_matrix(**args)
     commands[step_name + 'Transcript'] = cmd_dict(
         cmd=cmd, monitor_resource = False, check_resource_before_run = False,
