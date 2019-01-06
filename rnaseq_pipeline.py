@@ -143,25 +143,21 @@ def trimmomatic_cmds(fastq_info_dict, step_name='Trim'):
 
 def star_index_cmd(step_name='AlignIndex'):
     commands = dict()
+    if os.path.exists(arg_pool['star_index']['genomeDir']):
+        print('STAR index existed, and skip this indexing step!')
+        return commands
     cmd = star_index(**arg_pool['star_index'])
     commands[step_name] = cmd_dict(cmd=cmd)
     return commands
 
 
-def star_align_cmds(trimming_cmds, step_name='Align', index_step_name='AlignIndex'):
+def star_align_cmds(trimming_cmds, index_cmd, step_name='Align'):
     commands = dict()
-    index_exist = True
-    if os.path.exists(arg_pool['star_index']['genomeDir']):
-        print('STAR index existed, and skip this indexing step!')
-    else:
-        index_exist = False
-        # print('building index for star...')
-        commands = star_index_cmd(step_name=index_step_name)
     outdir = os.path.join(project_dir, step_name)
     mkdir(outdir)
     samples = set(trimming_cmds[x]['sample_name'] for x in trimming_cmds)
     for sample in samples:
-        depend_steps = list() if index_exist else [index_step_name]
+        depend_steps = list() if not index_cmd else list(index_cmd.keys())
         trimmed_fq_list = list()
         for step, cmd_info in trimming_cmds.items():
             if cmd_info['sample_name'] == sample:
@@ -186,19 +182,12 @@ def star_align_cmds(trimming_cmds, step_name='Align', index_step_name='AlignInde
     return commands
 
 
-def star_align_with_rawdata_cmds(fastq_info_dict, step_name='Align', index_step_name='AlignIndex'):
+def star_align_with_rawdata_cmds(fastq_info_dict, index_cmd, step_name='Align'):
     commands = dict()
-    index_exist = True
-    if os.path.exists(arg_pool['star_index']['genomeDir']):
-        print('STAR index existed, and skip this indexing step!')
-    else:
-        index_exist = False
-        # print('building index for star...')
-        commands = star_index_cmd(step_name=index_step_name)
     outdir = os.path.join(project_dir, step_name)
     mkdir(outdir)
     for sample, fq_list in fastq_info_dict.items():
-        depend_steps = list() if index_exist else [index_step_name]
+        depend_steps = list() if not index_cmd else list(index_cmd.keys())
         mode = 'PE' if len(fq_list) == 2 else "SE"
         result_dir = os.path.join(outdir, sample)
         mkdir(result_dir)
@@ -246,26 +235,55 @@ def scallop_cmds(align_cmds, step_name='Assembly'):
     return commands
 
 
-def salmon_index_cmd(step_name='QuantIndex'):
+def merge_scallop_transcripts_cmd(assemble_cmds, step_name='MergeTranscript'):
+    gtfs = list()
+    for step, cmd_info in assemble_cmds.items():
+        gtfs.append(cmd_info['out_gtf'])
+    args = dict(arg_pool['merge_scallop_transcripts'])
+    args['gtf'] = ' '.join(gtfs)
+    outdir = os.path.join(project_dir, step_name)
+    mkdir(outdir)
+    args['outdir'] = outdir
+    cmd = merge_scallop_transcripts(**args)
     commands = dict()
-    cmd = salmon_index(**arg_pool['salmon_index'])
-    commands[step_name] = cmd_dict(cmd=cmd)
+    commands[step_name] = cmd_dict(
+        cmd=cmd, cpu=2, depend=','.join(assemble_cmds.keys()),
+        result_dir=outdir, all_transcripts=os.path.join(outdir, 'all.transcripts.fa'),
+        all_gtf=os.path.join(outdir, 'all.transcripts.gtf')
+    )
     return commands
 
 
-def salmon_quant_with_raw_data_cmds(fastq_info_dict, step_name='Quant', index_step_name='QuantIndex'):
+def salmon_index_cmd(step_name='QuantIndex', merge_transcript_cmd=None):
     commands = dict()
-    index_exist = True
-    if os.path.exists(arg_pool['salmon_index']['index_prefix']):
-        print('salmon index existed, and skip this indexing step!')
+    if not merge_transcript_cmd:
+        if os.path.exists(arg_pool['salmon_index']['index_prefix']):
+            print('salmon index existed, and skip this indexing step!')
+            return commands
+        args = dict(arg_pool['salmon_index'])
+        cmd = salmon_index(**args)
+        commands[step_name] = cmd_dict(cmd=cmd)
     else:
-        index_exist = False
-        # print('building index for salmon...')
-        commands = salmon_index_cmd(step_name=index_step_name)
+        outdir = os.path.join(project_dir, step_name)
+        mkdir(outdir)
+        args = dict(arg_pool['salmon_index'])
+        merge_step = list(merge_transcript_cmd.keys())[0]
+        args['transcript_fasta'] = merge_transcript_cmd[merge_step]['all_transcripts']
+        args['index_prefix'] = outdir
+        cmd = salmon_index(**args)
+        commands[step_name] = cmd_dict(
+            cmd=cmd, index_prefix=outdir, depend=merge_step,
+            all_gtf=merge_transcript_cmd[merge_step]['all_gtf']
+        )
+    return commands
+
+
+def salmon_quant_with_raw_data_cmds(fastq_info_dict, index_cmd, step_name='Quant'):
+    commands = dict()
     result_dir = os.path.join(project_dir, step_name)
     mkdir(result_dir)
     for sample, fq_list in fastq_info_dict.items():
-        depend_steps = list() if index_exist else [index_step_name]
+        depend_steps = list() if not index_cmd else list(index_cmd.keys())
         mode = 'PE' if len(fq_list) == 2 else "SE"
         if mode == 'PE':
             fq1_list = fq_list[0]
@@ -273,6 +291,9 @@ def salmon_quant_with_raw_data_cmds(fastq_info_dict, step_name='Quant', index_st
             if len(fq1_list) != len(fq2_list):
                 raise Exception('fastq文件的read1和read2必须一一对应')
             args = dict(arg_pool['salmon_quant'])
+            if index_cmd:
+                if 'all_gtf' in list(index_cmd.values())[0]:
+                    args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
             args['fq1'] = ' '.join(fq1_list)
             args['fq2'] = ' '.join(fq2_list)
             args['mode'] = mode
@@ -288,6 +309,9 @@ def salmon_quant_with_raw_data_cmds(fastq_info_dict, step_name='Quant', index_st
             )
         else:
             args = dict(arg_pool['salmon_quant'])
+            if index_cmd:
+                if 'all_gtf' in index_cmd.values()[0]:
+                    args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
             args['fq'] = ' '.join(fq_list[0])
             args['mode'] = mode
             prefix = os.path.join(result_dir, sample)
@@ -303,20 +327,13 @@ def salmon_quant_with_raw_data_cmds(fastq_info_dict, step_name='Quant', index_st
     return commands
 
 
-def salmon_quant_with_clean_data_cmds(trimming_cmds, step_name='Quant', index_step_name='QuantIndex'):
+def salmon_quant_with_clean_data_cmds(trimming_cmds, index_cmd, step_name='Quant'):
     commands = dict()
-    index_exist = True
-    if os.path.exists(arg_pool['salmon_index']['index_prefix']):
-        print('salmon index existed, and skip this indexing step!')
-    else:
-        index_exist = False
-        # print('building index for salmon...')
-        commands = salmon_index_cmd(step_name=index_step_name)
     result_dir = os.path.join(project_dir, step_name)
     mkdir(result_dir)
     samples = set(trimming_cmds[x]['sample_name'] for x in trimming_cmds)
     for sample in samples:
-        depend_steps = list() if index_exist else [index_step_name]
+        depend_steps = list() if not index_cmd else list(index_cmd.keys())
         trimmed_fq1_list = list()
         trimmed_fq2_list = list()
         for step, cmd_info in trimming_cmds.items():
@@ -330,6 +347,9 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, step_name='Quant', index_st
             if len(trimmed_fq1_list) != len(trimmed_fq2_list):
                 raise Exception('fastq文件的read1和read2必须一一对应')
             args = dict(arg_pool['salmon_quant'])
+            if index_cmd:
+                if 'all_gtf' in list(index_cmd.values())[0]:
+                    args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
             args['fq1'] = ' '.join(trimmed_fq1_list)
             args['fq2'] = ' '.join(trimmed_fq2_list)
             args['mode'] = mode
@@ -345,6 +365,9 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, step_name='Quant', index_st
             )
         else:
             args = dict(arg_pool['salmon_quant'])
+            if index_cmd:
+                if 'all_gtf' in list(index_cmd.values())[0]:
+                    args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
             args['fq'] = ' '.join(trimmed_fq1_list)
             args['mode'] = mode
             prefix = os.path.join(result_dir, sample)
@@ -377,14 +400,18 @@ def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon'):
     args['out_prefix'] = os.path.join(out_dir, 'all')
     cmd = abundance_estimates_to_matrix(**args)
     commands[step_name + 'Transcript'] = cmd_dict(
-        cmd=cmd, monitor_resource = False, check_resource_before_run = False,
-        depend = ','.join(depend), out_prefix=args['out_prefix']
+        cmd=cmd, monitor_resource=False, check_resource_before_run=False,
+        depend=','.join(depend), out_prefix=args['out_prefix'],
+        transcript_tpm_matrix=args['out_prefix'] + '.isoform.TMM.EXPR.matrix',
+        transcript_count_matrix=args['out_prefix'] + '.isoform.counts.matrix',
     )
     args['quant_result'] = result_dir + '/*/quant.genes.sf'
     cmd = abundance_estimates_to_matrix(**args)
     commands[step_name + 'Gene'] = cmd_dict(
-        cmd = cmd, monitor_resource = False, check_resource_before_run = False,
-        depend = ','.join(depend), out_prefix=args['out_prefix']
+        cmd=cmd, monitor_resource=False, check_resource_before_run=False,
+        depend=','.join(depend), out_prefix=args['out_prefix'],
+        gene_tpm_matrix=args['out_prefix'] + '.gene.TMM.EXPR.matrix',
+        gene_count_matrix=args['out_prefix'] + '.gene.counts.matrix',
     )
     return commands
 
@@ -393,11 +420,11 @@ def pipeline():
     commands = configparser.ConfigParser()
     commands.optionxform = str
     commands['mode'] = dict(
-        threads = 3,
-        retry = 1,
-        monitor_resource = True,
-        monitor_time_step = 2,
-        check_resource_before_run = True,
+        threads=3,
+        retry=1,
+        monitor_resource=True,
+        monitor_time_step=2,
+        check_resource_before_run=True,
     )
     fastq_info_dict = parse_fastq_info(fastq_info_file)
     commands.update(fastqc_raw_data_cmds(fastq_info_dict))
@@ -405,11 +432,17 @@ def pipeline():
     commands.update(trim_cmds)
     fastqc_cmds = fastqc_trimmed_data_cmds(trimming_cmds=trim_cmds)
     commands.update(fastqc_cmds)
-    align_cmds = star_align_cmds(trimming_cmds=trim_cmds)
+    star_indexing = star_index_cmd()
+    commands.update(star_indexing)
+    align_cmds = star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing)
     commands.update(align_cmds)
     assembly_cmds = scallop_cmds(align_cmds=align_cmds)
     commands.update(assembly_cmds)
-    quant_cmds = salmon_quant_with_clean_data_cmds(trimming_cmds=trim_cmds)
+    merge_trans_cmd = merge_scallop_transcripts_cmd(assembly_cmds)
+    commands.update(merge_trans_cmd)
+    salmon_indexing = salmon_index_cmd(merge_transcript_cmd=merge_trans_cmd)
+    commands.update(salmon_indexing)
+    quant_cmds = salmon_quant_with_clean_data_cmds(trimming_cmds=trim_cmds, index_cmd=salmon_indexing)
     commands.update(quant_cmds)
     merge_cmds = merge_quant_cmds(quant_cmds=quant_cmds)
     commands.update(merge_cmds)

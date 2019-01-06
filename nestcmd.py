@@ -241,6 +241,7 @@ class StateGraph(object):
     def draw(self):
         self.add_edges()
         pos = nx.kamada_kawai_layout(self.graph)
+        # pos = nx.spring_layout(self.graph)
         node_label_dict = self.get_label_dict()
         color_dict = self.get_color_dict()
         tmp_dict = dict()

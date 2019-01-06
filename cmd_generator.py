@@ -76,7 +76,7 @@ def star_align(**kwargs):
     cmd += '--chimSegmentMin {} '.format(kwargs['chimSegmentMin'])
     cmd += '--outFilterMismatchNoverLmax {} '.format(kwargs['outFilterMismatchNoverLmax'])
     cmd += '--outFilterType {} '.format(kwargs['outFilterType'])
-    cmd += '--outSAMstrandField {} '.format(kwargs['intronMotif'])
+    cmd += '--outSAMstrandField {} '.format(kwargs['outSAMstrandField'])
     cmd += '--quantMode {} '.format(kwargs['quantMode'])
     return cmd
 
@@ -130,14 +130,20 @@ def salmon_quant(**kwargs):
     return cmd
 
 
-def merge_new_and_known_transcript(**kwargs):
-    """
-    gffcompare -o gffall -r reference.gtf scallop.gtf
-    gtfcuff puniq gffall.scallop.gtf.tmap scallop.gtf reference.gtf unique.gtf
-    gffread unique.gtf -g genome -w unique.fa
-    cat unique.fa reference.fa > union.fa
-    """
-    pass
+def merge_scallop_transcripts(**kwargs):
+    """get all transcripts including new ones"""
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += '-gtf {} '.format(kwargs['gtf'])
+    cmd += '-refgtf {} '.format(kwargs['refgtf'])
+    cmd += '-refgenome {} '.format(kwargs['refgenome'])
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-reftrans {} '.format(kwargs['reftrans'])
+    cmd += '-gtfmerge {} '.format(kwargs['gtfmerge'])
+    cmd += '-gffcompare {} '.format(kwargs['gffcompare'])
+    cmd += '-gtfcuff {} '.format(kwargs['gtfcuff'])
+    cmd += '-gffread {} '.format(kwargs['gffread'])
+    return cmd
 
 
 def abundance_estimates_to_matrix(**kwargs):
