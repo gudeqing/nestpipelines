@@ -104,7 +104,7 @@ class Command(object):
 class CommandNetwork(object):
     def __init__(self, cmd_config):
         self.parser = configparser.ConfigParser()
-        self.parser.read(cmd_config)
+        self.parser.read(cmd_config, encoding='utf-8')
 
     def names(self):
         sections = self.parser.sections()
