@@ -76,6 +76,7 @@ def star_align(**kwargs):
     cmd += '--chimSegmentMin {} '.format(kwargs['chimSegmentMin'])
     cmd += '--outFilterMismatchNoverLmax {} '.format(kwargs['outFilterMismatchNoverLmax'])
     cmd += '--outFilterType {} '.format(kwargs['outFilterType'])
+    cmd += '--outSAMstrandField {} '.format(kwargs['intronMotif'])
     cmd += '--quantMode {} '.format(kwargs['quantMode'])
     return cmd
 
