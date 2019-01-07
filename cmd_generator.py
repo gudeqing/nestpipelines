@@ -159,7 +159,20 @@ def abundance_estimates_to_matrix(**kwargs):
 
 
 def diff_exp(**kwargs):
-    pass
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += '-count {} '.format(kwargs['count_matrix'])
+    cmd += '-exp {} '.format(kwargs['exp_matrix'])
+    cmd += '-group {} '.format(kwargs['group_info'])
+    cmd += '-cmp {} '.format(kwargs['comparison_info'])
+    cmd += '-method {} '.format(kwargs['method'])
+    cmd += '-output {} '.format(kwargs['result_dir'])
+    cmd += '-pool {} '.format(kwargs['threads'])
+    cmd += '-pvalue {} '.format(kwargs['pvalue'])
+    cmd += '-fc {} '.format(kwargs['fc'])
+    cmd += '-sig_type {} '.format(kwargs['sig_type'])
+    cmd += '-padjust_way {} '.format(kwargs['padjust_way'])
+    cmd += '--dispersion {} '.format(kwargs['dispersion'])
 
 
 def star_fusion(**kwargs):

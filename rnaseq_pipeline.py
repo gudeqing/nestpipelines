@@ -253,7 +253,8 @@ def merge_scallop_transcripts_cmd(assemble_cmds, step_name='MergeTranscript'):
     commands[step_name] = cmd_dict(
         cmd=cmd, cpu=2, depend=','.join(assemble_cmds.keys()),
         result_dir=outdir, all_transcripts=os.path.join(outdir, 'all.transcripts.fa'),
-        all_gtf=os.path.join(outdir, 'all.transcripts.gtf')
+        all_gtf=os.path.join(outdir, 'all.transcripts.gtf'),
+        novel_transcripts=os.path.join(outdir, 'novel.transcripts.fa')
     )
     return commands
 
@@ -424,6 +425,32 @@ def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon'):
     return commands
 
 
+def diff_exp_cmd(merge_cmds, step_name='Diff', level='gene'):
+    commands = dict()
+    step_name = step_name + level.capitalize()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    depend = list(merge_cmds.keys())[0]
+    depend_info = list(merge_cmds.values())[0]
+    args = dict(arg_pool['diff_exp'])
+    args['result_dir'] = out_dir
+    # gene diff exp
+    if level == 'gene':
+        args['count_matrix'] = depend_info['gene_count_matrix']
+        args['exp_matrix'] = depend_info['gene_tpm_matrix']
+    else:
+        args['count_matrix'] = depend_info['transcript_count_matrix']
+        args['exp_matrix'] = depend_info['transcript_tpm_matrix']
+    cmd = diff_exp(**args)
+    commands[step_name] = cmd_dict(
+        cmd=cmd,
+        cpu=args['threads'] + 1,
+        depend = depend,
+        result_dir=args['result_dir']
+    )
+    return commands
+
+
 def pipeline():
     commands = configparser.ConfigParser()
     commands.optionxform = str
@@ -454,6 +481,11 @@ def pipeline():
     commands.update(quant_cmds)
     merge_cmds = merge_quant_cmds(quant_cmds=quant_cmds)
     commands.update(merge_cmds)
+    diff_gene_cmd = diff_exp_cmd(merge_cmds, level='gene')
+    commands.update(diff_gene_cmd)
+    diff_trans_cmd = diff_exp_cmd(merge_cmds, level='transcript')
+    commands.update(diff_trans_cmd)
+
     with open('pipeline_cmds.ini', 'w') as configfile:
         commands.write(configfile)
     workflow = RunCommands('pipeline_cmds.ini')
