@@ -146,8 +146,12 @@ def star_index_cmd(step_name='AlignIndex'):
     if os.path.exists(arg_pool['star_index']['genomeDir']):
         print('STAR index existed, and skip this indexing step!')
         return commands
+    else:
+        mkdir(arg_pool['star_index']['genomeDir'])
     cmd = star_index(**arg_pool['star_index'])
-    commands[step_name] = cmd_dict(cmd=cmd)
+    commands[step_name] = cmd_dict(
+        cmd=cmd, cpu=1, mem=2*1024**3, retry=1,
+        monitor_time_step=5)
     return commands
 
 
