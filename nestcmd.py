@@ -236,30 +236,33 @@ class StateGraph(object):
                 node_label_dict[each] = ''
             else:
                 node_label_dict[each] = str(used_time) + 's'
+            node_label_dict[each] = each + '\n' + node_label_dict[each]
         return node_label_dict
 
     def draw(self):
         self.add_edges()
-        pos = nx.kamada_kawai_layout(self.graph)
+        # pos = nx.kamada_kawai_layout(self.graph)
         # pos = nx.spring_layout(self.graph)
+        pos = nx.nx_pydot.pydot_layout(self.graph, prog='dot')
         node_label_dict = self.get_label_dict()
         color_dict = self.get_color_dict()
         tmp_dict = dict()
         for k, v in color_dict.items():
             tmp_dict.setdefault(v, list())
             tmp_dict[v].append(k)
+        plt.figure(figsize=(12,8))
         for color, group in tmp_dict.items():
             state = self.state[group[0]]['state']
-            nx.draw(self.graph, pos=pos, nodelist=group, with_labels=True,
-                    node_color=color, label=state, alpha=1, width=0.7, style='dashed')
+            nx.draw(self.graph, pos=pos, nodelist=group, labels=node_label_dict,
+                    with_labels=True, font_size=9, node_shape='o', node_size=1000,
+                    node_color=color, label=state, alpha=1, width=0.7, style='dotted')
 
-        pos_attrs = {}
-        for node, coords in pos.items():
-            pos_attrs[node] = (coords[0], coords[1] - 0.08)
-
-        nx.draw_networkx_labels(self.graph, pos=pos_attrs, labels=node_label_dict,
-                                font_size=8, alpha=0.8)
-        # nx.draw_networkx_edges(self.graph, pos=pos, style='dashed', width=0.8,)
+        # pos_attrs = {}
+        # for node, coords in pos.items():
+        #     pos_attrs[node] = (coords[0], coords[1] - 0.1)
+        #
+        # nx.draw_networkx_labels(self.graph, pos=pos_attrs, labels=node_label_dict,
+        #                         font_size=8, alpha=0.8)
         plt.axis('off')
         plt.legend(loc='best', fontsize='small', markerscale=0.7, frameon=False)
         plt.savefig('state_graph.png', dpi=150, bbox_inches='tight')
@@ -408,3 +411,6 @@ if __name__ == '__main__':
     # workflow.single_run()
     # workflow.parallel_run()
     workflow.continue_run()
+
+
+

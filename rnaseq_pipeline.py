@@ -177,7 +177,7 @@ def star_align_cmds(trimming_cmds, index_cmd, step_name='Align'):
         args['outFileNamePrefix'] = prefix
         cmd = star_align(**args)
         commands[step_name+'_'+sample] = cmd_dict(
-            cmd=cmd, mem=1024**3*2, cpu=2,
+            cmd=cmd, mem=1024**3*1, cpu=2,
             monitor_time_step=5, depend=','.join(depend_steps),
             sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
             sample_name=sample,
@@ -298,6 +298,7 @@ def salmon_quant_with_raw_data_cmds(fastq_info_dict, index_cmd, step_name='Quant
             if index_cmd:
                 if 'all_gtf' in list(index_cmd.values())[0]:
                     args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
+                    args['index'] = list(index_cmd.values())[0]['index_prefix']
             args['fq1'] = ' '.join(fq1_list)
             args['fq2'] = ' '.join(fq2_list)
             args['mode'] = mode
@@ -316,6 +317,7 @@ def salmon_quant_with_raw_data_cmds(fastq_info_dict, index_cmd, step_name='Quant
             if index_cmd:
                 if 'all_gtf' in index_cmd.values()[0]:
                     args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
+                    args['index'] = list(index_cmd.values())[0]['index_prefix']
             args['fq'] = ' '.join(fq_list[0])
             args['mode'] = mode
             prefix = os.path.join(result_dir, sample)
@@ -354,6 +356,7 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, index_cmd, step_name='Quant
             if index_cmd:
                 if 'all_gtf' in list(index_cmd.values())[0]:
                     args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
+                    args['index'] = list(index_cmd.values())[0]['index_prefix']
             args['fq1'] = ' '.join(trimmed_fq1_list)
             args['fq2'] = ' '.join(trimmed_fq2_list)
             args['mode'] = mode
@@ -372,6 +375,7 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, index_cmd, step_name='Quant
             if index_cmd:
                 if 'all_gtf' in list(index_cmd.values())[0]:
                     args['transcript2gene'] = list(index_cmd.values())[0]['all_gtf']
+                    args['index'] = list(index_cmd.values())[0]['index_prefix']
             args['fq'] = ' '.join(trimmed_fq1_list)
             args['mode'] = mode
             prefix = os.path.join(result_dir, sample)
@@ -453,7 +457,8 @@ def pipeline():
     with open('pipeline_cmds.ini', 'w') as configfile:
         commands.write(configfile)
     workflow = RunCommands('pipeline_cmds.ini')
-    workflow.parallel_run()
+    # workflow.parallel_run()
+    workflow.continue_run()
 
 
 if __name__ == '__main__':
