@@ -173,6 +173,7 @@ def diff_exp(**kwargs):
     cmd += '-sig_type {} '.format(kwargs['sig_type'])
     cmd += '-padjust_way {} '.format(kwargs['padjust_way'])
     cmd += '--dispersion {} '.format(kwargs['dispersion'])
+    return cmd
 
 
 def star_fusion(**kwargs):

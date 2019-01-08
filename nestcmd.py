@@ -13,6 +13,7 @@ import networkx as nx
 from threading import Timer, Lock
 import weakref
 import atexit
+import pygraphviz as pgv
 __author__ = 'gdq and dp'
 
 
@@ -192,13 +193,14 @@ class CheckResource(object):
 
 
 class StateGraph(object):
-    def __init__(self, state):
+    def __init__(self, state, img_file='state.png'):
         """
         drawing
         :param state: state dict from RunCommands.state
         """
         self.state = state
         self.graph = nx.DiGraph()
+        self.img_file = img_file
 
     def add_edges(self):
         for target in self.state:
@@ -207,11 +209,16 @@ class StateGraph(object):
                 sources = sources.split(',')
                 edges = zip(sources, [target]*len(sources))
                 self.graph.add_edges_from(edges)
+            else:
+                self.graph.add_edge('Input', target, color='green')
 
     def get_color_dict(self):
         colors = list()
         all_nodes = self.graph.nodes()
         for node in all_nodes:
+            if node == 'Input':
+                colors.append('lightgreen')
+                continue
             state = self.state[node]['state']
             if state == 'success':
                 colors.append('lightgreen')
@@ -226,6 +233,9 @@ class StateGraph(object):
     def get_label_dict(self):
         node_label_dict = dict()
         for each in self.graph.nodes():
+            if each == 'Input':
+                node_label_dict[each] = each
+                continue
             used_time = self.state[each]['used_time']
             if isinstance(used_time, str):
                 if used_time == 'unknown':
@@ -252,7 +262,10 @@ class StateGraph(object):
             tmp_dict[v].append(k)
         plt.figure(figsize=(12,8))
         for color, group in tmp_dict.items():
-            state = self.state[group[0]]['state']
+            if group[0] == 'Input':
+                state = 'success'
+            else:
+                state = self.state[group[0]]['state']
             nx.draw(self.graph, pos=pos, nodelist=group, labels=node_label_dict,
                     with_labels=True, font_size=9, node_shape='o', node_size=1000,
                     node_color=color, label=state, alpha=1, width=0.7, style='dotted')
@@ -265,8 +278,73 @@ class StateGraph(object):
         #                         font_size=8, alpha=0.8)
         plt.axis('off')
         plt.legend(loc='best', fontsize='small', markerscale=0.7, frameon=False)
-        plt.savefig('state_graph.png', dpi=150, bbox_inches='tight')
+        plt.savefig(self.img_file, dpi=150, bbox_inches='tight')
         plt.close()
+
+
+class StateGraph2(object):
+    def __init__(self, state):
+        self.state = state
+        self.graph = pgv.AGraph(directed=True)
+
+    def _add_nodes(self):
+        for node, cmd_info in self.state.items():
+            status = cmd_info['state']
+            node_detail = [node]
+            if status == 'success':
+                color = '#7FFF00'
+            elif status == 'failed':
+                color = '#FFD700'
+            elif status == 'running':
+                color = '#9F79EE'
+            else:
+                color = '#A8A8A8'
+            used_time = cmd_info['used_time']
+            if isinstance(used_time, str):
+                if used_time == 'unknown':
+                    pass
+                else:
+                    try:
+                        float(used_time)
+                        node_detail.append(used_time+'s')
+                    except:
+                        node_detail.append(used_time)
+            elif float(used_time) <= 0:
+                pass
+            else:
+                node_detail.append(str(used_time) + 's')
+            self.graph.add_node(
+                node,
+                # 谷歌浏览器可以正常显示tooltip
+                tooltip=cmd_info['cmd'].replace(' ', '\n'),
+                shape="box",
+                style="rounded, filled",
+                fillcolor=color,
+                color="mediumseagreen",
+                label='\n'.join(node_detail)
+            )
+
+    def _add_edges(self):
+        for target in self.state:
+            sources = self.state[target]['depend'].strip()
+            if sources:
+                sources = sources.split(',')
+                edges = zip(sources, [target]*len(sources))
+                if self.state[target]['state'] == 'success':
+                    color = '#836FFF'
+                elif self.state[target]['state'] == 'running':
+                    color = '#836FFF'
+                else:
+                    color = '#4D4D4D'
+                self.graph.add_edges_from(edges, color=color)
+            else:
+                self.graph.add_edge('Input', target, color='green')
+
+    def draw(self, img_file='state.svg'):
+        self._add_nodes()
+        self._add_edges()
+        img_fmt = os.path.splitext(img_file)[1][1:]
+        self.graph.draw(path=img_file, format=img_fmt, prog='dot')
 
 
 class RunCommands(CommandNetwork):
@@ -344,6 +422,7 @@ class RunCommands(CommandNetwork):
 
     def _draw_state(self):
         StateGraph(self.state).draw()
+        StateGraph2(self.state).draw('state.svg')
 
     def single_run(self):
         while True:

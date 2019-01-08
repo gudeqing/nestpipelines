@@ -392,9 +392,10 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, index_cmd, step_name='Quant
     return commands
 
 
-def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon'):
+def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon', level='gene'):
     commands = dict()
     depend = list()
+    step_name = step_name + level.capitalize()
     out_dir = os.path.join(project_dir, step_name)
     mkdir(out_dir)
     result_dir = ''
@@ -405,23 +406,25 @@ def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon'):
         depend.append(step)
     args = dict(arg_pool['abundance_estimates_to_matrix'])
     args['est_method'] = quant_method
-    args['quant_result'] = result_dir + '/*/quant.sf'
-    args['out_prefix'] = os.path.join(out_dir, 'all')
-    cmd = abundance_estimates_to_matrix(**args)
-    commands[step_name + 'Transcript'] = cmd_dict(
-        cmd=cmd, monitor_resource=False, check_resource_before_run=False,
-        depend=','.join(depend), out_prefix=args['out_prefix'],
-        transcript_tpm_matrix=args['out_prefix'] + '.isoform.TMM.EXPR.matrix',
-        transcript_count_matrix=args['out_prefix'] + '.isoform.counts.matrix',
-    )
-    args['quant_result'] = result_dir + '/*/quant.genes.sf'
-    cmd = abundance_estimates_to_matrix(**args)
-    commands[step_name + 'Gene'] = cmd_dict(
-        cmd=cmd, monitor_resource=False, check_resource_before_run=False,
-        depend=','.join(depend), out_prefix=args['out_prefix'],
-        gene_tpm_matrix=args['out_prefix'] + '.gene.TMM.EXPR.matrix',
-        gene_count_matrix=args['out_prefix'] + '.gene.counts.matrix',
-    )
+    args['out_prefix'] = os.path.join(out_dir, level)
+    if not level == 'gene':
+        args['quant_result'] = result_dir + '/*/quant.sf'
+        cmd = abundance_estimates_to_matrix(**args)
+        commands[step_name] = cmd_dict(
+            cmd=cmd, monitor_resource=False, check_resource_before_run=False,
+            depend=','.join(depend), out_prefix=args['out_prefix'],
+            transcript_tpm_matrix=args['out_prefix'] + '.isoform.TMM.EXPR.matrix',
+            transcript_count_matrix=args['out_prefix'] + '.isoform.counts.matrix',
+        )
+    else:
+        args['quant_result'] = result_dir + '/*/quant.genes.sf'
+        cmd = abundance_estimates_to_matrix(**args)
+        commands[step_name] = cmd_dict(
+            cmd=cmd, monitor_resource=False, check_resource_before_run=False,
+            depend=','.join(depend), out_prefix=args['out_prefix'],
+            gene_tpm_matrix=args['out_prefix'] + '.isoform.TMM.EXPR.matrix',
+            gene_count_matrix=args['out_prefix'] + '.isoform.counts.matrix',
+        )
     return commands
 
 
@@ -430,22 +433,26 @@ def diff_exp_cmd(merge_cmds, step_name='Diff', level='gene'):
     step_name = step_name + level.capitalize()
     out_dir = os.path.join(project_dir, step_name)
     mkdir(out_dir)
-    depend = list(merge_cmds.keys())[0]
-    depend_info = list(merge_cmds.values())[0]
-    args = dict(arg_pool['diff_exp'])
-    args['result_dir'] = out_dir
     # gene diff exp
     if level == 'gene':
+        depend = [x for x in merge_cmds.keys() if x.endswith('Gene')][0]
+        depend_info = merge_cmds[depend]
+        args = dict(arg_pool['diff_exp'])
+        args['result_dir'] = out_dir
         args['count_matrix'] = depend_info['gene_count_matrix']
         args['exp_matrix'] = depend_info['gene_tpm_matrix']
     else:
+        depend = [x for x in merge_cmds.keys() if x.endswith('Transcript')][0]
+        depend_info = merge_cmds[depend]
+        args = dict(arg_pool['diff_exp'])
+        args['result_dir'] = out_dir
         args['count_matrix'] = depend_info['transcript_count_matrix']
         args['exp_matrix'] = depend_info['transcript_tpm_matrix']
     cmd = diff_exp(**args)
     commands[step_name] = cmd_dict(
         cmd=cmd,
-        cpu=args['threads'] + 1,
-        depend = depend,
+        cpu=int(args['threads']) + 1,
+        depend=depend,
         result_dir=args['result_dir']
     )
     return commands
@@ -479,11 +486,13 @@ def pipeline():
     commands.update(salmon_indexing)
     quant_cmds = salmon_quant_with_clean_data_cmds(trimming_cmds=trim_cmds, index_cmd=salmon_indexing)
     commands.update(quant_cmds)
-    merge_cmds = merge_quant_cmds(quant_cmds=quant_cmds)
-    commands.update(merge_cmds)
-    diff_gene_cmd = diff_exp_cmd(merge_cmds, level='gene')
+    merge_gene_exp_cmd = merge_quant_cmds(quant_cmds=quant_cmds)
+    commands.update(merge_gene_exp_cmd)
+    diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene')
     commands.update(diff_gene_cmd)
-    diff_trans_cmd = diff_exp_cmd(merge_cmds, level='transcript')
+    merge_trans_exp_cmd = merge_quant_cmds(quant_cmds=quant_cmds, level='transcript')
+    commands.update(merge_trans_exp_cmd)
+    diff_trans_cmd = diff_exp_cmd(merge_trans_exp_cmd, level='transcript')
     commands.update(diff_trans_cmd)
 
     with open('pipeline_cmds.ini', 'w') as configfile:
