@@ -176,13 +176,107 @@ def diff_exp(**kwargs):
     return cmd
 
 
-def star_fusion(**kwargs):
-    pass
-
-
-def go_enrich(**kwargs):
-    pass
+def goatools(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '--alpha {} '.format(kwargs['fdr_cutoff'])
+    cmd += '--outfile {} '.format(kwargs['outfile'])
+    cmd += '--method {} '.format(kwargs['pvalue_correct_method'])
+    cmd += '--obo {} '.format(kwargs['go_obo'])
+    cmd += '{} '.format(kwargs['study'])
+    cmd += '{} '.format(kwargs['population'])
+    cmd += '{} '.format(kwargs['association'])
+    return cmd
 
 
 def kegg_enrich(**kwargs):
-    pass
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '-deg {} '.format(kwargs['deg'])
+    cmd += '-g2k {} '.format(kwargs['g2k'])
+    cmd += '-brite {} '.format(kwargs['brite'])
+    cmd += '-g2p {} '.format(kwargs['g2p'])
+    cmd += '-k2p {} '.format(kwargs['k2p'])
+    cmd += '-k2e {} '.format(kwargs['k2e'])
+    cmd += '-dn {} '.format(kwargs['dn'])
+    cmd += '--FDR {} '
+    cmd += '-o {} '.format(kwargs['outdir'])
+    return cmd
+
+
+def star_fusion(**kwargs):
+    cmd = '{} '.format(kwargs['star_fusion'])
+    cmd += '--genome_lib_dir {} '.format(kwargs['genome_lib_dir'])
+    cmd += '-J {} '.format(kwargs['Chimeric_out_junction'])
+    cmd += '--output_dir {} '.format(kwargs['outdir'])
+    return cmd
+
+
+def gene_body_coverage(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-i {} '.format(kwargs['bam'])
+    cmd += '-r {} '.format(kwargs['bed'])
+    cmd += '-l {} '.format(kwargs['min_mRNA_length'])
+    cmd += '-f {} '.format(kwargs['image_format'])
+    cmd += '-o {} '.format(kwargs['out_prefix'])
+    return cmd
+
+
+def inner_distance(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-i {} '.format(kwargs['bam'])
+    cmd += '-r {} '.format(kwargs['bed'])
+    cmd += '-o {} '.format(kwargs['out_prefix'])
+    cmd += '-k {} '.format(kwargs['sample_size'])
+    cmd += '-q {} '.format(kwargs['min_mapping_quality'])
+    return cmd
+
+
+def read_distribution(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-i {} '.format(kwargs['bam'])
+    cmd += '-r {} '.format(kwargs['bed'])
+    cmd += '> {} '.format(kwargs['outfile'])
+    return cmd
+
+
+def read_duplication(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-i {} '.format(kwargs['bam'])
+    cmd += '-q {} '.format(kwargs['min_mapping_quality'])
+    cmd += '-o {} '.format(kwargs['out_prefix'])
+    return cmd
+
+
+def rna_fragment_size(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-i {} '.format(kwargs['bam'])
+    cmd += '-r {} '.format(kwargs['bed'])
+    cmd += '-q {} '.format(kwargs['min_mapping_quality'])
+    cmd += '> {} '.format(kwargs['outfile'])
+    return cmd
+
+
+def rpkm_saturation(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-i {} '.format(kwargs['bam'])
+    cmd += '-o {} '.format(kwargs['out_prefix'])
+    cmd += '-r {} '.format(kwargs['bed'])
+    cmd += '-d {} '.format(kwargs['strand_rule'])
+    cmd += '-c {} '.format(kwargs['rpkm_cutoff'])
+    cmd += '-q {} '.format(kwargs['min_mapping_quality'])
+    return cmd
+
+
+def exp_analysis(**kwargs):
+    cmd = '{} '.format(kwargs['perl'])
+    cmd += "{} ".format(kwargs['trinity_ptr'])
+    cmd += "--matrix {} ".format(kwargs['matrix'])
+    cmd += " --min_gene_prevalence {} ".format(kwargs['min_gene_prevalence'])
+    cmd += "--min_gene_expr_val {} ".format(kwargs['min_gene_expr_val'])
+    cmd += "--sample_cor_matrix "
+    cmd += "--sample_cor {} ".format(kwargs['sample_cor'])
+    cmd += "--sample_cor_scale_limits 0.3,1 "
+    cmd += "--boxplot_log2_dist {} ".format(kwargs['boxplot_log2_dist'])
+    cmd += "--log2 "
+    cmd += "--prin_comp 3"
+    return cmd
+
