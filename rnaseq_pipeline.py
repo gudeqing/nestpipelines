@@ -3,7 +3,7 @@ import configparser
 import argparse
 from cmd_generator import *
 from nestcmd import RunCommands
-
+from glob import glob
 
 arg_ini = 'arguments.ini'
 # arg_pool = configparser.ConfigParser()
@@ -221,8 +221,6 @@ def scallop_cmds(align_cmds, step_name='Assembly'):
     outdir = os.path.join(project_dir, step_name)
     mkdir(outdir)
     for step, cmd_info in align_cmds.items():
-        if 'sample_name' not in cmd_info:
-            continue
         sample = cmd_info['sample_name']
         args = dict(arg_pool['scallop'])
         args['bam'] = cmd_info['sorted_bam']
@@ -392,7 +390,7 @@ def salmon_quant_with_clean_data_cmds(trimming_cmds, index_cmd, step_name='Quant
     return commands
 
 
-def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon', level='gene'):
+def merge_quant_cmd(quant_cmds, step_name='MergeQuant', quant_method='salmon', level='gene'):
     commands = dict()
     depend = list()
     step_name = step_name + level.capitalize()
@@ -400,8 +398,6 @@ def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon', 
     mkdir(out_dir)
     result_dir = ''
     for step, cmd_info in quant_cmds.items():
-        if 'sample_name' not in cmd_info:
-            continue
         result_dir = cmd_info['result_dir']
         depend.append(step)
     args = dict(arg_pool['abundance_estimates_to_matrix'])
@@ -428,22 +424,22 @@ def merge_quant_cmds(quant_cmds, step_name='MergeQuant', quant_method='salmon', 
     return commands
 
 
-def diff_exp_cmd(merge_cmds, step_name='Diff', level='gene'):
+def diff_exp_cmd(merge_cmd, step_name='Diff', level='gene'):
     commands = dict()
     step_name = step_name + level.capitalize()
     out_dir = os.path.join(project_dir, step_name)
     mkdir(out_dir)
     # gene diff exp
     if level == 'gene':
-        depend = [x for x in merge_cmds.keys() if x.endswith('Gene')][0]
-        depend_info = merge_cmds[depend]
+        depend = [x for x in merge_cmd.keys() if x.endswith('Gene')][0]
+        depend_info = merge_cmd[depend]
         args = dict(arg_pool['diff_exp'])
         args['result_dir'] = out_dir
         args['count_matrix'] = depend_info['gene_count_matrix']
         args['exp_matrix'] = depend_info['gene_tpm_matrix']
     else:
-        depend = [x for x in merge_cmds.keys() if x.endswith('Transcript')][0]
-        depend_info = merge_cmds[depend]
+        depend = [x for x in merge_cmd.keys() if x.endswith('Transcript')][0]
+        depend_info = merge_cmd[depend]
         args = dict(arg_pool['diff_exp'])
         args['result_dir'] = out_dir
         args['count_matrix'] = depend_info['transcript_count_matrix']
@@ -456,6 +452,84 @@ def diff_exp_cmd(merge_cmds, step_name='Diff', level='gene'):
         result_dir=args['result_dir']
     )
     return commands
+
+
+def go_enrich_cmds(diffexp_cmd, step_name='GoEnrich', level='gene'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    depend = list(diffexp_cmd.keys())[0]
+    depend_info = list(diffexp_cmd.values())[0]
+    diff_list_files = glob(depend_info['result_dir']+'/*_vs_*.list')
+    for each in diff_list_files:
+        args = dict(arg_pool['goatools'])
+        args['study'] = each
+        args['outfile'] = os.path.join(out_dir, os.path.basename(each)+'.goea.xls')
+        if level == 'gene':
+            cmd  = goatools(**args)
+        else:
+            args['population'] = args['trans_population']
+            args['association'] = args['trans_association']
+            cmd = goatools(**args)
+        commands[step_name+level.capitalize()+'_'+os.path.basename(each)[:-5]] = cmd_dict(
+            cmd=cmd,
+            cpu=1,
+            depend=depend,
+            result_dir=out_dir
+        )
+    return commands
+
+
+def kegg_enrich_cmds(diffexp_cmd, step_name='KeggEnrich', level='gene'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    depend = list(diffexp_cmd.keys())[0]
+    depend_info = list(diffexp_cmd.values())[0]
+    diff_list_files = glob(depend_info['result_dir']+'/*_vs_*.list')
+    for each in diff_list_files:
+        args = dict(arg_pool['kegg_enrich'])
+        args['deg'] = each
+        args['outdir'] = out_dir
+        if level == 'gene':
+            cmd  = kegg_enrich(**args)
+        else:
+            args['g2k'] = args['t2k']
+            args['g2p'] = args['t2p']
+            cmd = kegg_enrich(**args)
+        commands[step_name+level.capitalize()+'_'+os.path.basename(each)[:-5]] = cmd_dict(
+            cmd=cmd,
+            cpu=1,
+            depend=depend,
+            result_dir=out_dir
+        )
+    return commands
+
+
+def exp_analysis_cmd(merge_cmd, step_name='ExpAnalysis', level='gene'):
+    commands = dict()
+    step_name = step_name + level.capitalize()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['exp_analysis'])
+    depend = list(merge_cmd.keys())[0]
+    depend_info = list(merge_cmd.values())[0]
+    if level == 'gene':
+        matrix = os.path.join(out_dir, 'gene_tpm_matrix.xls')
+        os.link(depend_info['gene_tpm_matrix'], matrix)
+    else:
+        matrix = os.path.join(out_dir, 'transcript_tpm_matrix.xls')
+        os.link(depend_info['transcript_tpm_matrix'], matrix)
+    args['matrix'] = matrix
+    cmd = exp_analysis(**args)
+    commands[step_name] = cmd_dict(
+        cmd=cmd,
+        cpu=1,
+        depend=depend,
+        result_dir=out_dir
+    )
+    return commands
+
 
 
 def pipeline():
@@ -486,11 +560,11 @@ def pipeline():
     commands.update(salmon_indexing)
     quant_cmds = salmon_quant_with_clean_data_cmds(trimming_cmds=trim_cmds, index_cmd=salmon_indexing)
     commands.update(quant_cmds)
-    merge_gene_exp_cmd = merge_quant_cmds(quant_cmds=quant_cmds)
+    merge_gene_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds)
     commands.update(merge_gene_exp_cmd)
     diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene')
     commands.update(diff_gene_cmd)
-    merge_trans_exp_cmd = merge_quant_cmds(quant_cmds=quant_cmds, level='transcript')
+    merge_trans_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, level='transcript')
     commands.update(merge_trans_exp_cmd)
     diff_trans_cmd = diff_exp_cmd(merge_trans_exp_cmd, level='transcript')
     commands.update(diff_trans_cmd)
