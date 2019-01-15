@@ -740,7 +740,7 @@ def pipeline(show_steps_only=False):
         for step in commands:
             depends = workflow.get_dependency(step)
             if set(depends) - set(commands.keys()):
-                print('Skip {} for some of its dependencies were')
+                print('Skip {} for at least one of its dependencies were skipped')
                 commands.pop(step)
     main_steps = [x.split('_', 1)[0] for x in commands.keys()]
     if show_steps_only:
