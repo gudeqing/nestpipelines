@@ -4,8 +4,10 @@ import argparse
 from cmd_generator import *
 from nestcmd import RunCommands
 from glob import glob
+from pprint import pprint
 
 arg_ini = 'arguments.ini'
+skip_steps = []
 # arg_pool = configparser.ConfigParser()
 arg_pool = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 arg_pool.optionxform = str
@@ -212,6 +214,22 @@ def star_align_with_rawdata_cmds(fastq_info_dict, index_cmd, step_name='Align'):
             sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
             sample_name=sample,
             result_dir=result_dir
+        )
+    return commands
+
+
+def bam_index_cmds(align_cmds, step_name='IndexBam'):
+    commands = dict()
+    for step, cmd_info in align_cmds.items():
+        sample = cmd_info['sample_name']
+        args = dict(arg_pool['samtools_index'])
+        args['bam'] = cmd_info['sorted_bam']
+        cmd = samtools_index(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd, mem=1024 ** 3 * 2, cpu=2, monitor_time_step=5,
+            depend=step,
+            sample_name=sample,
+            sorted_bam = args['bam']
         )
     return commands
 
@@ -531,8 +549,118 @@ def exp_analysis_cmd(merge_cmd, step_name='ExpAnalysis', level='gene'):
     return commands
 
 
+def gene_body_coverage_cmds(index_bam_cmds, step_name='GeneBodyCoverage'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['gene_body_coverage'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['out_prefix'] = os.path.join(out_dir, sample)
+        cmd = gene_body_coverage(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            out_prefix=args['out_prefix']
+        )
+    return commands
 
-def pipeline():
+
+def inner_distance_cmds(index_bam_cmds, step_name='InnerDistance'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['inner_distance'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['out_prefix'] = os.path.join(out_dir, sample)
+        cmd = inner_distance(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            out_prefix=args['out_prefix']
+        )
+    return commands
+
+
+def read_distribution_cmds(index_bam_cmds, step_name='ReadDistribution'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['read_distribution'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outfile'] = os.path.join(out_dir, sample+'.read_distribution.txt')
+        cmd = read_distribution(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            outfile=args['outfile']
+        )
+    return commands
+
+
+def read_duplication_cmds(index_bam_cmds, step_name='ReadDuplication'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['read_duplication'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['out_prefix'] = os.path.join(out_dir, sample)
+        cmd = read_duplication(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            out_prefix=args['out_prefix']
+        )
+    return commands
+
+
+def rna_fragment_size_cmds(index_bam_cmds, step_name='FragmentSize'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['rna_fragment_size'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outfile'] = os.path.join(out_dir, sample+'.fragment_size.txt')
+        cmd = rna_fragment_size(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            outfile=args['outfile']
+        )
+    return commands
+
+
+def rpkm_saturation_cmds(index_bam_cmds, step_name='RPKMSaturation'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['rpkm_saturation'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['out_prefix'] = os.path.join(out_dir, sample)
+        cmd = rpkm_saturation(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            out_prefix=args['out_prefix']
+        )
+    return commands
+
+
+def pipeline(show_steps_only=False):
+    """
+    为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，最后生成的步骤名不能有重复。
+    """
     commands = configparser.ConfigParser()
     commands.optionxform = str
     commands['mode'] = dict(
@@ -543,38 +671,90 @@ def pipeline():
         check_resource_before_run=True,
     )
     fastq_info_dict = parse_fastq_info(fastq_info_file)
-    commands.update(fastqc_raw_data_cmds(fastq_info_dict))
-    trim_cmds = trimmomatic_cmds(fastq_info_dict)
+    commands.update(fastqc_raw_data_cmds(fastq_info_dict, step_name='RawDataQC'))
+    trim_cmds = trimmomatic_cmds(fastq_info_dict, step_name='Trim')
     commands.update(trim_cmds)
-    fastqc_cmds = fastqc_trimmed_data_cmds(trimming_cmds=trim_cmds)
+    fastqc_cmds = fastqc_trimmed_data_cmds(trimming_cmds=trim_cmds, step_name='TrimmedDataQC')
     commands.update(fastqc_cmds)
-    star_indexing = star_index_cmd()
+    star_indexing = star_index_cmd(step_name='AlignIndex')
     commands.update(star_indexing)
-    align_cmds = star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing)
+    if list(trim_cmds.keys())[0].split('_', 1)[0] in skip_steps:
+        align_cmds = star_align_with_rawdata_cmds(fastq_info_dict, index_cmd=star_indexing, step_name='Align')
+    else:
+        align_cmds = star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align')
     commands.update(align_cmds)
-    assembly_cmds = scallop_cmds(align_cmds=align_cmds)
+    bam_indexing_cmds = bam_index_cmds(align_cmds, step_name='IndexBam')
+    commands.update(bam_indexing_cmds)
+    gbc_cmds = gene_body_coverage_cmds(bam_indexing_cmds, step_name='GeneBodyCoverage')
+    commands.update(gbc_cmds)
+    inner_dist_cmds = inner_distance_cmds(bam_indexing_cmds, step_name='InnerDistance')
+    commands.update(inner_dist_cmds)
+    rd_cmds = read_distribution_cmds(bam_indexing_cmds, step_name='ReadDistribution')
+    commands.update(rd_cmds)
+    rdup_cmds = read_duplication_cmds(bam_indexing_cmds, step_name='ReadDuplication')
+    commands.update(rdup_cmds)
+    frag_size_cmds = rna_fragment_size_cmds(bam_indexing_cmds, step_name='FragmentSize')
+    commands.update(frag_size_cmds)
+    saturation_cmds = rpkm_saturation_cmds(bam_indexing_cmds, step_name='RPKMSaturation')
+    commands.update(saturation_cmds)
+    assembly_cmds = scallop_cmds(align_cmds=align_cmds, step_name='Assembly')
     commands.update(assembly_cmds)
-    merge_trans_cmd = merge_scallop_transcripts_cmd(assembly_cmds)
+    merge_trans_cmd = merge_scallop_transcripts_cmd(assembly_cmds, step_name='MergeTranscript')
     commands.update(merge_trans_cmd)
-    salmon_indexing = salmon_index_cmd(merge_transcript_cmd=merge_trans_cmd)
+    salmon_indexing = salmon_index_cmd(merge_transcript_cmd=merge_trans_cmd, step_name='QuantIndex')
     commands.update(salmon_indexing)
-    quant_cmds = salmon_quant_with_clean_data_cmds(trimming_cmds=trim_cmds, index_cmd=salmon_indexing)
+    if list(trim_cmds.keys())[0].split('_', 1)[0] in skip_steps:
+        quant_cmds = salmon_quant_with_clean_data_cmds(trim_cmds, index_cmd=salmon_indexing, step_name='Quant')
+    else:
+        quant_cmds = salmon_quant_with_raw_data_cmds(fastq_info_dict, index_cmd=salmon_indexing, step_name='Quant')
     commands.update(quant_cmds)
-    merge_gene_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds)
+    merge_gene_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, step_name="MergeQuant")
     commands.update(merge_gene_exp_cmd)
-    diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene')
+    diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene', step_name='Diff')
     commands.update(diff_gene_cmd)
-    merge_trans_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, level='transcript')
+    gene_go_enrich_cmds = go_enrich_cmds(diff_gene_cmd, level='gene', step_name='GoEnrich')
+    commands.update(gene_go_enrich_cmds)
+    gene_kegg_enrich_cmds = kegg_enrich_cmds(diff_gene_cmd, level='gene', step_name='KeggEnrich')
+    commands.update(gene_kegg_enrich_cmds)
+    merge_trans_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, level='transcript', step_name='MergeQuant')
     commands.update(merge_trans_exp_cmd)
-    diff_trans_cmd = diff_exp_cmd(merge_trans_exp_cmd, level='transcript')
+    diff_trans_cmd = diff_exp_cmd(merge_trans_exp_cmd, level='transcript', step_name='Diff')
     commands.update(diff_trans_cmd)
+    trans_go_enrich_cmds = go_enrich_cmds(diff_trans_cmd, level='transcript', step_name='GoEnrich')
+    commands.update(trans_go_enrich_cmds)
+    trans_kegg_enrich_cmds = kegg_enrich_cmds(diff_trans_cmd, level='transcript', step_name='KeggEnrich')
+    commands.update(trans_kegg_enrich_cmds)
 
+    # -----------skip some steps--------------
     with open('pipeline_cmds.ini', 'w') as configfile:
         commands.write(configfile)
     workflow = RunCommands('pipeline_cmds.ini')
-    # workflow.parallel_run()
-    workflow.continue_run()
+    main_steps = [x.split('_', 1)[0] for x in commands.keys()]
+    if skip_steps:
+        for each in skip_steps:
+            if each not in main_steps:
+                exit('Step {} was Not found'.format(each))
+            skips = [x for x in commands.keys() if x == each or x.startswith(each+'_')]
+            _ = [commands.pop(x) for x in skips]
+
+        for step in commands:
+            depends = workflow.get_dependency(step)
+            if set(depends) - set(commands.keys()):
+                print('Skip {} for some of its dependencies were')
+                commands.pop(step)
+    main_steps = [x.split('_', 1)[0] for x in commands.keys()]
+    if show_steps_only:
+        pprint(main_steps)
+        return
+
+    # ---------write pipeline cmds--------------------
+    with open('pipeline_cmds.ini', 'w') as configfile:
+        commands.write(configfile)
+    workflow = RunCommands('pipeline_cmds.ini')
+    # ----------------run-----------------
+    workflow.parallel_run()
+    # workflow.continue_run()
 
 
 if __name__ == '__main__':
-    pipeline()
+    pipeline(show_steps_only=True)
