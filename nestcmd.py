@@ -31,7 +31,7 @@ def _kill_processes_when_exit():
 
 
 class Command(object):
-    def __init__(self, cmd, name, timeout=604800,
+    def __init__(self, cmd, name, timeout=604800, outdir=os.getcwd(),
                  monitor_resource=True, monitor_time_step=2, **kwargs):
         self.name = name
         self.cmd = cmd
@@ -44,6 +44,7 @@ class Command(object):
         self.max_cpu = 0
         self.monitor = monitor_resource
         self.monitor_time_step = int(monitor_time_step)
+        self.outdir = outdir
 
     def _monitor_resource(self):
         while self.proc.is_running():
@@ -87,9 +88,9 @@ class Command(object):
         self.used_time = round(end_time - start_time, 4)
 
     def _write_log(self):
-        if not os.path.exists('logs'):
+        if not os.path.exists(os.path.join(self.outdir, 'logs')):
             os.mkdir('logs')
-        prefix = os.path.join('logs', self.name+'.'+str(self.proc.pid))
+        prefix = os.path.join(self.outdir, 'logs', self.name+'.'+str(self.proc.pid))
         if self.stderr:
             with open(prefix+'.stderr.txt', 'wb') as f:
                 f.write(self.stderr)
@@ -193,14 +194,13 @@ class CheckResource(object):
 
 
 class StateGraph(object):
-    def __init__(self, state, img_file='state.png'):
+    def __init__(self, state):
         """
         drawing
         :param state: state dict from RunCommands.state
         """
         self.state = state
         self.graph = nx.DiGraph()
-        self.img_file = img_file
 
     def add_edges(self):
         for target in self.state:
@@ -249,7 +249,7 @@ class StateGraph(object):
             node_label_dict[each] = each + '\n' + node_label_dict[each]
         return node_label_dict
 
-    def draw(self):
+    def draw(self, img_file='state.png'):
         self.add_edges()
         # pos = nx.kamada_kawai_layout(self.graph)
         # pos = nx.spring_layout(self.graph)
@@ -278,7 +278,7 @@ class StateGraph(object):
         #                         font_size=8, alpha=0.8)
         plt.axis('off')
         plt.legend(loc='best', fontsize='small', markerscale=0.7, frameon=False)
-        plt.savefig(self.img_file, dpi=150, bbox_inches='tight')
+        plt.savefig(img_file, dpi=200, bbox_inches='tight')
         plt.close()
 
 
@@ -350,11 +350,12 @@ class StateGraph2(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config):
+    def __init__(self, cmd_config, outdir=os.getcwd()):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
+        self.outdir = outdir
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -391,7 +392,7 @@ class RunCommands(CommandNetwork):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
 
-    def _update_state(self, cmd: Command):
+    def _update_state(self, cmd):
         cmd_state = self.state[cmd.name]
         if cmd.proc is None:
             cmd_state['state'] = 'failed'
@@ -413,7 +414,7 @@ class RunCommands(CommandNetwork):
             self.state[each]['state'] = 'waiting'
 
     def _write_state(self):
-        with open('cmd_state.txt', 'w') as f:
+        with open(os.path.join(self.outdir, 'cmd_state.txt'), 'w') as f:
             fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
             f.write('\t'.join(fields)+'\n')
             for name in self.state:
@@ -421,8 +422,8 @@ class RunCommands(CommandNetwork):
                 f.write(name+'\t'+content+'\n')
 
     def _draw_state(self):
-        StateGraph(self.state).draw()
-        StateGraph2(self.state).draw('state.svg')
+        StateGraph(self.state).draw(os.path.join(self.outdir, 'state.png'))
+        StateGraph2(self.state).draw(os.path.join(self.outdir, 'state.svg'))
 
     def single_run(self):
         while True:
@@ -470,7 +471,7 @@ class RunCommands(CommandNetwork):
 
     def continue_run(self):
         self.ever_queued = set()
-        with open('cmd_state.txt', 'r') as f:
+        with open(os.path.join(self.outdir, 'cmd_state.txt'), 'r') as f:
             header = f.readline()
             for line in f:
                 line_lst = line.strip().split('\t')
