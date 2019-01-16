@@ -190,6 +190,7 @@ def goatools(**kwargs):
 
 def kegg_enrich(**kwargs):
     cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
     cmd += '-deg {} '.format(kwargs['deg'])
     cmd += '-g2k {} '.format(kwargs['g2k'])
     cmd += '-brite {} '.format(kwargs['brite'])
