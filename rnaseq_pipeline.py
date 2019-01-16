@@ -1,25 +1,68 @@
+# coding=utf-8
 import os
 import configparser
 import argparse
-from cmd_generator import *
-from nestcmd import RunCommands
 from glob import glob
 from pprint import pprint
 
-arg_ini = 'arguments.ini'
-skip_steps = []
-# arg_pool = configparser.ConfigParser()
+from cmd_generator import *
+from nestcmd import RunCommands
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-arg_cfg', required=False, help="config file containing all parameters info")
+parser.add_argument('-fastq_info', required=False,
+                    help="第一列为样本名，分析结果使用名；第二列为read1的fastq路径，如有多个，需要分号分隔；"
+                         "第三列为可选，read2的fastq路径，单端测序时则无第三列")
+parser.add_argument('-group', help="样本分组信息文件，至少两列，第一列样本名，第二列为分组名，其他列也是分组名")
+parser.add_argument('-compare', help="比较信息文件，两列，第1列是对照组名，第2列是实验组名")
+parser.add_argument('-o', default=os.path.join(os.getcwd(), 'Result'), help='分析目录或结果目录')
+parser.add_argument('-skip', default=list(), nargs='+',
+                    help='指定要跳过的步骤名，空格分隔，程序会自动跳过依赖他们的步骤，--only_show_steps可查看步骤名;'
+                         '注意：如果跳过trim步骤，则用原始数据；如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
+parser.add_argument('--only_show_steps', default=False, action="store_true",
+                    help="仅仅显示当前流程包含的步骤, 且已经排除指定跳过的步骤")
+parser.add_argument('--only_write_pipeline', default=False, action='store_true',
+                    help="仅仅生成流程pipeline.ini")
+parser.add_argument('-threads', default=5, type=int, help="允许并行的步骤数")
+parser.add_argument('-retry', default=1, type=int,
+                    help='某步骤运行失败后再尝试运行的次数，默认1次. '
+                         '如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+parser.add_argument('--continue_run', default=False, action='store_true',
+                    help='流程中断后,从失败的步骤续跑, 记得要用-o指定之前的结果目录，'
+                         '如果想重新跑已经成功的某一步，在状态表cmd_stat.txt中手动将其修改为failed即可')
+parser.add_argument('-pipeline_cfg', default=None,
+                    help="已有的pipeline.ini，续跑时也需提供此参数。如提供，则此时无需arg_cfg,fastq_info,group,cmp,skip等参数")
+parser.add_argument('--no_monitor_resource', default=False, action='store_true',
+                    help='是否监控每一步运行时的资源消耗，如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+parser.add_argument('--monitor_time_step', default=3, type=int,
+                    help='监控资源时的时间间隔，默认2秒， 如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+parser.add_argument('--no_check_resource_before_run', default=False, action='store_true',
+                    help="运行某步骤前检测指定的资源是否足够，如不足，则该步骤失败；如果设置该参数，则运行前不检查资源。"
+                         "如需对某一步设置不同的值，可在流程中修改或运行前修改pipeline.ini"
+                         "如需更改指定的资源，可在真正运行流程前修改pipeline.ini或者直接修改流程")
+arguments = parser.parse_args()
+skip_steps = arguments.skip
 arg_pool = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 arg_pool.optionxform = str
-arg_pool.read(arg_ini, encoding='utf-8')
-project_dir = os.path.join(os.getcwd(), 'result')
+if not arguments.continue_run or arguments.pipeline_cfg is None:
+    if not arguments.arg_cfg:
+        raise Exception('-arg_cfg is needed!')
+    if not arguments.fastq_info:
+        raise Exception('-fastq_info is needed!')
+if arguments.arg_cfg:
+    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
+project_dir = arguments.o
 if not os.path.exists(project_dir):
     os.mkdir(project_dir)
-fastq_info_file = 'fastq_info.txt'
+fastq_info_file = arguments.fastq_info
 
 
-def cmd_dict(cmd, cpu=1, mem=200*1024*1024, retry=1, monitor_resource=True,
-             monitor_time_step=2, check_resource_before_run=True, **kwargs):
+def cmd_dict(cmd, cpu=1, mem=200*1024*1024, retry=arguments.retry,
+             monitor_resource=not arguments.no_monitor_resource,
+             monitor_time_step=arguments.monitor_time_step,
+             check_resource_before_run=not arguments.no_check_resource_before_run,
+             **kwargs):
     args = locals()
     args.pop('kwargs')
     if kwargs:
@@ -462,6 +505,8 @@ def diff_exp_cmd(merge_cmd, step_name='Diff', level='gene'):
         args['result_dir'] = out_dir
         args['count_matrix'] = depend_info['transcript_count_matrix']
         args['exp_matrix'] = depend_info['transcript_tpm_matrix']
+    args['group_info'] = arguments.group
+    args['comparison_info'] = arguments.compare
     cmd = diff_exp(**args)
     commands[step_name] = cmd_dict(
         cmd=cmd,
@@ -657,10 +702,23 @@ def rpkm_saturation_cmds(index_bam_cmds, step_name='RPKMSaturation'):
     return commands
 
 
-def pipeline(show_steps_only=False):
+def run_existed_pipeline():
+    if arguments.pipeline_cfg is None or not os.path.exists(arguments.pipeline_cfg):
+        raise Exception('Please provide valid pipeline.ini file')
+    workflow = RunCommands(arguments.pipeline_cfg, outdir=project_dir)
+    if arguments.continue_run:
+        workflow.continue_run()
+    else:
+        workflow.parallel_run()
+
+
+def pipeline():
     """
     为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，最后生成的步骤名不能有重复。
     """
+    if arguments.pipeline_cfg or arguments.continue_run:
+        run_existed_pipeline()
+        return
     commands = configparser.ConfigParser()
     commands.optionxform = str
     commands['mode'] = dict(
@@ -701,60 +759,79 @@ def pipeline(show_steps_only=False):
     commands.update(assembly_cmds)
     merge_trans_cmd = merge_scallop_transcripts_cmd(assembly_cmds, step_name='MergeTranscript')
     commands.update(merge_trans_cmd)
-    salmon_indexing = salmon_index_cmd(merge_transcript_cmd=merge_trans_cmd, step_name='QuantIndex')
+    if list(merge_trans_cmd.keys())[0] in skip_steps or list(assembly_cmds.keys())[0].split('_', 1)[0] in skip_steps:
+        salmon_indexing = salmon_index_cmd(merge_transcript_cmd=None, step_name='QuantIndex')
+    else:
+        salmon_indexing = salmon_index_cmd(merge_transcript_cmd=merge_trans_cmd, step_name='QuantIndex')
     commands.update(salmon_indexing)
-    if list(trim_cmds.keys())[0].split('_', 1)[0] in skip_steps:
+    if list(trim_cmds.keys())[0].split('_', 1)[0] not in skip_steps:
         quant_cmds = salmon_quant_with_clean_data_cmds(trim_cmds, index_cmd=salmon_indexing, step_name='Quant')
     else:
         quant_cmds = salmon_quant_with_raw_data_cmds(fastq_info_dict, index_cmd=salmon_indexing, step_name='Quant')
     commands.update(quant_cmds)
     merge_gene_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, step_name="MergeQuant")
     commands.update(merge_gene_exp_cmd)
-    diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene', step_name='Diff')
-    commands.update(diff_gene_cmd)
-    gene_go_enrich_cmds = go_enrich_cmds(diff_gene_cmd, level='gene', step_name='GoEnrich')
-    commands.update(gene_go_enrich_cmds)
-    gene_kegg_enrich_cmds = kegg_enrich_cmds(diff_gene_cmd, level='gene', step_name='KeggEnrich')
-    commands.update(gene_kegg_enrich_cmds)
     merge_trans_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, level='transcript', step_name='MergeQuant')
     commands.update(merge_trans_exp_cmd)
-    diff_trans_cmd = diff_exp_cmd(merge_trans_exp_cmd, level='transcript', step_name='Diff')
-    commands.update(diff_trans_cmd)
-    trans_go_enrich_cmds = go_enrich_cmds(diff_trans_cmd, level='transcript', step_name='GoEnrich')
-    commands.update(trans_go_enrich_cmds)
-    trans_kegg_enrich_cmds = kegg_enrich_cmds(diff_trans_cmd, level='transcript', step_name='KeggEnrich')
-    commands.update(trans_kegg_enrich_cmds)
+    if arguments.group and arguments.compare:
+        diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene', step_name='Diff')
+        commands.update(diff_gene_cmd)
+        gene_go_enrich_cmds = go_enrich_cmds(diff_gene_cmd, level='gene', step_name='GoEnrich')
+        commands.update(gene_go_enrich_cmds)
+        gene_kegg_enrich_cmds = kegg_enrich_cmds(diff_gene_cmd, level='gene', step_name='KeggEnrich')
+        commands.update(gene_kegg_enrich_cmds)
+        diff_trans_cmd = diff_exp_cmd(merge_trans_exp_cmd, level='transcript', step_name='Diff')
+        commands.update(diff_trans_cmd)
+        trans_go_enrich_cmds = go_enrich_cmds(diff_trans_cmd, level='transcript', step_name='GoEnrich')
+        commands.update(trans_go_enrich_cmds)
+        trans_kegg_enrich_cmds = kegg_enrich_cmds(diff_trans_cmd, level='transcript', step_name='KeggEnrich')
+        commands.update(trans_kegg_enrich_cmds)
 
     # -----------skip some steps--------------
-    with open('pipeline_cmds.ini', 'w') as configfile:
-        commands.write(configfile)
-    workflow = RunCommands('pipeline_cmds.ini')
-    main_steps = [x.split('_', 1)[0] for x in commands.keys()]
     if skip_steps:
+        with open(os.path.join(project_dir, 'pipeline_raw.ini'), 'w') as configfile:
+            commands.write(configfile)
+        workflow = RunCommands(os.path.join(project_dir, 'pipeline_raw.ini'), outdir=project_dir)
+        main_steps = set([x.split('_', 1)[0] for x in commands.keys()])
         for each in skip_steps:
             if each not in main_steps:
-                exit('Step {} was Not found'.format(each))
-            skips = [x for x in commands.keys() if x == each or x.startswith(each+'_')]
+                exit('Step {} was Not found, please refer --only_show_steps'.format(each))
+            skips = [x for x in commands if x == each or x.startswith(each+'_')]
             _ = [commands.pop(x) for x in skips]
+        # skip the step whose dependencies are not all included in the commands
+        total_deduced_skips = list()
+        while True:
+            to_be_skip = list()
+            for step in commands.keys():
+                depends = workflow.get_dependency(step)
+                if set(depends) - set(commands.keys()):
+                    # print('Skip {} for at least one of its dependencies were skipped'.format(step))
+                    to_be_skip.append(step)
+                    total_deduced_skips.append(step)
+            _ = [commands.pop(x) for x in to_be_skip]
+            if all(len(set(workflow.get_dependency(x)) - set(commands.keys())) == 0 for x in commands):
+                break
+        if total_deduced_skips:
+            print("Warning: the following steps are also skipped for depending relationship")
+            print(set(x.split('_', 1)[0] for x in total_deduced_skips))
 
-        for step in commands:
-            depends = workflow.get_dependency(step)
-            if set(depends) - set(commands.keys()):
-                print('Skip {} for at least one of its dependencies were skipped')
-                commands.pop(step)
-    main_steps = [x.split('_', 1)[0] for x in commands.keys()]
-    if show_steps_only:
-        pprint(main_steps)
+    tmp_list = [x.split('_', 1)[0] for x in commands.keys()]
+    main_steps = list()
+    _ = [main_steps.append(x) for x in tmp_list if x not in main_steps]
+    if arguments.only_show_steps:
+        pprint('----Pipeline has the following steps----')
+        pprint(main_steps[2:])
         return
 
     # ---------write pipeline cmds--------------------
-    with open('pipeline_cmds.ini', 'w') as configfile:
+    with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
         commands.write(configfile)
-    workflow = RunCommands('pipeline_cmds.ini')
+    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'), outdir=project_dir)
+    if arguments.only_write_pipeline:
+        return
     # ----------------run-----------------
     workflow.parallel_run()
-    # workflow.continue_run()
 
 
 if __name__ == '__main__':
-    pipeline(show_steps_only=True)
+    pipeline()
