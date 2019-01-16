@@ -290,7 +290,7 @@ class StateGraph2(object):
     def _add_nodes(self):
         for node, cmd_info in self.state.items():
             status = cmd_info['state']
-            node_detail = [node]
+            node_detail = node.split('_', 1)
             if status == 'success':
                 color = '#7FFF00'
             elif status == 'failed':
