@@ -735,7 +735,7 @@ def pipeline():
     commands = configparser.ConfigParser()
     commands.optionxform = str
     commands['mode'] = dict(
-        threads=3,
+        threads=arguments.threads,
         retry=arguments.retry,
         monitor_resource=not arguments.no_monitor_resource,
         monitor_time_step=arguments.monitor_time_step,
