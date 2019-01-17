@@ -207,15 +207,16 @@ def star_align_cmds(trimming_cmds, index_cmd, step_name='Align'):
     samples = set(trimming_cmds[x]['sample_name'] for x in trimming_cmds)
     for sample in samples:
         depend_steps = list() if not index_cmd else list(index_cmd.keys())
-        trimmed_fq_list = list()
+        trimmed_fq1_list = list()
+        trimmed_fq2_list = list()
         for step, cmd_info in trimming_cmds.items():
             if cmd_info['sample_name'] == sample:
                 depend_steps.append(step)
-                trimmed_fq_list.append(cmd_info['trimmed_fq1'])
+                trimmed_fq1_list.append(cmd_info['trimmed_fq1'])
                 if 'trimmed_fq2' in cmd_info:
-                    trimmed_fq_list.append(cmd_info['trimmed_fq2'])
+                    trimmed_fq2_list.append(cmd_info['trimmed_fq2'])
         args = dict(arg_pool['star_align'])
-        args['readFilesIn'] = ' '.join(trimmed_fq_list)
+        args['readFilesIn'] = ','.join(trimmed_fq1_list) + ' ' + ','.join(trimmed_fq2_list)
         result_dir = os.path.join(outdir, sample)
         mkdir(result_dir)
         prefix = os.path.join(result_dir, sample + '.')
@@ -240,12 +241,11 @@ def star_align_with_rawdata_cmds(fastq_info_dict, index_cmd, step_name='Align'):
         mode = 'PE' if len(fq_list) == 2 else "SE"
         result_dir = os.path.join(outdir, sample)
         mkdir(result_dir)
-        if mode == 'PE':
-            fq_list = [x for y in zip(fq_list[0], fq_list[1]) for x in y]
-        else:
-            fq_list = fq_list[0]
         args = dict(arg_pool['star_align'])
-        args['readFilesIn'] = ' '.join(fq_list)
+        if mode in 'PE':
+            args['readFilesIn'] = ','.join(fq_list[0]) + ' ' + ','.join(fq_list[1])
+        else:
+            args['readFilesIn'] = ','.join(fq_list[0])
         result_dir = os.path.join(outdir, sample)
         mkdir(result_dir)
         prefix = os.path.join(result_dir, sample + '_')
