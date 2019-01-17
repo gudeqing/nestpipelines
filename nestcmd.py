@@ -261,7 +261,7 @@ class StateGraph(object):
         for k, v in color_dict.items():
             tmp_dict.setdefault(v, list())
             tmp_dict[v].append(k)
-        plt.figure(figsize=(12,8))
+        plt.figure(figsize=(12, 8))
         for color, group in tmp_dict.items():
             if group[0] == 'Input':
                 state = 'success'
@@ -308,7 +308,7 @@ class StateGraph2(object):
                     try:
                         float(used_time)
                         node_detail.append(used_time+'s')
-                    except:
+                    except ValueError:
                         node_detail.append(used_time)
             elif float(used_time) <= 0:
                 pass
@@ -442,7 +442,7 @@ class RunCommands(CommandNetwork):
             tmp_dict = self.get_cmd_description_dict(name)
 
             try_times = 0
-            cmd = Command(**tmp_dict)
+            cmd = Command(**tmp_dict, outdir=self.outdir)
             while try_times <= int(tmp_dict['retry']):
                 try_times += 1
                 enough = True
@@ -473,7 +473,7 @@ class RunCommands(CommandNetwork):
     def continue_run(self):
         self.ever_queued = set()
         with open(os.path.join(self.outdir, 'cmd_state.txt'), 'r') as f:
-            header = f.readline()
+            _ = f.readline()
             for line in f:
                 line_lst = line.strip().split('\t')
                 fields = ['state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
@@ -492,6 +492,3 @@ if __name__ == '__main__':
     # workflow.single_run()
     # workflow.parallel_run()
     workflow.continue_run()
-
-
-
