@@ -192,14 +192,17 @@ def kegg_enrich(**kwargs):
     cmd = '{} '.format(kwargs['python'])
     cmd += '{} '.format(kwargs['script'])
     cmd += '-deg {} '.format(kwargs['deg'])
+    cmd += '-bgn {} '.format(kwargs['bgn'])
     cmd += '-g2k {} '.format(kwargs['g2k'])
     cmd += '-brite {} '.format(kwargs['brite'])
     cmd += '-g2p {} '.format(kwargs['g2p'])
-    cmd += '-k2p {} '.format(kwargs['k2p'])
+    # cmd += '-k2p {} '.format(kwargs['k2p'])
     cmd += '-k2e {} '.format(kwargs['k2e'])
     cmd += '-dn {} '.format(kwargs['dn'])
-    cmd += '--FDR {} '
+    cmd += '--FDR '
     cmd += '-o {} '.format(kwargs['outdir'])
+    if kwargs['only_consider_path_annotated_genes'] == 'yes':
+        cmd += '--only_consider_path_annotated_genes '
     return cmd
 
 
@@ -261,7 +264,8 @@ def rpkm_saturation(**kwargs):
     cmd += '-i {} '.format(kwargs['bam'])
     cmd += '-o {} '.format(kwargs['out_prefix'])
     cmd += '-r {} '.format(kwargs['bed'])
-    cmd += '-d {} '.format(kwargs['strand_rule'])
+    if kwargs['strand_rule'].lower() != 'none':
+        cmd += '-d {} '.format(kwargs['strand_rule'])
     cmd += '-c {} '.format(kwargs['rpkm_cutoff'])
     cmd += '-q {} '.format(kwargs['min_mapping_quality'])
     return cmd
@@ -271,6 +275,7 @@ def exp_analysis(**kwargs):
     cmd = '{} '.format(kwargs['perl'])
     cmd += "{} ".format(kwargs['trinity_ptr'])
     cmd += "--matrix {} ".format(kwargs['matrix'])
+    cmd += "--output {} ".format(kwargs['out_prefix'])
     cmd += " --min_gene_prevalence {} ".format(kwargs['min_gene_prevalence'])
     cmd += "--min_gene_expr_val {} ".format(kwargs['min_gene_expr_val'])
     cmd += "--sample_cor_matrix "
@@ -278,6 +283,5 @@ def exp_analysis(**kwargs):
     cmd += "--sample_cor_scale_limits 0.3,1 "
     cmd += "--boxplot_log2_dist {} ".format(kwargs['boxplot_log2_dist'])
     cmd += "--log2 "
-    cmd += "--prin_comp 3"
+    cmd += "--prin_comp 2"
     return cmd
-

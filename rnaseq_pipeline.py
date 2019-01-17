@@ -2,7 +2,6 @@
 import os
 import configparser
 import argparse
-from glob import glob
 from pprint import pprint
 
 from cmd_generator import *
@@ -55,6 +54,7 @@ if arguments.arg_cfg:
 project_dir = arguments.o
 if not os.path.exists(project_dir):
     os.mkdir(project_dir)
+project_dir = os.path.abspath(project_dir)
 fastq_info_file = arguments.fastq_info
 
 
@@ -272,7 +272,7 @@ def bam_index_cmds(align_cmds, step_name='IndexBam'):
             cmd=cmd, mem=1024 ** 3 * 2, cpu=2, monitor_time_step=5,
             depend=step,
             sample_name=sample,
-            sorted_bam = args['bam']
+            sorted_bam=args['bam']
         )
     return commands
 
@@ -519,22 +519,29 @@ def diff_exp_cmd(merge_cmd, step_name='Diff', level='gene'):
 
 def go_enrich_cmds(diffexp_cmd, step_name='GoEnrich', level='gene'):
     commands = dict()
-    out_dir = os.path.join(project_dir, step_name)
+    out_dir = os.path.join(project_dir, step_name+level.capitalize())
     mkdir(out_dir)
     depend = list(diffexp_cmd.keys())[0]
     depend_info = list(diffexp_cmd.values())[0]
-    diff_list_files = glob(depend_info['result_dir']+'/*_vs_*.list')
+    diff_list_files = list()
+    with open(arguments.compare) as f:
+        for line in f:
+            if line.startswith('#') or not line.strip():
+                continue
+            ctrl, test = line.strip().split()
+            diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.DE.list'.format(ctrl, test)))
     for each in diff_list_files:
         args = dict(arg_pool['goatools'])
         args['study'] = each
-        args['outfile'] = os.path.join(out_dir, os.path.basename(each)+'.goea.xls')
+        cmp_name = os.path.basename(each).split('.', 1)[0]
+        args['outfile'] = os.path.join(out_dir, str(cmp_name)+'.goea.xls')
         if level == 'gene':
-            cmd  = goatools(**args)
+            cmd = goatools(**args)
         else:
             args['population'] = args['trans_population']
             args['association'] = args['trans_association']
             cmd = goatools(**args)
-        commands[step_name+level.capitalize()+'_'+os.path.basename(each)[:-5]] = cmd_dict(
+        commands[step_name+level.capitalize()+'_'+str(cmp_name)] = cmd_dict(
             cmd=cmd,
             cpu=1,
             depend=depend,
@@ -545,22 +552,29 @@ def go_enrich_cmds(diffexp_cmd, step_name='GoEnrich', level='gene'):
 
 def kegg_enrich_cmds(diffexp_cmd, step_name='KeggEnrich', level='gene'):
     commands = dict()
-    out_dir = os.path.join(project_dir, step_name)
+    out_dir = os.path.join(project_dir, step_name+level.capitalize())
     mkdir(out_dir)
     depend = list(diffexp_cmd.keys())[0]
     depend_info = list(diffexp_cmd.values())[0]
-    diff_list_files = glob(depend_info['result_dir']+'/*_vs_*.list')
+    diff_list_files = list()
+    with open(arguments.compare) as f:
+        for line in f:
+            if line.startswith('#') or not line.strip():
+                continue
+            ctrl, test = line.strip().split()
+            diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.DE.list'.format(ctrl, test)))
     for each in diff_list_files:
         args = dict(arg_pool['kegg_enrich'])
         args['deg'] = each
         args['outdir'] = out_dir
         if level == 'gene':
-            cmd  = kegg_enrich(**args)
+            cmd = kegg_enrich(**args)
         else:
             args['g2k'] = args['t2k']
             args['g2p'] = args['t2p']
             cmd = kegg_enrich(**args)
-        commands[step_name+level.capitalize()+'_'+os.path.basename(each)[:-5]] = cmd_dict(
+        cmp_name = os.path.basename(each).split('.', 1)[0]
+        commands[step_name+level.capitalize()+'_'+str(cmp_name)] = cmd_dict(
             cmd=cmd,
             cpu=1,
             depend=depend,
@@ -578,12 +592,11 @@ def exp_analysis_cmd(merge_cmd, step_name='ExpAnalysis', level='gene'):
     depend = list(merge_cmd.keys())[0]
     depend_info = list(merge_cmd.values())[0]
     if level == 'gene':
-        matrix = os.path.join(out_dir, 'gene_tpm_matrix.xls')
-        os.link(depend_info['gene_tpm_matrix'], matrix)
+        args['out_prefix'] = os.path.join(out_dir, 'gene.tpm')
+        args['matrix'] = depend_info['gene_tpm_matrix']
     else:
-        matrix = os.path.join(out_dir, 'transcript_tpm_matrix.xls')
-        os.link(depend_info['transcript_tpm_matrix'], matrix)
-    args['matrix'] = matrix
+        args['out_prefix'] = os.path.join(out_dir, 'transcript.tpm')
+        args['matrix'] = depend_info['transcript_tpm_matrix']
     cmd = exp_analysis(**args)
     commands[step_name] = cmd_dict(
         cmd=cmd,
@@ -714,7 +727,7 @@ def run_existed_pipeline():
 
 def pipeline():
     """
-    为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，最后生成的步骤名不能有重复。
+    为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，且保证最后生成的步骤名不能有重复。
     """
     if arguments.pipeline_cfg or arguments.continue_run:
         run_existed_pipeline()
@@ -771,8 +784,12 @@ def pipeline():
     commands.update(quant_cmds)
     merge_gene_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, step_name="MergeQuant")
     commands.update(merge_gene_exp_cmd)
+    gene_exp_cluster_cmd = exp_analysis_cmd(merge_gene_exp_cmd, step_name='ExpAnalysis', level='gene')
+    commands.update(gene_exp_cluster_cmd)
     merge_trans_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, level='transcript', step_name='MergeQuant')
     commands.update(merge_trans_exp_cmd)
+    trans_exp_cluster_cmd = exp_analysis_cmd(merge_trans_exp_cmd, step_name='ExpAnalysis', level='transcript')
+    commands.update(trans_exp_cluster_cmd)
     if arguments.group and arguments.compare:
         diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene', step_name='Diff')
         commands.update(diff_gene_cmd)
