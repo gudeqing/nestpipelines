@@ -488,7 +488,7 @@ class RunCommands(CommandNetwork):
 
 
 if __name__ == '__main__':
-    workflow = RunCommands('cmds.ini')
+    workflow = RunCommands('sample.ini')
     # workflow.single_run()
     # workflow.parallel_run()
     workflow.continue_run()
