@@ -88,8 +88,9 @@ class Command(object):
         self.used_time = round(end_time - start_time, 4)
 
     def _write_log(self):
-        if not os.path.exists(os.path.join(self.outdir, 'logs')):
-            os.mkdir('logs')
+        log_dir = os.path.join(self.outdir, 'logs')
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
         prefix = os.path.join(self.outdir, 'logs', self.name+'.'+str(self.proc.pid))
         if self.stderr:
             with open(prefix+'.stderr.txt', 'wb') as f:
