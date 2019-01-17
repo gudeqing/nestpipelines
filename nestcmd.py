@@ -332,7 +332,7 @@ class RunCommands(CommandNetwork):
                 f.write(name+'\t'+content+'\n')
 
     def _draw_state(self):
-        StateGraph(self.state).draw(os.path.join(self.outdir, 'state.html'))
+        StateGraph(self.state).draw(os.path.join(self.outdir, 'state.svg'))
 
     def single_run(self):
         while True:
