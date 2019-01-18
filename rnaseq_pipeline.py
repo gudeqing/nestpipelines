@@ -248,7 +248,7 @@ def star_align_with_rawdata_cmds(fastq_info_dict, index_cmd, step_name='Align'):
             args['readFilesIn'] = ','.join(fq_list[0])
         result_dir = os.path.join(outdir, sample)
         mkdir(result_dir)
-        prefix = os.path.join(result_dir, sample + '_')
+        prefix = os.path.join(result_dir, sample + '.')
         args['outFileNamePrefix'] = prefix
         cmd = star_align(**args)
         commands[step_name + '_' + sample] = cmd_dict(
