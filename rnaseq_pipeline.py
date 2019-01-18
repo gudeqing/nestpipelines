@@ -739,7 +739,7 @@ def pipeline():
         retry=arguments.retry,
         monitor_resource=not arguments.no_monitor_resource,
         monitor_time_step=arguments.monitor_time_step,
-        check_resource_before_run=not arguments.check_resource_before_run,
+        check_resource_before_run=not arguments.no_check_resource_before_run,
     )
     fastq_info_dict = parse_fastq_info(fastq_info_file)
     commands.update(fastqc_raw_data_cmds(fastq_info_dict, step_name='RawDataQC'))
