@@ -36,6 +36,8 @@ parser.add_argument('-rerun_steps', default=list(), nargs='+',
                     help="续跑时，可以通过该参数指定重跑已经成功的步骤，空格分隔，这样做的可能原因：重新设置了参数")
 parser.add_argument('-pipeline_cfg', default=None,
                     help="已有的pipeline.ini，续跑时也需提供此参数。如提供，则此时无需arg_cfg,fastq_info,group,cmp,skip等参数")
+parser.add_argument('--list_cmd_names', default=False, action='store_true', help="仅输出参数文件里的包含的cmd名称")
+parser.add_argument('-show_cmd_example', help="提供一个cmd名称，输出该cmd的样例")
 parser.add_argument('--no_monitor_resource', default=False, action='store_true',
                     help='是否监控每一步运行时的资源消耗，如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
 parser.add_argument('--monitor_time_step', default=3, type=int,
@@ -44,15 +46,12 @@ parser.add_argument('--no_check_resource_before_run', default=False, action='sto
                     help="运行某步骤前检测指定的资源是否足够，如不足，则该步骤失败；如果设置该参数，则运行前不检查资源。"
                          "如需对某一步设置不同的值，可在流程中修改或运行前修改pipeline.ini"
                          "如需更改指定的资源，可在真正运行流程前修改pipeline.ini或者直接修改流程")
+
 arguments = parser.parse_args()
 skip_steps = arguments.skip
 arg_pool = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 arg_pool.optionxform = str
-if not arguments.continue_run or arguments.pipeline_cfg is None:
-    if not arguments.arg_cfg:
-        raise Exception('-arg_cfg is needed!')
-    if not arguments.fastq_info:
-        raise Exception('-fastq_info is needed!')
+
 if arguments.arg_cfg:
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 project_dir = arguments.o
@@ -729,14 +728,46 @@ def run_existed_pipeline(steps=''):
         workflow.parallel_run()
 
 
+def show_cmd_example(cmd_name):
+    """
+    :param cmd_name: cmd_generator中的函数名，也是arguments.ini中的section名
+    :return: None
+    """
+    if not arguments.arg_cfg:
+        raise Exception("please first input arg_cfg ")
+    if cmd_name not in arg_pool:
+        raise Exception('please provide valid cmd_name, refer --list_cmd_names')
+    exec("print({}(**arg_pool['{}']))".format(cmd_name, cmd_name))
+
+
+def list_cmd_names():
+    if not arguments.arg_cfg:
+        raise Exception("please first input arg_cfg ")
+    pprint(list(arg_pool.keys())[1:])
+
+
 def pipeline():
     """
     为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，且保证最后生成的步骤名不能有重复。
     """
+    if arguments.show_cmd_example:
+        show_cmd_example(arguments.show_cmd_example)
+        return
+    if arguments.list_cmd_names:
+        list_cmd_names()
+        return
+
     if arguments.pipeline_cfg or arguments.continue_run:
         print(arguments.rerun_steps)
         run_existed_pipeline(steps=arguments.rerun_steps)
         return
+
+    if not arguments.continue_run or arguments.pipeline_cfg is None:
+        if not arguments.arg_cfg:
+            raise Exception('-arg_cfg is needed!')
+        if not arguments.fastq_info:
+            raise Exception('-fastq_info is needed!')
+
     commands = configparser.ConfigParser()
     commands.optionxform = str
     commands['mode'] = dict(

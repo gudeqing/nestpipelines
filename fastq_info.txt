@@ -1,2 +1,0 @@
-sampleA /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.left.fq.gz /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.right.fq.gz
-sampleB /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.left.fq.gz /data/users/dqgu/PycharmProjects/nestcmd/testdata/reads2.right.fq.gz
