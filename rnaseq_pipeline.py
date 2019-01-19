@@ -20,7 +20,9 @@ parser.add_argument('-skip', default=list(), nargs='+',
                     help='指定要跳过的步骤名，空格分隔，程序会自动跳过依赖他们的步骤，--only_show_steps可查看步骤名;'
                          '注意：如果跳过trim步骤，则用原始数据；如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
 parser.add_argument('--only_show_steps', default=False, action="store_true",
-                    help="仅仅显示当前流程包含的步骤, 且已经排除指定跳过的步骤")
+                    help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤")
+parser.add_argument('--only_show_detail_steps', default=False, action="store_true",
+                    help="仅仅显示当前流程包含的详细步骤, 且已经排除指定跳过的步骤")
 parser.add_argument('--only_write_pipeline', default=False, action='store_true',
                     help="仅仅生成流程pipeline.ini")
 parser.add_argument('-threads', default=5, type=int, help="允许并行的步骤数")
@@ -30,6 +32,8 @@ parser.add_argument('-retry', default=1, type=int,
 parser.add_argument('--continue_run', default=False, action='store_true',
                     help='流程中断后,从失败的步骤续跑, 记得要用-o指定之前的结果目录，'
                          '如果想重新跑已经成功的某一步，在状态表cmd_stat.txt中手动将其修改为failed即可')
+parser.add_argument('-rerun_steps', default=list(), nargs='+',
+                    help="续跑时，可以通过该参数指定重跑已经成功的步骤，空格分隔，这样做的可能原因：重新设置了参数")
 parser.add_argument('-pipeline_cfg', default=None,
                     help="已有的pipeline.ini，续跑时也需提供此参数。如提供，则此时无需arg_cfg,fastq_info,group,cmp,skip等参数")
 parser.add_argument('--no_monitor_resource', default=False, action='store_true',
@@ -715,12 +719,12 @@ def rpkm_saturation_cmds(index_bam_cmds, step_name='RPKMSaturation'):
     return commands
 
 
-def run_existed_pipeline():
+def run_existed_pipeline(steps=''):
     if arguments.pipeline_cfg is None or not os.path.exists(arguments.pipeline_cfg):
         raise Exception('Please provide valid pipeline.ini file')
     workflow = RunCommands(arguments.pipeline_cfg, outdir=project_dir)
     if arguments.continue_run:
-        workflow.continue_run()
+        workflow.continue_run(steps=steps)
     else:
         workflow.parallel_run()
 
@@ -730,7 +734,8 @@ def pipeline():
     为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，且保证最后生成的步骤名不能有重复。
     """
     if arguments.pipeline_cfg or arguments.continue_run:
-        run_existed_pipeline()
+        print(arguments.rerun_steps)
+        run_existed_pipeline(steps=arguments.rerun_steps)
         return
     commands = configparser.ConfigParser()
     commands.optionxform = str
@@ -809,12 +814,12 @@ def pipeline():
         with open(os.path.join(project_dir, 'pipeline_raw.ini'), 'w') as configfile:
             commands.write(configfile)
         workflow = RunCommands(os.path.join(project_dir, 'pipeline_raw.ini'), outdir=project_dir)
-        main_steps = set([x.split('_', 1)[0] for x in commands.keys()])
         for each in skip_steps:
-            if each not in main_steps:
-                exit('Step {} was Not found, please refer --only_show_steps'.format(each))
             skips = [x for x in commands if x == each or x.startswith(each+'_')]
-            _ = [commands.pop(x) for x in skips]
+            if not skips:
+                exit('Step {} was Not found, please refer --only_show_steps or --only_show_detail_steps'.format(each))
+            else:
+                _ = [commands.pop(x) for x in skips]
         # skip the step whose dependencies are not all included in the commands
         total_deduced_skips = list()
         while True:
@@ -832,12 +837,17 @@ def pipeline():
             print("Warning: the following steps are also skipped for depending relationship")
             print(set(x.split('_', 1)[0] for x in total_deduced_skips))
 
+    # ----only show steps----
     tmp_list = [x.split('_', 1)[0] for x in commands.keys()]
     main_steps = list()
     _ = [main_steps.append(x) for x in tmp_list if x not in main_steps]
     if arguments.only_show_steps:
-        pprint('----Pipeline has the following steps----')
+        pprint('----Pipeline has the following main steps----')
         pprint(main_steps[2:])
+        return
+    elif arguments.only_show_detail_steps:
+        pprint('----Pipeline has the following steps----')
+        pprint(list(commands.keys())[2:])
         return
 
     # ---------write pipeline cmds--------------------

@@ -378,7 +378,12 @@ class RunCommands(CommandNetwork):
             thread.start()
         _ = [x.join() for x in threads]
 
-    def continue_run(self):
+    def continue_run(self, steps=''):
+        detail_steps = []
+        if steps:
+            for each in steps:
+                detail_steps += [x for x in self.names() if x == each or x.startswith(each + '_')]
+
         self.ever_queued = set()
         with open(os.path.join(self.outdir, 'cmd_state.txt'), 'r') as f:
             _ = f.readline()
@@ -386,6 +391,8 @@ class RunCommands(CommandNetwork):
                 line_lst = line.strip().split('\t')
                 fields = ['state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
                 if line_lst[1] == 'success':
+                    if line_lst[0] in detail_steps:
+                        continue
                     self.ever_queued.add(line_lst[0])
                     self.state[line_lst[0]] = dict(zip(fields, line_lst[1:]))
         failed = set(self.names()) - self.ever_queued
