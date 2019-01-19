@@ -765,6 +765,8 @@ def pipeline():
     if not arguments.continue_run or arguments.pipeline_cfg is None:
         if not arguments.arg_cfg:
             raise Exception('-arg_cfg is needed!')
+        if not os.path.exists(arguments.arg_cfg):
+            raise Exception('arg_cfg file not exist')
         if not arguments.fastq_info:
             raise Exception('-fastq_info is needed!')
 
