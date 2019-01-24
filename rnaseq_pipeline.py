@@ -42,6 +42,8 @@ parser.add_argument('--no_monitor_resource', default=False, action='store_true',
                     help='是否监控每一步运行时的资源消耗，如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
 parser.add_argument('--monitor_time_step', default=3, type=int,
                     help='监控资源时的时间间隔，默认3秒， 如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+parser.add_argument('-wait_resource_time', default=10, type=int,
+                    help="等待资源的时间上限, 超过这个上限，资源不足时判定任务失败")
 parser.add_argument('--no_check_resource_before_run', default=False, action='store_true',
                     help="运行某步骤前检测指定的资源是否足够，如不足，则该步骤失败；如果设置该参数，则运行前不检查资源。"
                          "如需对某一步设置不同的值，可在流程中修改或运行前修改pipeline.ini"
@@ -886,7 +888,7 @@ def pipeline():
     # ---------write pipeline cmds--------------------
     with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
         commands.write(configfile)
-    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'), outdir=project_dir)
+    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'), outdir=project_dir, timeout=arguments.wait_resource_time)
     if arguments.only_write_pipeline:
         return
     # ----------------run-----------------

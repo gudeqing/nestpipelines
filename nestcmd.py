@@ -260,12 +260,13 @@ class StateGraph(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config, outdir=os.getcwd()):
+    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
+        self.timeout = timeout
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -355,7 +356,9 @@ class RunCommands(CommandNetwork):
                 try_times += 1
                 enough = True
                 if tmp_dict['check_resource_before_run']:
-                    if not CheckResource().is_enough(tmp_dict['cpu'], tmp_dict['mem']):
+                    if not CheckResource().is_enough(tmp_dict['cpu'],
+                                                     tmp_dict['mem'],
+                                                     timeout=self.timeout):
                         enough = False
                 if enough:
                     if try_times > 1:
@@ -403,7 +406,7 @@ class RunCommands(CommandNetwork):
 
 
 if __name__ == '__main__':
-    workflow = RunCommands('sample.ini')
+    workflow = RunCommands('sample.ini', timeout=10)
     # workflow.single_run()
     # workflow.parallel_run()
     workflow.continue_run()
