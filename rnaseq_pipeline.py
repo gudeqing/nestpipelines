@@ -760,7 +760,7 @@ def pipeline():
         return
 
     if arguments.pipeline_cfg or arguments.continue_run:
-        print(arguments.rerun_steps)
+        # print(arguments.rerun_steps)
         run_existed_pipeline(steps=arguments.rerun_steps)
         return
 
