@@ -1,76 +1,110 @@
-import plotly.plotly as py
-import plotly.graph_objs as go
-import pandas as pd
-import scipy as scp
-import numpy as np
-from scipy.cluster import hierarchy as sch
-from scipy.cluster.hierarchy import dendrogram
-import fastcluster as hclust
 import os
+import plotly.graph_objs as go
+from plotly.offline import plot as plt
+import pandas as pd
+import numpy as np
+import scipy as scp
+from scipy.cluster import hierarchy as sch
+import fastcluster as hclust
+import colorlover
 
 
 class ClusterHeatMap():
-    def __init__(self, data_file, method='average', metric="correlation", outdir=None):
+    def __init__(self, data_file, method='average', metric="correlation",
+                 out_name='clusterHeatMap.html'):
         self.data_file = data_file
-        self.layout = self.layout()
         self.method = method
         self.metric = metric
-        self.outdir = os.getcwd() if not outdir else outdir
+        self.out_name = out_name
+        outdir = os.path.dirname(out_name)
+        self.outdir = outdir if outdir else os.getcwd()
         if not os.path.exists(self.outdir):
             os.mkdir(self.outdir)
+        self.data = self.process_data()
+        self.ordered_genes = None
+        self.ordered_samples = None
+        self.layout = self.all_layout()
+
+
+    def process_data(self):
+        from sklearn import decomposition, preprocessing
+        exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
+        exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
+        if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <=1:
+            raise Exception("Data is not enough for analysis !")
+        exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1)>0.5]
+        exp_pd = np.log(exp_pd+1)
+        exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
+        exp_pd = exp_pd.iloc[:300, :]
+        return exp_pd
 
     def heatmap_xaxis(self):
         return {
-            'domain': [.15, 1],
+            'domain': [.151, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
             'zeroline': False,
-            'ticks':""
+            'ticks':"",
+            'anchor': 'y',
+            'autorange': True,
+            'constrain': 'domain'
+
         }
 
     def heatmap_yaxis(self):
         return {
-            'domain': [0, .85],
+            'domain': [0, 0.85],
             'mirror': False,
             'showgrid': False,
             'showline': False,
             'zeroline': False,
             'showticklabels': False,
-            'ticks': ""
+            'ticks': "",
+            'anchor': 'x',
+            'autorange': True,
+            'constrain': 'domain',
+            'scaleanchor': "y2",
         }
 
-    def right_dendrogam_xaxis(self):
+    def left_dendrogam_xaxis(self):
         return {
-            'domain': [0, .15],
+            'domain': [0, 0.15],
             'mirror': False,
             'showgrid': False,
             'showline': False,
             'zeroline': False,
             'showticklabels': False,
-            'ticks':""
+            'ticks': "",
+            'anchor': 'y2',
         }
 
-    def right_dendrogam_yaxis(self):
+    def left_dendrogam_yaxis(self):
         return {
-            'domain': [0, .85],
+            'domain': [0, 0.85],
             'mirror': False,
             'showgrid': False,
             'showline': False,
             'zeroline': False,
             'showticklabels': False,
-            'ticks': ""
+            'ticks': "",
+            'scaleanchor': "y",
+            'anchor': 'x2',
+            'constrain': 'domain',
+            'range': (-self.data.shape[0]*10, 1)
         }
 
     def top_dendrogram_xaxis(self):
         return {
-            'domain': [0.15, 1],
+            'domain': [0.15+0.85/2/self.data.shape[1], 1-0.85/2/self.data.shape[1]],
             'mirror': False,
             'showgrid': False,
             'showline': False,
             'zeroline': False,
             'showticklabels': False,
-            'ticks': ""
+            'ticks': "",
+            'anchor': 'y3',
+            'scaleanchor': 'x'
         }
 
     def top_dendrogram_yaxis(self):
@@ -81,10 +115,11 @@ class ClusterHeatMap():
             'showline': False,
             'zeroline': False,
             'showticklabels': False,
-            'ticks': ""
+            'ticks': "",
+            'anchor': 'x3'
         }
 
-    def layout(self):
+    def all_layout(self):
         return go.Layout(
             width=800,
             height=800,
@@ -92,21 +127,29 @@ class ClusterHeatMap():
             hovermode='closest',
             xaxis=self.heatmap_xaxis(),
             yaxis=self.heatmap_yaxis(),
-            xaxis2=self.right_dendrogam_xaxis(),
-            yaxis2=self.right_dendrogam_yaxis(),
+            xaxis2=self.left_dendrogam_xaxis(),
+            yaxis2=self.left_dendrogam_yaxis(),
             xaxis3=self.top_dendrogram_xaxis(),
             yaxis3=self.top_dendrogram_yaxis(),
         )
 
-    def heatmap_traces(self):
+    def heatmap_trace(self):
+        if not self.ordered_samples:
+            self.ordered_samples = range(self.data.shape[1])
+        if not self.ordered_genes:
+            self.ordered_genes = range(self.data.shape[0])
         heat_data = self.data.iloc[self.ordered_genes, self.ordered_samples]
-        heatmap = go.Heatmap(
-            x=heat_data.index,
-            y=heat_data.columns,
-            z=heat_data,
-            colorscale='YIGnBu',
+        heat_map = go.Heatmap(
+            x=heat_data.columns,
+            y=heat_data.index,
+            z=heat_data.values.tolist(),
+            colorscale='YlGnBu',
+            showlegend=False,
+            xaxis='x',
+            yaxis='y',
+            name=''
         )
-        return [heatmap]
+        return [heat_map]
 
     def top_dendrogram_traces(self):
         exp_pd = self.data.transpose()
@@ -119,21 +162,24 @@ class ClusterHeatMap():
             output=self.outdir,
             prefix='sample.'
         )
+        self.set_link_color_palette()
         results = sch.dendrogram(
             z,
             orientation="top",
             no_plot=True,
+            distance_sort=True,
+            above_threshold_color='black'
         )
         self.ordered_samples = list(map(int, results['ivl']))
         icoord = scp.array(results['icoord'])
         dcoord = scp.array(results['dcoord'])
         color_list = scp.array(results['color_list'])
+        # print(results['color_list'])
         trace_list = []
         for i in range(len(icoord)):
             # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
             hovertext_label = None
             trace = go.Scatter(
-                type='scatter',
                 x=icoord[i],
                 y=dcoord[i],
                 mode='lines',
@@ -146,7 +192,7 @@ class ClusterHeatMap():
             trace_list.append(trace)
         return trace_list
 
-    def right_dendrogram_traces(self):
+    def left_dendrogram_traces(self):
         exp_pd = self.data
         z, subcluster = self.hcluster(
             exp_pd,
@@ -155,38 +201,37 @@ class ClusterHeatMap():
             transpose=False,
             n_clusters=2,
             output=self.outdir,
-            prefix='gene.'
+            prefix='gene.',
         )
+        self.set_link_color_palette()
         results = sch.dendrogram(
             z,
-            orientation="right",
+            orientation="left",
             no_plot=True,
+            distance_sort=True,
+            above_threshold_color='black'
         )
         self.ordered_genes = list(map(int, results['ivl']))
-        icoord = scp.array(results['icoord'])
-        dcoord = scp.array(results['dcoord'])
+        icoord = scp.array(results['dcoord'])*(-1)
+        dcoord = scp.array(results['icoord'])*(-1)
         color_list = scp.array(results['color_list'])
         trace_list = []
+        # print(min(dcoord.flatten()))
         for i in range(len(icoord)):
             # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
             hovertext_label = None
             trace = go.Scatter(
-                type='scatter',
                 x=icoord[i],
                 y=dcoord[i],
                 mode='lines',
                 marker=dict(color=color_list[i]),
                 text=hovertext_label,
                 hoverinfo='text',
-                xaxis="x3",
-                yaxis="y3"
+                xaxis="x2",
+                yaxis="y2"
             )
             trace_list.append(trace)
         return trace_list
-
-    def read_data(self):
-        exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
-        self.data = exp_pd[exp_pd.sum(axis=1) > 0]
 
     def hcluster(self, exp_pd, transpose=False, n_clusters=10, method='average',
                  metric='correlation', output=None, prefix=''):
@@ -258,7 +303,7 @@ class ClusterHeatMap():
         return z, subcluster
 
     @staticmethod
-    def get_subcluster(zclust, labels, num=2):
+    def get_subcluster(z, labels, num=2):
         """
         get leave ids for each sub cluster
         :param zclust hclust.linkage result
@@ -266,7 +311,7 @@ class ClusterHeatMap():
         :param labels: leaf label from DataFrame.columns
         :return: dict with list of samples as element.
         """
-        cluster = sch.cut_tree(zclust, num)
+        cluster = sch.cut_tree(z, num)
         tmp_pd = pd.DataFrame(cluster)
         tmp_pd['label'] = labels
         result = tmp_pd.groupby(0).groups
@@ -274,6 +319,26 @@ class ClusterHeatMap():
         for k in result:
             subcluster[k] = list(labels[result[k]])
         return subcluster
+
+    @staticmethod
+    def set_link_color_palette():
+        colors = colorlover.scales['12']['qual']['Paired']
+        sch.set_link_color_palette(colors)
+
+    def draw(self):
+        traces = list()
+        traces += self.top_dendrogram_traces()
+        traces += self.left_dendrogram_traces()
+        traces += self.heatmap_trace()
+        fig = go.Figure(data=traces, layout=self.layout)
+        plt(fig, filename=self.out_name, auto_open=False)
+
+
+if __name__ == '__main__':
+    import sys
+    p = ClusterHeatMap(sys.argv[1])
+    p.draw()
+
 
 
 
