@@ -10,13 +10,11 @@ import colorlover
 
 
 class ClusterHeatMap():
-    def __init__(self, data_file, method='average', metric="correlation",
+    def __init__(self, data_file=None, method='average', metric="correlation",
                  out_name='clusterHeatMap.html',
                  cluster_gene=True, cluster_sample=True,
                  only_sample_dendrogram=False,
-                 only_gene_dendrogram=False,
-                 ):
-        self.data_file = data_file
+                 only_gene_dendrogram=False,):
         self.method = method
         self.metric = metric
         self.out_name = out_name
@@ -24,7 +22,11 @@ class ClusterHeatMap():
         self.outdir = outdir if outdir else os.getcwd()
         if not os.path.exists(self.outdir):
             os.mkdir(self.outdir)
-        self.data = self.process_data()
+        if data_file:
+            self.data_file = data_file
+            self.data = self.process_data()
+        else:
+            self.data = pd.DataFrame(np.random.random((100, 8)), columns=list('abcdefgh'))
         self.ordered_genes = None
         self.ordered_samples = None
         self.cluster_gene = cluster_gene
@@ -49,15 +51,15 @@ class ClusterHeatMap():
         self.layout = self.all_layout()
 
     def process_data(self):
-        from sklearn import decomposition, preprocessing
+        from sklearn import preprocessing
         exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
         exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <=1:
             raise Exception("Data is not enough for analysis !")
         exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1)>0.5]
         exp_pd = np.log(exp_pd+1)
-        exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
-        exp_pd = exp_pd.iloc[:300, :]
+        # exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
+        # exp_pd = exp_pd.iloc[:300, :]
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -71,7 +73,6 @@ class ClusterHeatMap():
             'anchor': 'y',
             'autorange': True,
             'constrain': 'domain'
-
         }
 
     def heatmap_yaxis(self):
@@ -110,6 +111,7 @@ class ClusterHeatMap():
             'zeroline': False,
             'showticklabels': False,
             'ticks': "",
+            'tickfont': dict(size=6),
             'scaleanchor': "y",
             'anchor': 'x2',
             'constrain': 'domain',
@@ -147,8 +149,9 @@ class ClusterHeatMap():
     def all_layout(self):
         if self.only_sample_dendrogram:
             return go.Layout(
-                width=800,
-                height=800,
+                # width=800,
+                # height=800,
+                autosize=True,
                 showlegend=False,
                 hovermode='closest',
                 xaxis3=self.top_dendrogram_xaxis(),
@@ -287,7 +290,7 @@ class ClusterHeatMap():
             self.layout['yaxis2']['showticklabels'] = True
             tick_values = list(range(5, (exp_pd.shape[0]+1)*10, 10))
             self.layout['yaxis2']['tickvals'] = [-1*x for x in tick_values]
-            self.layout['yaxis2']['position'] = 0
+            self.layout['yaxis2']['side'] = 'right'
             self.layout['yaxis2']['ticktext'] = exp_pd.iloc[self.ordered_genes].index
 
         return trace_list
@@ -412,7 +415,7 @@ class ClusterHeatMap():
 
 if __name__ == '__main__':
     import sys
-    p = ClusterHeatMap(sys.argv[1], cluster_sample=True, cluster_gene=True, only_gene_dendrogram=True)
+    p = ClusterHeatMap(data_file=None, cluster_sample=True, cluster_gene=True, only_gene_dendrogram=False)
     p.draw()
 
 
