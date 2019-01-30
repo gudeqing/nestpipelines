@@ -11,7 +11,9 @@ import colorlover
 
 class ClusterHeatMap():
     def __init__(self, data_file, method='average', metric="correlation",
-                 out_name='clusterHeatMap.html'):
+                 out_name='clusterHeatMap.html',
+                 cluster_gene=True, cluster_sample=True,
+                 ):
         self.data_file = data_file
         self.method = method
         self.metric = metric
@@ -23,8 +25,17 @@ class ClusterHeatMap():
         self.data = self.process_data()
         self.ordered_genes = None
         self.ordered_samples = None
+        self.cluster_gene = cluster_gene
+        self.cluster_sample = cluster_sample
+        if cluster_gene:
+            self.left_dendrogram_x_width = 0.15
+        else:
+            self.left_dendrogram_x_width = 0
+        if cluster_sample:
+            self.top_dendrogram_y_height = 0.15
+        else:
+            self.top_dendrogram_y_height = 0
         self.layout = self.all_layout()
-
 
     def process_data(self):
         from sklearn import decomposition, preprocessing
@@ -40,7 +51,7 @@ class ClusterHeatMap():
 
     def heatmap_xaxis(self):
         return {
-            'domain': [.151, 1],
+            'domain': [self.left_dendrogram_x_width+0.01, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -54,7 +65,7 @@ class ClusterHeatMap():
 
     def heatmap_yaxis(self):
         return {
-            'domain': [0, 0.85],
+            'domain': [0, 1 - self.top_dendrogram_y_height],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -69,7 +80,7 @@ class ClusterHeatMap():
 
     def left_dendrogam_xaxis(self):
         return {
-            'domain': [0, 0.15],
+            'domain': [0, self.left_dendrogram_x_width],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -81,7 +92,7 @@ class ClusterHeatMap():
 
     def left_dendrogam_yaxis(self):
         return {
-            'domain': [0, 0.85],
+            'domain': [0, 1 - self.top_dendrogram_y_height],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -96,7 +107,10 @@ class ClusterHeatMap():
 
     def top_dendrogram_xaxis(self):
         return {
-            'domain': [0.15+0.85/2/self.data.shape[1], 1-0.85/2/self.data.shape[1]],
+            'domain': [
+                self.left_dendrogram_x_width+0.85/2/self.data.shape[1],
+                1-(1-self.top_dendrogram_y_height)/2/self.data.shape[1]
+            ],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -109,7 +123,7 @@ class ClusterHeatMap():
 
     def top_dendrogram_yaxis(self):
         return {
-            'domain': [.85, 1],
+            'domain': [1-self.top_dendrogram_y_height, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -327,8 +341,10 @@ class ClusterHeatMap():
 
     def draw(self):
         traces = list()
-        traces += self.top_dendrogram_traces()
-        traces += self.left_dendrogram_traces()
+        if self.cluster_sample:
+            traces += self.top_dendrogram_traces()
+        if self.cluster_gene:
+            traces += self.left_dendrogram_traces()
         traces += self.heatmap_trace()
         fig = go.Figure(data=traces, layout=self.layout)
         plt(fig, filename=self.out_name, auto_open=False)
@@ -336,7 +352,7 @@ class ClusterHeatMap():
 
 if __name__ == '__main__':
     import sys
-    p = ClusterHeatMap(sys.argv[1])
+    p = ClusterHeatMap(sys.argv[1], cluster_sample=True, cluster_gene=True)
     p.draw()
 
 
