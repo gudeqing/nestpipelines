@@ -13,6 +13,8 @@ class ClusterHeatMap():
     def __init__(self, data_file, method='average', metric="correlation",
                  out_name='clusterHeatMap.html',
                  cluster_gene=True, cluster_sample=True,
+                 only_sample_dendrogram=False,
+                 only_gene_dendrogram=False,
                  ):
         self.data_file = data_file
         self.method = method
@@ -27,6 +29,8 @@ class ClusterHeatMap():
         self.ordered_samples = None
         self.cluster_gene = cluster_gene
         self.cluster_sample = cluster_sample
+        self.only_sample_dendrogram = only_sample_dendrogram
+        self.only_gene_dendrogram = only_gene_dendrogram
         if cluster_gene:
             self.left_dendrogram_x_width = 0.15
         else:
@@ -35,6 +39,13 @@ class ClusterHeatMap():
             self.top_dendrogram_y_height = 0.15
         else:
             self.top_dendrogram_y_height = 0
+        if self.only_sample_dendrogram:
+            self.left_dendrogram_x_width = 0
+            self.top_dendrogram_y_height = 1
+        if self.only_gene_dendrogram:
+            self.left_dendrogram_x_width = 1
+            self.top_dendrogram_y_height = 0
+
         self.layout = self.all_layout()
 
     def process_data(self):
@@ -134,6 +145,26 @@ class ClusterHeatMap():
         }
 
     def all_layout(self):
+        if self.only_sample_dendrogram:
+            return go.Layout(
+                width=800,
+                height=800,
+                showlegend=False,
+                hovermode='closest',
+                xaxis3=self.top_dendrogram_xaxis(),
+                yaxis3=self.top_dendrogram_yaxis(),
+            )
+
+        if self.only_gene_dendrogram:
+            return go.Layout(
+                width=800,
+                height=800,
+                showlegend=False,
+                hovermode='closest',
+                xaxis2=self.left_dendrogam_xaxis(),
+                yaxis2=self.left_dendrogam_yaxis(),
+            )
+
         return go.Layout(
             width=800,
             height=800,
@@ -188,7 +219,6 @@ class ClusterHeatMap():
         icoord = scp.array(results['icoord'])
         dcoord = scp.array(results['dcoord'])
         color_list = scp.array(results['color_list'])
-        # print(results['color_list'])
         trace_list = []
         for i in range(len(icoord)):
             # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
@@ -204,6 +234,13 @@ class ClusterHeatMap():
                 yaxis="y3"
             )
             trace_list.append(trace)
+        #
+        if self.only_sample_dendrogram:
+            self.layout['xaxis3']['showticklabels'] = True
+            tick_values = list(range(5, (exp_pd.shape[0]+1)*10, 10))
+            self.layout['xaxis3']['tickvals'] = tick_values
+            self.layout['xaxis3']['ticktext'] = exp_pd.iloc[self.ordered_samples].index
+
         return trace_list
 
     def left_dendrogram_traces(self):
@@ -245,6 +282,14 @@ class ClusterHeatMap():
                 yaxis="y2"
             )
             trace_list.append(trace)
+
+        if self.only_gene_dendrogram:
+            self.layout['yaxis2']['showticklabels'] = True
+            tick_values = list(range(5, (exp_pd.shape[0]+1)*10, 10))
+            self.layout['yaxis2']['tickvals'] = [-1*x for x in tick_values]
+            self.layout['yaxis2']['position'] = 0
+            self.layout['yaxis2']['ticktext'] = exp_pd.iloc[self.ordered_genes].index
+
         return trace_list
 
     def hcluster(self, exp_pd, transpose=False, n_clusters=10, method='average',
@@ -341,18 +386,33 @@ class ClusterHeatMap():
 
     def draw(self):
         traces = list()
+        if self.only_sample_dendrogram:
+            traces += self.top_dendrogram_traces()
+            fig = go.Figure(data=traces, layout=self.layout)
+            plt(fig, filename=self.out_name, auto_open=False)
+            return
+
+        if self.only_gene_dendrogram:
+            traces += self.left_dendrogram_traces()
+            fig = go.Figure(data=traces, layout=self.layout)
+            plt(fig, filename=self.out_name, auto_open=False)
+            return
+
         if self.cluster_sample:
             traces += self.top_dendrogram_traces()
+
         if self.cluster_gene:
             traces += self.left_dendrogram_traces()
+
         traces += self.heatmap_trace()
+
         fig = go.Figure(data=traces, layout=self.layout)
         plt(fig, filename=self.out_name, auto_open=False)
 
 
 if __name__ == '__main__':
     import sys
-    p = ClusterHeatMap(sys.argv[1], cluster_sample=True, cluster_gene=True)
+    p = ClusterHeatMap(sys.argv[1], cluster_sample=True, cluster_gene=True, only_gene_dendrogram=True)
     p.draw()
 
 
