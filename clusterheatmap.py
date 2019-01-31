@@ -4,35 +4,52 @@ from plotly.offline import plot as plt
 import pandas as pd
 import numpy as np
 import scipy as scp
+from scipy.spatial.distance import squareform
 from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 
 
 class ClusterHeatMap():
-    def __init__(self, data_file=None, method='average', metric="correlation",
-                 out_name='clusterHeatMap.html',
-                 cluster_gene=True, cluster_sample=True,
+    def __init__(self, data_file=None, out_name='clusterHeatMap.html',
+                 sample_cluster_method='single', sample_distance_metric="correlation",
+                 gene_cluster_method='average', gene_distance_metric="euclidean",
+                 cluster_gene=True, cluster_sample=True, label_gene=False,
                  only_sample_dendrogram=False,
-                 only_gene_dendrogram=False,):
-        self.method = method
-        self.metric = metric
-        self.out_name = out_name
-        outdir = os.path.dirname(out_name)
-        self.outdir = outdir if outdir else os.getcwd()
-        if not os.path.exists(self.outdir):
-            os.mkdir(self.outdir)
-        if data_file:
-            self.data_file = data_file
-            self.data = self.process_data()
-        else:
-            self.data = pd.DataFrame(np.random.random((100, 8)), columns=list('abcdefgh'))
+                 only_gene_dendrogram=False,
+                 do_correlation_cluster=False, corr_method='pearson',
+                 sample_cluster_num=2, gene_cluster_num=10):
+
+        self.scm = sample_cluster_method
+        self.sdm = sample_distance_metric
+        self.gcm = gene_cluster_method
+        self.gdm = gene_distance_metric
+        self.scn = sample_cluster_num
+        self.gcn = gene_cluster_num
+        self.do_correlation_cluster = do_correlation_cluster
         self.ordered_genes = None
         self.ordered_samples = None
         self.cluster_gene = cluster_gene
         self.cluster_sample = cluster_sample
         self.only_sample_dendrogram = only_sample_dendrogram
         self.only_gene_dendrogram = only_gene_dendrogram
+        self.label_gene = label_gene
+
+        self.out_name = out_name
+        outdir = os.path.dirname(out_name)
+        self.outdir = outdir if outdir else os.getcwd()
+        if not os.path.exists(self.outdir):
+            os.mkdir(self.outdir)
+
+        if data_file:
+            self.data_file = data_file
+            self.data = self.process_data()
+        else:
+            self.data = pd.DataFrame(np.random.random((100, 8)), columns=list('abcdefgh'))
+
+        if do_correlation_cluster:
+            self.data = self.data.corr(method=corr_method)
+
         if cluster_gene:
             self.left_dendrogram_x_width = 0.15
         else:
@@ -59,7 +76,7 @@ class ClusterHeatMap():
         exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1)>0.5]
         exp_pd = np.log(exp_pd+1)
         # exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
-        # exp_pd = exp_pd.iloc[:300, :]
+        exp_pd = exp_pd.iloc[:300, :]
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -82,10 +99,12 @@ class ClusterHeatMap():
             'showgrid': False,
             'showline': False,
             'zeroline': False,
-            'showticklabels': False,
+            'showticklabels': self.label_gene,
+            'side': 'right',
+            'tickfont': dict(size=6),
+            'dtick': 1,
             'ticks': "",
             'anchor': 'x',
-            'autorange': True,
             'constrain': 'domain',
             'scaleanchor': "y2",
         }
@@ -187,10 +206,11 @@ class ClusterHeatMap():
         if not self.ordered_genes:
             self.ordered_genes = range(self.data.shape[0])
         heat_data = self.data.iloc[self.ordered_genes, self.ordered_samples]
+        print('heat data:', heat_data.values.shape)
         heat_map = go.Heatmap(
-            x=heat_data.columns,
-            y=heat_data.index,
-            z=heat_data.values.tolist(),
+            x=list(heat_data.columns),
+            y=list(heat_data.index),
+            z=heat_data.values,
             colorscale='YlGnBu',
             showlegend=False,
             xaxis='x',
@@ -203,10 +223,10 @@ class ClusterHeatMap():
         exp_pd = self.data.transpose()
         z, subcluster = self.hcluster(
             exp_pd,
-            method=self.method,
-            metric=self.metric,
+            method=self.scm,
+            metric=self.sdm,
             transpose=False,
-            n_clusters=2,
+            n_clusters=self.scn,
             output=self.outdir,
             prefix='sample.'
         )
@@ -250,10 +270,10 @@ class ClusterHeatMap():
         exp_pd = self.data
         z, subcluster = self.hcluster(
             exp_pd,
-            method=self.method,
-            metric=self.metric,
+            method=self.gcm,
+            metric=self.gdm,
             transpose=False,
-            n_clusters=2,
+            n_clusters=self.gcn,
             output=self.outdir,
             prefix='gene.',
         )
@@ -270,7 +290,6 @@ class ClusterHeatMap():
         dcoord = scp.array(results['icoord'])*(-1)
         color_list = scp.array(results['color_list'])
         trace_list = []
-        # print(min(dcoord.flatten()))
         for i in range(len(icoord)):
             # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
             hovertext_label = None
@@ -324,27 +343,31 @@ class ClusterHeatMap():
         if n_clusters > exp_pd.shape[0]:
             print("n_clusters is bigger than sample number!!")
             n_clusters = exp_pd.shape[0]
-        try:
-            z = hclust.linkage(exp_pd, method=method, metric=metric)
-        except FloatingPointError as e:
-            print("fastcluster failed as : {}".format(e))
-            print('it seems that (at least) one of the vectors you want to cluster is all zeros, '
-                  'so when it tries to compute the cosine distances to it there is a division by zero,'
-                  ' hence nan is stored in your distance array, and that leads to your error.')
-            print('Anyway, we will remove the special rows for you now.')
-            check = exp_pd[exp_pd.sum(axis=1) == 0]
-            if check.shape[0] >= 1:
-                print('Actually, we detected that some genes have zero expression across all samples.')
-                print('such as {} has zero expression across all sample'.format(check.index[0]))
-                exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
+        if self.do_correlation_cluster:
+            condensed_distance = squareform(1 - exp_pd)
+            z = hclust.linkage(condensed_distance)
+        else:
             try:
                 z = hclust.linkage(exp_pd, method=method, metric=metric)
+            except FloatingPointError as e:
+                print("fastcluster failed as : {}".format(e))
+                print('it seems that (at least) one of the vectors you want to cluster is all zeros, '
+                      'so when it tries to compute the cosine distances to it there is a division by zero,'
+                      ' hence nan is stored in your distance array, and that leads to your error.')
+                print('Anyway, we will remove the special rows for you now.')
+                check = exp_pd[exp_pd.sum(axis=1) == 0]
+                if check.shape[0] >= 1:
+                    print('Actually, we detected that some genes have zero expression across all samples.')
+                    print('such as {} has zero expression across all sample'.format(check.index[0]))
+                    exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
+                try:
+                    z = hclust.linkage(exp_pd, method=method, metric=metric)
+                except:
+                    print("enhen? fastcluster failed again, we will try scipy.cluster.hierarchy")
+                    z = sch.linkage(exp_pd, method=method, metric=metric)
             except:
-                print("enhen? fastcluster failed again, we will try scipy.cluster.hierarchy")
+                print("fastcluster failed, we will try scipy.cluster.hierarchy")
                 z = sch.linkage(exp_pd, method=method, metric=metric)
-        except:
-            print("fastcluster failed, we will try scipy.cluster.hierarchy")
-            z = sch.linkage(exp_pd, method=method, metric=metric)
         labels = exp_pd.index
         subcluster = self.get_subcluster(z, labels, num=n_clusters)
         # write out subcluster
@@ -415,7 +438,18 @@ class ClusterHeatMap():
 
 if __name__ == '__main__':
     import sys
-    p = ClusterHeatMap(data_file=None, cluster_sample=True, cluster_gene=True, only_gene_dendrogram=False)
+    data_file = None
+    if len(sys.argv) >= 2:
+        data_file = sys.argv[1]
+    p = ClusterHeatMap(
+        data_file=data_file,
+        cluster_sample=False,
+        cluster_gene=True,
+        gene_distance_metric="correlation",
+        only_gene_dendrogram=False,
+        do_correlation_cluster=False,
+        label_gene=True,
+    )
     p.draw()
 
 
