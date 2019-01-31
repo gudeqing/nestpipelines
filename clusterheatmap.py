@@ -18,7 +18,9 @@ class ClusterHeatMap():
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
                  do_correlation_cluster=False, corr_method='pearson',
-                 sample_cluster_num=2, gene_cluster_num=10):
+                 sample_cluster_num=2, gene_cluster_num=10,
+                 width=800, height=800,
+                 color_scale='YlGnBu'):
 
         self.scm = sample_cluster_method
         self.sdm = sample_distance_metric
@@ -34,6 +36,9 @@ class ClusterHeatMap():
         self.only_sample_dendrogram = only_sample_dendrogram
         self.only_gene_dendrogram = only_gene_dendrogram
         self.label_gene = label_gene
+        self.height=height
+        self.width=width
+        self.colorscale = color_scale
 
         self.out_name = out_name
         outdir = os.path.dirname(out_name)
@@ -45,7 +50,14 @@ class ClusterHeatMap():
             self.data_file = data_file
             self.data = self.process_data()
         else:
-            self.data = pd.DataFrame(np.random.random((100, 8)), columns=list('abcdefgh'))
+            # 不断测试发现，index如果为纯数字，当且仅当有基因聚类的时候将不能正常显示热图，
+            # 应该是plotly的bug，推测热图自动调整绘图的过程中，会用到数字索引，奇怪的很！
+            self.data = pd.DataFrame(np.random.randint(0, 20, (100, 6)),
+                                     columns=list('abcdef'),
+                                     index=['x'+str(x) for x in range(100)])
+            self.data.to_csv('tmp.xls', header=True, index=True, sep='\t')
+            self.data_file = 'tmp.xls'
+            self.data = self.process_data()
 
         if do_correlation_cluster:
             self.data = self.data.corr(method=corr_method)
@@ -71,25 +83,25 @@ class ClusterHeatMap():
         from sklearn import preprocessing
         exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
         exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
-        if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <=1:
+        if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
-        exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1)>0.5]
+        exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1) > 0.1]
         exp_pd = np.log(exp_pd+1)
         # exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
-        exp_pd = exp_pd.iloc[:300, :]
+        exp_pd = exp_pd.iloc[:100, :]
         return exp_pd
 
     def heatmap_xaxis(self):
         return {
-            'domain': [self.left_dendrogram_x_width+0.01, 1],
+            'domain': [self.left_dendrogram_x_width, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
             'zeroline': False,
-            'ticks':"",
+            'ticks': "",
             'anchor': 'y',
             'autorange': True,
-            'constrain': 'domain'
+            'scaleanchor': "x3",
         }
 
     def heatmap_yaxis(self):
@@ -105,8 +117,8 @@ class ClusterHeatMap():
             'dtick': 1,
             'ticks': "",
             'anchor': 'x',
-            'constrain': 'domain',
             'scaleanchor': "y2",
+            'layer': 'above traces'
         }
 
     def left_dendrogam_xaxis(self):
@@ -133,16 +145,12 @@ class ClusterHeatMap():
             'tickfont': dict(size=6),
             'scaleanchor': "y",
             'anchor': 'x2',
-            'constrain': 'domain',
             'range': (-self.data.shape[0]*10, 1)
         }
 
     def top_dendrogram_xaxis(self):
         return {
-            'domain': [
-                self.left_dendrogram_x_width+0.85/2/self.data.shape[1],
-                1-(1-self.top_dendrogram_y_height)/2/self.data.shape[1]
-            ],
+            'domain': [self.left_dendrogram_x_width, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -150,7 +158,8 @@ class ClusterHeatMap():
             'showticklabels': False,
             'ticks': "",
             'anchor': 'y3',
-            'scaleanchor': 'x'
+            'scaleanchor': 'x',
+            'range': (0, self.data.shape[1]*10)
         }
 
     def top_dendrogram_yaxis(self):
@@ -168,8 +177,8 @@ class ClusterHeatMap():
     def all_layout(self):
         if self.only_sample_dendrogram:
             return go.Layout(
-                # width=800,
-                # height=800,
+                width=self.width,
+                height=self.height,
                 autosize=True,
                 showlegend=False,
                 hovermode='closest',
@@ -179,8 +188,8 @@ class ClusterHeatMap():
 
         if self.only_gene_dendrogram:
             return go.Layout(
-                width=800,
-                height=800,
+                width=self.width,
+                height=self.height,
                 showlegend=False,
                 hovermode='closest',
                 xaxis2=self.left_dendrogam_xaxis(),
@@ -188,8 +197,8 @@ class ClusterHeatMap():
             )
 
         return go.Layout(
-            width=800,
-            height=800,
+            width=self.width,
+            height=self.height,
             showlegend=False,
             hovermode='closest',
             xaxis=self.heatmap_xaxis(),
@@ -211,11 +220,19 @@ class ClusterHeatMap():
             x=list(heat_data.columns),
             y=list(heat_data.index),
             z=heat_data.values,
-            colorscale='YlGnBu',
+            colorscale=self.colorscale,
             showlegend=False,
             xaxis='x',
             yaxis='y',
-            name=''
+            name='',
+            showscale=True,
+            colorbar=dict(
+                x=1+6*(max(len(x) for x in heat_data.index))/self.width if self.label_gene else 1,
+                xanchor='left',
+                y=1,
+                yanchor='top',
+                len=0.5
+            )
         )
         return [heat_map]
 
@@ -260,7 +277,7 @@ class ClusterHeatMap():
         #
         if self.only_sample_dendrogram:
             self.layout['xaxis3']['showticklabels'] = True
-            tick_values = list(range(5, (exp_pd.shape[0]+1)*10, 10))
+            tick_values = list(range(5, exp_pd.shape[0]*10, 10))
             self.layout['xaxis3']['tickvals'] = tick_values
             self.layout['xaxis3']['ticktext'] = exp_pd.iloc[self.ordered_samples].index
 
@@ -443,7 +460,7 @@ if __name__ == '__main__':
         data_file = sys.argv[1]
     p = ClusterHeatMap(
         data_file=data_file,
-        cluster_sample=False,
+        cluster_sample=True,
         cluster_gene=True,
         gene_distance_metric="correlation",
         only_gene_dendrogram=False,
@@ -451,9 +468,4 @@ if __name__ == '__main__':
         label_gene=True,
     )
     p.draw()
-
-
-
-
-
 
