@@ -19,6 +19,7 @@ class ClusterHeatMap():
                  only_gene_dendrogram=False,
                  do_correlation_cluster=False, corr_method='pearson',
                  sample_cluster_num=2, gene_cluster_num=10,
+                 sample_group=None,
                  width=800, height=800,
                  color_scale='YlGnBu'):
 
@@ -28,6 +29,7 @@ class ClusterHeatMap():
         self.gdm = gene_distance_metric
         self.scn = sample_cluster_num
         self.gcn = gene_cluster_num
+        self.group_dict = sample_group
         self.do_correlation_cluster = do_correlation_cluster
         self.ordered_genes = None
         self.ordered_samples = None
@@ -63,19 +65,27 @@ class ClusterHeatMap():
             self.data = self.data.corr(method=corr_method)
 
         if cluster_gene:
-            self.left_dendrogram_x_width = 0.15
+            self.left_dendrogram_width = 0.15
         else:
-            self.left_dendrogram_x_width = 0
+            self.left_dendrogram_width = 0
         if cluster_sample:
-            self.top_dendrogram_y_height = 0.15
+            self.top_dendrogram_height = 0.15
         else:
-            self.top_dendrogram_y_height = 0
+            self.top_dendrogram_height = 0
+
         if self.only_sample_dendrogram:
-            self.left_dendrogram_x_width = 0
-            self.top_dendrogram_y_height = 1
+            self.left_dendrogram_width = 0
+            self.top_dendrogram_height = 1
         if self.only_gene_dendrogram:
-            self.left_dendrogram_x_width = 1
-            self.top_dendrogram_y_height = 0
+            self.left_dendrogram_width = 1
+            self.top_dendrogram_height = 0
+
+        if sample_group:
+            self.group_bar_height = 0.025
+            if self.top_dendrogram_height > 0:
+                self.top_dendrogram_height = self.top_dendrogram_height - self.group_bar_height
+        else:
+            self.group_bar_height = 0
 
         self.layout = self.all_layout()
 
@@ -93,7 +103,7 @@ class ClusterHeatMap():
 
     def heatmap_xaxis(self):
         return {
-            'domain': [self.left_dendrogram_x_width, 1],
+            'domain': [self.left_dendrogram_width, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -106,7 +116,7 @@ class ClusterHeatMap():
 
     def heatmap_yaxis(self):
         return {
-            'domain': [0, 1 - self.top_dendrogram_y_height],
+            'domain': [0, 1 - self.top_dendrogram_height - self.group_bar_height],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -123,7 +133,7 @@ class ClusterHeatMap():
 
     def left_dendrogam_xaxis(self):
         return {
-            'domain': [0, self.left_dendrogram_x_width],
+            'domain': [0, self.left_dendrogram_width],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -135,7 +145,7 @@ class ClusterHeatMap():
 
     def left_dendrogam_yaxis(self):
         return {
-            'domain': [0, 1 - self.top_dendrogram_y_height],
+            'domain': [0, 1 - self.top_dendrogram_height - self.group_bar_height],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -150,7 +160,7 @@ class ClusterHeatMap():
 
     def top_dendrogram_xaxis(self):
         return {
-            'domain': [self.left_dendrogram_x_width, 1],
+            'domain': [self.left_dendrogram_width, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -164,7 +174,7 @@ class ClusterHeatMap():
 
     def top_dendrogram_yaxis(self):
         return {
-            'domain': [1-self.top_dendrogram_y_height, 1],
+            'domain': [1 - self.top_dendrogram_height, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -172,6 +182,32 @@ class ClusterHeatMap():
             'showticklabels': False,
             'ticks': "",
             'anchor': 'x3'
+        }
+
+    def group_bar_xaxis(self):
+        return {
+            'domain': [self.left_dendrogram_width, 1],
+            'mirror': False,
+            'showgrid': False,
+            'showline': False,
+            'zeroline': False,
+            'showticklabels': False,
+            'ticks': "",
+            'anchor': 'y4',
+            'scaleanchor': 'x',
+        }
+
+    def group_bar_yaxis(self):
+        return {
+            'domain': [1 - self.top_dendrogram_height - self.group_bar_height,
+                       1 - self.top_dendrogram_height],
+            'mirror': False,
+            'showgrid': False,
+            'showline': False,
+            'zeroline': False,
+            'showticklabels': False,
+            'ticks': "",
+            'anchor': 'x4'
         }
 
     def all_layout(self):
@@ -184,6 +220,8 @@ class ClusterHeatMap():
                 hovermode='closest',
                 xaxis3=self.top_dendrogram_xaxis(),
                 yaxis3=self.top_dendrogram_yaxis(),
+                xaxis4=self.group_bar_xaxis(),
+                yaxis4=self.group_bar_yaxis()
             )
 
         if self.only_gene_dendrogram:
@@ -207,6 +245,8 @@ class ClusterHeatMap():
             yaxis2=self.left_dendrogam_yaxis(),
             xaxis3=self.top_dendrogram_xaxis(),
             yaxis3=self.top_dendrogram_yaxis(),
+            xaxis4=self.group_bar_xaxis(),
+            yaxis4=self.group_bar_yaxis()
         )
 
     def heatmap_trace(self):
@@ -215,7 +255,6 @@ class ClusterHeatMap():
         if not self.ordered_genes:
             self.ordered_genes = range(self.data.shape[0])
         heat_data = self.data.iloc[self.ordered_genes, self.ordered_samples]
-        print('heat data:', heat_data.values.shape)
         heat_map = go.Heatmap(
             x=list(heat_data.columns),
             y=list(heat_data.index),
@@ -235,6 +274,38 @@ class ClusterHeatMap():
             )
         )
         return [heat_map]
+
+    def group_bar_traces(self):
+        if not self.ordered_samples:
+            self.ordered_samples = range(self.data.shape[1])
+        ordered_samples = self.data.columns[self.ordered_samples]
+        for sample in ordered_samples:
+            if sample not in self.group_dict:
+                self.group_dict[sample] = sample
+        groups = list(set(self.group_dict.values()))
+        colors = self.get_color_pool(len(groups))
+        group_colors = dict(zip(groups, colors))
+
+        sample_colors = dict()
+        for sample in ordered_samples:
+            group = self.group_dict[sample]
+            sample_colors[sample] = group_colors[group]
+
+        traces = list()
+        ticks = range(5, self.data.shape[1]*10, 10)
+        for tick, each in zip(ticks, ordered_samples):
+            bar = go.Bar(
+                name=each,
+                x=[tick],
+                y=[2],
+                showlegend=False,
+                xaxis='x4',
+                yaxis='y4',
+                marker=dict(color=sample_colors[each]),
+                hoverinfo="name",
+            )
+            traces.append(bar)
+        return traces
 
     def top_dendrogram_traces(self):
         exp_pd = self.data.transpose()
@@ -427,10 +498,29 @@ class ClusterHeatMap():
         colors = colorlover.scales['12']['qual']['Paired']
         sch.set_link_color_palette(colors)
 
+    @staticmethod
+    def get_color_pool(n):
+        import colorlover
+        if n <= 12:
+            return colorlover.scales['12']['qual']['Paired']
+
+        from colorsys import hls_to_rgb
+        color_pool = []
+        for i in np.arange(60., 360., 360. / n):
+            hue = i / 300.
+            rand_num = np.random.random_sample()
+            lightness = (50 + rand_num * 10) / 100.
+            saturation = (90 + rand_num * 10) / 100.
+            rgb = hls_to_rgb(hue, lightness, saturation)
+            color_pool.append(tuple([int(x * 255) for x in rgb]))
+        return colorlover.to_rgb(color_pool)
+
     def draw(self):
         traces = list()
         if self.only_sample_dendrogram:
             traces += self.top_dendrogram_traces()
+            if self.group_dict:
+                traces += self.group_bar_traces()
             fig = go.Figure(data=traces, layout=self.layout)
             plt(fig, filename=self.out_name, auto_open=False)
             return
@@ -446,6 +536,9 @@ class ClusterHeatMap():
 
         if self.cluster_gene:
             traces += self.left_dendrogram_traces()
+
+        if self.group_dict:
+            traces += self.group_bar_traces()
 
         traces += self.heatmap_trace()
 
@@ -466,6 +559,7 @@ if __name__ == '__main__':
         only_gene_dendrogram=False,
         do_correlation_cluster=False,
         label_gene=True,
+        sample_group={'C180026R2L2': 'C', 'C180027R1L2': 'C', 'C180028R1L2': 'C'}
     )
     p.draw()
 
