@@ -39,8 +39,8 @@ class ClusterHeatMap():
         self.only_sample_dendrogram = only_sample_dendrogram
         self.only_gene_dendrogram = only_gene_dendrogram
         self.label_gene = label_gene
-        self.height=height
-        self.width=width
+        self.height = height
+        self.width = width
         self.colorscale = color_scale
 
         self.out_name = out_name
@@ -480,7 +480,7 @@ class ClusterHeatMap():
     def get_subcluster(z, labels, num=2):
         """
         get leave ids for each sub cluster
-        :param zclust hclust.linkage result
+        :param z hclust.linkage result
         :param num: the number of sub-clusters specified.
         :param labels: leaf label from DataFrame.columns
         :return: dict with list of samples as element.
