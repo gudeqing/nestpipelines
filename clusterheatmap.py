@@ -20,7 +20,7 @@ class ClusterHeatMap():
                  do_correlation_cluster=False, corr_method='pearson',
                  sample_cluster_num=2, gene_cluster_num=10,
                  sample_group=None,
-                 width=800, height=800,
+                 width=800, height=800, gene_label_size=6,
                  color_scale='YlGnBu'):
 
         self.scm = sample_cluster_method
@@ -30,6 +30,7 @@ class ClusterHeatMap():
         self.scn = sample_cluster_num
         self.gcn = gene_cluster_num
         self.group_dict = sample_group
+        self.gene_label_size = gene_label_size
         self.do_correlation_cluster = do_correlation_cluster
         self.ordered_genes = None
         self.ordered_samples = None
@@ -123,7 +124,7 @@ class ClusterHeatMap():
             'zeroline': False,
             'showticklabels': self.label_gene,
             'side': 'right',
-            'tickfont': dict(size=6),
+            'tickfont': dict(size=self.gene_label_size),
             'dtick': 1,
             'ticks': "",
             'anchor': 'x',
@@ -152,7 +153,7 @@ class ClusterHeatMap():
             'zeroline': False,
             'showticklabels': False,
             'ticks': "",
-            'tickfont': dict(size=6),
+            'tickfont': dict(size=self.gene_label_size),
             'scaleanchor': "y",
             'anchor': 'x2',
             'range': (-self.data.shape[0]*10, 1)
@@ -266,7 +267,7 @@ class ClusterHeatMap():
             name='',
             showscale=True,
             colorbar=dict(
-                x=1+6*(max(len(x) for x in heat_data.index))/self.width if self.label_gene else 1,
+                x=1+self.gene_label_size*(max(len(x) for x in heat_data.index))/self.width if self.label_gene else 1,
                 xanchor='left',
                 y=1,
                 yanchor='top',
