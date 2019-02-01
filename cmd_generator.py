@@ -271,6 +271,22 @@ def rpkm_saturation(**kwargs):
     return cmd
 
 
+def tpm_saturation(**kwargs):
+    cmd = '{} '.format(kwargs['script'])
+    cmd += '-bam {} '.format(kwargs['bam'])
+    cmd += '-annotation {} '.format(kwargs['annotation'])
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-step {} '.format(kwargs['step'])
+    cmd += '-samtools {} '.format(kwargs['samtools'])
+    cmd += '-outlier_limit {} '.format(kwargs['outlier_limit'])
+    cmd += '-threads {} '.format(kwargs['threads'])
+    cmd += '-pool_size {} '.format(kwargs['pool_size'])
+    cmd += '-featureCounts {} '.format(kwargs['featureCounts'])
+    if kwargs['paired'] == 'yes':
+        cmd += '--paired {} '.format(kwargs['paired'])
+    return cmd
+
+
 def exp_analysis(**kwargs):
     cmd = '{} '.format(kwargs['perl'])
     cmd += "{} ".format(kwargs['trinity_ptr'])
