@@ -14,14 +14,51 @@ class ClusterHeatMap():
     def __init__(self, data_file=None, out_name='clusterHeatMap.html',
                  sample_cluster_method='single', sample_distance_metric="correlation",
                  gene_cluster_method='average', gene_distance_metric="euclidean",
-                 cluster_gene=True, cluster_sample=True, label_gene=False,
+                 cluster_gene=False, cluster_sample=True, label_gene=False,
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
                  do_correlation_cluster=False, corr_method='pearson',
                  sample_cluster_num=2, gene_cluster_num=10,
-                 sample_group=None,
+                 sample_group=None, log_base=2, zscore_before_cluster=False,
+                 lower_exp_cutoff=0.1, pass_lower_exp_num=None,
+                 row_sum_cutoff=1, cv_cutoff=0,
                  width=800, height=800, gene_label_size=6,
-                 color_scale='YlGnBu'):
+                 color_scale='YlGnBu', preprocess_data_func=None):
+        """
+        cluster / correlation cluster for gene expression
+        For cluster method and metric option, please refer scipy.cluster.hierarchy.linkage
+        :param data_file: data file path
+        :param out_name: figure file name, path info can be included
+        :param sample_cluster_method: default "single"
+        :param sample_distance_metric: default "correlation", correlation actually refer to pearson corr
+        :param gene_cluster_method: default "average"
+        :param gene_distance_metric: default "euclidean"
+        :param cluster_gene: bool value indicates if to cluster gene
+        :param cluster_sample: bool value indicates if to cluster sample
+        :param label_gene: bool value indicates if to display gene name
+        :param only_sample_dendrogram: bool value indicates if to only draw sample cluster dendrogram
+        :param only_gene_dendrogram: bool value indicates if to only draw gene cluster dendrogram
+        :param do_correlation_cluster: bool value indicates if to cluster sample using "corr_method" and
+            display correlation heat map
+        :param corr_method: correlation method, could be {'pearson', 'kendall', 'spearman'}, they are from pandas.corr
+        :param sample_cluster_num: number of sample cluster to output
+        :param gene_cluster_num: number of gene cluster to output
+        :param sample_group: sample group dict, {'sample_name': 'group_name', ...},
+            or a file with two columns [sample_name, group_name]
+        :param log_base: transform data using log, value could be one of {2, 10, None}
+        :param zscore_before_cluster: bool indicates if to do zscore normalization, default: False.
+            No effect if "do_correlation_cluster" is True
+        :param lower_exp_cutoff: gene with expression lower than this value will be filtered, combined with pass_lower_exp_num
+        :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered
+        :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default 1
+        :param cv_cutoff: genes with cv (=mean/std) higher than will be retained
+        :param width: figure width
+        :param height: figure height
+        :param gene_label_size: int, gen label size, default 6
+        :param color_scale: pallete for heat map, refer to plotly, ['Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
+            'Greens', 'Greys', 'Hot', 'Jet', 'Picnic', 'Portland', 'Rainbow', 'RdBu', 'Reds', 'Viridis', 'YlGnBu', 'YlOrRd']
+        :param preprocess_data_func: function provided for data filtering and transformation. Default None
+        """
 
         self.scm = sample_cluster_method
         self.sdm = sample_distance_metric
@@ -30,6 +67,11 @@ class ClusterHeatMap():
         self.scn = sample_cluster_num
         self.gcn = gene_cluster_num
         self.group_dict = sample_group
+        if isinstance(sample_group, str):
+            if not os.path.exists(sample_group):
+                raise Exception('sample group file is not existed')
+            with open(sample_group) as f:
+                self.group_dict = dict(line.strip().split('\t')[:2] for line in f)
         self.gene_label_size = gene_label_size
         self.do_correlation_cluster = do_correlation_cluster
         self.ordered_genes = None
@@ -42,6 +84,12 @@ class ClusterHeatMap():
         self.height = height
         self.width = width
         self.colorscale = color_scale
+        self.logbase = log_base
+        self.lower_exp_cutoff = lower_exp_cutoff
+        self.pass_lower_exp_num = int(pass_lower_exp_num) if pass_lower_exp_num is not None else None
+        self.row_sum_cutoff = row_sum_cutoff
+        self.cv_cutoff = cv_cutoff
+        self.zscore_before_cluster = zscore_before_cluster
 
         self.out_name = out_name
         outdir = os.path.dirname(out_name)
@@ -51,16 +99,16 @@ class ClusterHeatMap():
 
         if data_file:
             self.data_file = data_file
-            self.data = self.process_data()
+            if callable(preprocess_data_func):
+                self.data = preprocess_data_func(self.data_file)
+            else:
+                self.data = self.process_data()
         else:
             # 不断测试发现，index如果为纯数字，当且仅当有基因聚类的时候将不能正常显示热图，
             # 应该是plotly的bug，推测热图自动调整绘图的过程中，会用到数字索引，奇怪的很！
             self.data = pd.DataFrame(np.random.randint(0, 20, (100, 6)),
                                      columns=list('abcdef'),
                                      index=['x'+str(x) for x in range(100)])
-            self.data.to_csv('tmp.xls', header=True, index=True, sep='\t')
-            self.data_file = 'tmp.xls'
-            self.data = self.process_data()
 
         if do_correlation_cluster:
             self.data = self.data.corr(method=corr_method)
@@ -89,17 +137,27 @@ class ClusterHeatMap():
             self.group_bar_height = 0
 
         self.layout = self.all_layout()
+        self.draw()
 
     def process_data(self):
-        from sklearn import preprocessing
         exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
-        exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
-        exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1) > 0.1]
-        exp_pd = np.log(exp_pd+1)
-        # exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
-        exp_pd = exp_pd.iloc[:100, :]
+        exp_pd = exp_pd[exp_pd.sum(axis=1) > self.row_sum_cutoff]
+        exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1) > self.cv_cutoff]
+        pass_state = exp_pd.apply(lambda x: sum(x > self.lower_exp_cutoff), axis=1)
+        pass_num_cutoff = int(exp_pd.shape[1]) / 3 if self.pass_lower_exp_num is None else self.pass_lower_exp_num
+        exp_pd = exp_pd[pass_state >= pass_num_cutoff]
+        if self.logbase == 2:
+            exp_pd = np.log2(exp_pd+1)
+        elif self.logbase == 10:
+            exp_pd = np.log10(exp_pd+1)
+        elif self.logbase is None:
+            pass
+        else:
+            raise Exception('log base must be one of [2, 10, None] ')
+        out_name = os.path.join(self.outdir, 'preprocessed.data')
+        exp_pd.to_csv(out_name, header=True, index=True, sep='\t')
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -238,7 +296,7 @@ class ClusterHeatMap():
         return go.Layout(
             width=self.width,
             height=self.height,
-            showlegend=False,
+            showlegend=True,
             hovermode='closest',
             xaxis=self.heatmap_xaxis(),
             yaxis=self.heatmap_yaxis(),
@@ -271,7 +329,8 @@ class ClusterHeatMap():
                 xanchor='left',
                 y=1,
                 yanchor='top',
-                len=0.5
+                len=0.5,
+                title="log{}(X)".format(self.logbase) if self.logbase else ''
             )
         )
         return [heat_map]
@@ -283,7 +342,8 @@ class ClusterHeatMap():
         for sample in ordered_samples:
             if sample not in self.group_dict:
                 self.group_dict[sample] = sample
-        groups = list(set(self.group_dict.values()))
+        groups = list()
+        _ = [groups.append(x) for x in self.group_dict.values() if x not in groups]
         colors = self.get_color_pool(len(groups))
         group_colors = dict(zip(groups, colors))
 
@@ -295,8 +355,12 @@ class ClusterHeatMap():
         traces = list()
         ticks = range(5, self.data.shape[1]*10, 10)
         for tick, each in zip(ticks, ordered_samples):
+            if each == self.group_dict[each]:
+                trace_name = each
+            else:
+                trace_name = '{sample}({group})'.format(sample=each, group=self.group_dict[each])
             bar = go.Bar(
-                name=each,
+                name=trace_name,
                 x=[tick],
                 y=[2],
                 showlegend=False,
@@ -304,6 +368,7 @@ class ClusterHeatMap():
                 yaxis='y4',
                 marker=dict(color=sample_colors[each]),
                 hoverinfo="name",
+                hoverlabel=dict(namelength=-1)
             )
             traces.append(bar)
         return traces
@@ -343,7 +408,8 @@ class ClusterHeatMap():
                 text=hovertext_label,
                 hoverinfo='text',
                 xaxis="x3",
-                yaxis="y3"
+                yaxis="y3",
+                showlegend=False,
             )
             trace_list.append(trace)
         #
@@ -390,7 +456,8 @@ class ClusterHeatMap():
                 text=hovertext_label,
                 hoverinfo='text',
                 xaxis="x2",
-                yaxis="y2"
+                yaxis="y2",
+                showlegend=False
             )
             trace_list.append(trace)
 
@@ -432,10 +499,15 @@ class ClusterHeatMap():
         if n_clusters > exp_pd.shape[0]:
             print("n_clusters is bigger than sample number!!")
             n_clusters = exp_pd.shape[0]
+
         if self.do_correlation_cluster:
+            self.logbase = None
             condensed_distance = squareform(1 - exp_pd)
             z = hclust.linkage(condensed_distance)
         else:
+            if self.zscore_before_cluster:
+                from sklearn import preprocessing
+                exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
             try:
                 z = hclust.linkage(exp_pd, method=method, metric=metric)
             except FloatingPointError as e:
@@ -548,19 +620,59 @@ class ClusterHeatMap():
 
 
 if __name__ == '__main__':
-    import sys
-    data_file = None
-    if len(sys.argv) >= 2:
-        data_file = sys.argv[1]
-    p = ClusterHeatMap(
-        data_file=data_file,
-        cluster_sample=True,
-        cluster_gene=True,
-        gene_distance_metric="correlation",
-        only_gene_dendrogram=False,
-        do_correlation_cluster=False,
-        label_gene=True,
-        sample_group={'C180026R2L2': 'C', 'C180027R1L2': 'C', 'C180028R1L2': 'C'}
-    )
-    p.draw()
+    # import sys
+    # data_file = None
+    # if len(sys.argv) >= 2:
+    #     data_file = sys.argv[1]
+    # p = ClusterHeatMap(
+    #     data_file=data_file,
+    #     cluster_sample=True,
+    #     cluster_gene=True,
+    #     gene_distance_metric="correlation",
+    #     only_gene_dendrogram=False,
+    #     do_correlation_cluster=True,
+    #     label_gene=True,
+    #     zscore_before_cluster=True,
+    #     sample_group={'C180026R2L2': 'C', 'C180027R1L2': 'C', 'C180028R1L2': 'C'}
+    # )
 
+    def introduce_command(func):
+        import argparse
+        import inspect
+        import json
+        import time
+        if isinstance(func, type):
+            description = func.__init__.__doc__
+        else:
+            description = func.__doc__
+        parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
+        func_args = inspect.getfullargspec(func)
+        arg_names = func_args.args
+        arg_defaults = func_args.defaults
+        arg_defaults = ['None']*(len(arg_names) - len(arg_defaults)) + list(arg_defaults)
+        for arg, value in zip(arg_names, arg_defaults):
+            if arg == 'self':
+                continue
+            if value == 'None':
+                parser.add_argument('-'+arg, required=True, metavar=arg)
+            elif type(value) == bool:
+                if value:
+                    parser.add_argument('--'+arg, action="store_false", help='default: True')
+                else:
+                    parser.add_argument('--'+arg, action="store_true", help='default: False')
+            elif value is None:
+                parser.add_argument('-' + arg, default=value, metavar='Default:' + str(value), )
+            else:
+                parser.add_argument('-' + arg, default=value, type=type(value), metavar='Default:' + str(value), )
+        if func_args.varargs is not None:
+            print("warning: *varargs is not supported, and will be neglected! ")
+        if func_args.varkw is not None:
+            print("warning: **keywords args is not supported, and will be neglected! ")
+        args = parser.parse_args().__dict__
+        with open("Argument_detail.json", 'w') as f:
+            json.dump(args, f, indent=2, sort_keys=True)
+        start = time.time()
+        func(**args)
+        print("total time: {}s".format(time.time() - start))
+
+    introduce_command(ClusterHeatMap)
