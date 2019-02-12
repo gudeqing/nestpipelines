@@ -20,7 +20,8 @@ parser.add_argument('-skip', default=list(), nargs='+',
                     help='指定要跳过的步骤名, 空格分隔,程序会自动跳过依赖他们的步骤, --only_show_steps可查看步骤名; '
                          '注意: 如果跳过trim步骤, 则用原始数据; 如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
 parser.add_argument('--only_show_steps', default=False, action="store_true",
-                    help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤")
+                    help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤; "
+                         "你还可以通过--list_cmd_names查看当前流程包含哪些命令行")
 parser.add_argument('--only_show_detail_steps', default=False, action="store_true",
                     help="仅仅显示当前流程包含的详细步骤, 且已经排除指定跳过的步骤")
 parser.add_argument('--only_write_pipeline', default=False, action='store_true',
@@ -54,6 +55,14 @@ arg_pool = configparser.ConfigParser(interpolation=configparser.ExtendedInterpol
 arg_pool.optionxform = str
 
 if arguments.arg_cfg:
+    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
+else:
+    script_path = os.path.abspath(__file__)
+    if os.path.islink(script_path):
+        script_path = os.readlink(script_path)
+    arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
+    print("You are using unchanged configuration\n  {}".format(arg_file))
+    arguments.arg_cfg = arg_file
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 project_dir = arguments.o
 if not os.path.exists(project_dir):
@@ -728,7 +737,7 @@ def tpm_saturation_cmds(index_bam_cmds, step_name='TPMSaturation'):
         sample = cmd_info['sample_name']
         args['bam'] = cmd_info['sorted_bam']
         args['outdir'] = out_dir
-        cmd = rpkm_saturation(**args)
+        cmd = tpm_saturation(**args)
         commands[step_name + '_' + sample] = cmd_dict(
             cmd=cmd,
             depend=step,
