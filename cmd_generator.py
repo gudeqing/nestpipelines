@@ -272,7 +272,8 @@ def rpkm_saturation(**kwargs):
 
 
 def tpm_saturation(**kwargs):
-    cmd = '{} '.format(kwargs['script'])
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
     cmd += '-bam {} '.format(kwargs['bam'])
     cmd += '-annotation {} '.format(kwargs['annotation'])
     cmd += '-outdir {} '.format(kwargs['outdir'])
@@ -283,7 +284,7 @@ def tpm_saturation(**kwargs):
     cmd += '-pool_size {} '.format(kwargs['pool_size'])
     cmd += '-featureCounts {} '.format(kwargs['featureCounts'])
     if kwargs['paired'] == 'yes':
-        cmd += '--paired {} '.format(kwargs['paired'])
+        cmd += '--paired '
     return cmd
 
 
