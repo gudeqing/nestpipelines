@@ -30,12 +30,12 @@ parser.add_argument('-threads', default=5, type=int, help="允许并行的步骤
 parser.add_argument('-retry', default=1, type=int,
                     help='某步骤运行失败后再尝试运行的次数, 默认1次. 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
 parser.add_argument('--continue_run', default=False, action='store_true',
-                    help='流程中断后, 从失败的步骤续跑, 记得要用-o指定之前的结果目录; '
+                    help='流程运行结束后, 从失败的步骤续跑, 记得要用-o指定之前的结果目录; '
                          '如果想重新跑已经成功的某一步, 可以通过-rerun_steps指定, 或者在状态表cmd_stat.txt中手动将其修改为failed即可')
 parser.add_argument('-rerun_steps', default=list(), nargs='+',
                     help="续跑时, 可以通过该参数指定重跑已经成功的步骤, 空格分隔,这样做的可能原因: 你重新设置了参数")
 parser.add_argument('-pipeline_cfg', default=None,
-                    help="已有的pipeline.ini, 续跑时也需提供此参数; 如提供, 则此时无需arg_cfg,fastq_info,group,cmp,skip等参数")
+                    help="已有的pipeline.ini, 续跑时也需提供此参数; 如提供, 则此时无需 arg_cfg,fastq_info,group,cmp,skip 等参数")
 parser.add_argument('--list_cmd_names', default=False, action='store_true', help="仅输出参数文件里的包含的cmd名称")
 parser.add_argument('-show_cmd_example', help="提供一个cmd名称,输出该cmd的样例")
 parser.add_argument('--no_monitor_resource', default=False, action='store_true',
