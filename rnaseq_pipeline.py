@@ -11,14 +11,14 @@ from nestcmd import RunCommands
 parser = argparse.ArgumentParser()
 parser.add_argument('-arg_cfg', required=False, help="config file containing all parameters info")
 parser.add_argument('-fastq_info', required=False,
-                    help="第一列为样本名，分析结果使用名；第二列为read1的fastq路径，如有多个，需要分号分隔；"
-                         "第三列为可选，read2的fastq路径，单端测序时则无第三列")
-parser.add_argument('-group', help="样本分组信息文件，至少两列，第一列样本名，第二列为分组名，其他列也是分组名")
-parser.add_argument('-compare', help="比较信息文件，两列，第1列是对照组名，第2列是实验组名")
+                    help="第一列为样本名,分析结果使用名; 第二列为read1的fastq路径,如有多个,需要分号分隔; "
+                         "第三列为可选, read2的fastq路径,单端测序时则无第三列")
+parser.add_argument('-group', help="样本分组信息文件,至少两列,第一列样本名,第二列为分组名,其他列也是分组名")
+parser.add_argument('-compare', help="比较信息文件,两列,第1列是对照组名,第2列是实验组名")
 parser.add_argument('-o', default=os.path.join(os.getcwd(), 'Result'), help='分析目录或结果目录')
 parser.add_argument('-skip', default=list(), nargs='+',
-                    help='指定要跳过的步骤名，空格分隔，程序会自动跳过依赖他们的步骤，--only_show_steps可查看步骤名;'
-                         '注意：如果跳过trim步骤，则用原始数据；如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
+                    help='指定要跳过的步骤名, 空格分隔,程序会自动跳过依赖他们的步骤, --only_show_steps可查看步骤名; '
+                         '注意: 如果跳过trim步骤, 则用原始数据; 如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
 parser.add_argument('--only_show_steps', default=False, action="store_true",
                     help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤")
 parser.add_argument('--only_show_detail_steps', default=False, action="store_true",
@@ -27,27 +27,26 @@ parser.add_argument('--only_write_pipeline', default=False, action='store_true',
                     help="仅仅生成流程pipeline.ini")
 parser.add_argument('-threads', default=5, type=int, help="允许并行的步骤数")
 parser.add_argument('-retry', default=1, type=int,
-                    help='某步骤运行失败后再尝试运行的次数，默认1次. '
-                         '如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+                    help='某步骤运行失败后再尝试运行的次数, 默认1次. 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
 parser.add_argument('--continue_run', default=False, action='store_true',
-                    help='流程中断后,从失败的步骤续跑, 记得要用-o指定之前的结果目录，'
-                         '如果想重新跑已经成功的某一步，可以通过-rerun_steps指定，或者在状态表cmd_stat.txt中手动将其修改为failed即可')
+                    help='流程中断后, 从失败的步骤续跑, 记得要用-o指定之前的结果目录; '
+                         '如果想重新跑已经成功的某一步, 可以通过-rerun_steps指定, 或者在状态表cmd_stat.txt中手动将其修改为failed即可')
 parser.add_argument('-rerun_steps', default=list(), nargs='+',
-                    help="续跑时，可以通过该参数指定重跑已经成功的步骤，空格分隔，这样做的可能原因：重新设置了参数")
+                    help="续跑时, 可以通过该参数指定重跑已经成功的步骤, 空格分隔,这样做的可能原因: 你重新设置了参数")
 parser.add_argument('-pipeline_cfg', default=None,
-                    help="已有的pipeline.ini，续跑时也需提供此参数。如提供，则此时无需arg_cfg,fastq_info,group,cmp,skip等参数")
+                    help="已有的pipeline.ini, 续跑时也需提供此参数; 如提供, 则此时无需arg_cfg,fastq_info,group,cmp,skip等参数")
 parser.add_argument('--list_cmd_names', default=False, action='store_true', help="仅输出参数文件里的包含的cmd名称")
-parser.add_argument('-show_cmd_example', help="提供一个cmd名称，输出该cmd的样例")
+parser.add_argument('-show_cmd_example', help="提供一个cmd名称,输出该cmd的样例")
 parser.add_argument('--no_monitor_resource', default=False, action='store_true',
-                    help='是否监控每一步运行时的资源消耗，如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+                    help='是否监控每一步运行时的资源消耗, 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
 parser.add_argument('--monitor_time_step', default=3, type=int,
-                    help='监控资源时的时间间隔，默认3秒， 如需对某一步设置不同的值，可在真正运行流程前修改pipeline.ini或者直接修改流程')
+                    help='监控资源时的时间间隔,默认3秒, 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
 parser.add_argument('-wait_resource_time', default=10, type=int,
-                    help="等待资源的时间上限, 超过这个上限，资源不足时判定任务失败")
+                    help="等待资源的时间上限, 超过这个上限,资源不足时判定任务失败")
 parser.add_argument('--no_check_resource_before_run', default=False, action='store_true',
-                    help="运行某步骤前检测指定的资源是否足够，如不足，则该步骤失败；如果设置该参数，则运行前不检查资源。"
-                         "如需对某一步设置不同的值，可在流程中修改或运行前修改pipeline.ini"
-                         "如需更改指定的资源，可在真正运行流程前修改pipeline.ini或者直接修改流程")
+                    help="运行某步骤前检测指定的资源是否足够, 如不足, 则该步骤失败;如果设置该参数,则运行前不检查资源. "
+                         "如需对某一步设置不同的值,可在流程中修改或运行前修改pipeline.ini. "
+                         "如需更改指定的资源, 可在真正运行流程前修改pipeline.ini或者直接修改流程")
 
 arguments = parser.parse_args()
 skip_steps = arguments.skip
@@ -750,7 +749,7 @@ def run_existed_pipeline(steps=''):
 
 def show_cmd_example(cmd_name):
     """
-    :param cmd_name: cmd_generator中的函数名，也是arguments.ini中的section名
+    :param cmd_name: cmd_generator中的函数名,也是arguments.ini中的section名
     :return: None
     """
     if not arguments.arg_cfg:
@@ -768,7 +767,7 @@ def list_cmd_names():
 
 def pipeline():
     """
-    为了能正常跳过一些步骤，步骤名即step_name不能包含'_'，且保证最后生成的步骤名不能有重复。
+    为了能正常跳过一些步骤,步骤名即step_name不能包含'_',且保证最后生成的步骤名不能有重复。
     """
     if arguments.show_cmd_example:
         show_cmd_example(arguments.show_cmd_example)
