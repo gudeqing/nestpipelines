@@ -61,7 +61,7 @@ else:
     if os.path.islink(script_path):
         script_path = os.readlink(script_path)
     arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
-    print("You are using unchanged configuration\n  {}".format(arg_file))
+    print("You are using unchanged configuration: {}".format(arg_file))
     arguments.arg_cfg = arg_file
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 project_dir = arguments.o
