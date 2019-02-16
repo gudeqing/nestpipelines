@@ -202,8 +202,11 @@ def trimmomatic_cmds(fastq_info_dict, step_name='Trim'):
 def star_index_cmd(step_name='AlignIndex'):
     commands = dict()
     if os.path.exists(arg_pool['star_index']['genomeDir']):
-        print('STAR index existed, and skip this indexing step!')
-        return commands
+        if len(os.listdir(arg_pool['star_index']['genomeDir'])) <= 1:
+            mkdir(arg_pool['star_index']['genomeDir'])
+        else:
+            print('STAR index existed, and skip this indexing step!')
+            return commands
     else:
         mkdir(arg_pool['star_index']['genomeDir'])
     cmd = star_index(**arg_pool['star_index'])
