@@ -746,6 +746,25 @@ def tpm_saturation_cmds(index_bam_cmds, step_name='TPMSaturation'):
     return commands
 
 
+def get_alignment_summary_cmds(index_bam_cmds, step_name='AlignmentSummary'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['get_alignment_summary'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outdir'] = out_dir
+        cmd = get_alignment_summary(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            alignment_summary='{}.alignment_summary.json'.format(sample)
+
+        )
+    return commands
+
+
 def run_existed_pipeline(steps=''):
     if arguments.pipeline_cfg is None or not os.path.exists(arguments.pipeline_cfg):
         raise Exception('Please provide valid pipeline.ini file')
@@ -834,6 +853,8 @@ def pipeline():
     commands.update(frag_size_cmds)
     saturation_cmds = tpm_saturation_cmds(bam_indexing_cmds, step_name='TPMSaturation')
     commands.update(saturation_cmds)
+    alignment_summary_cmds = get_alignment_summary_cmds(bam_indexing_cmds, step_name='AlignmentSummary')
+    commands.update(alignment_summary_cmds)
     assembly_cmds = scallop_cmds(align_cmds=align_cmds, step_name='Assembly')
     commands.update(assembly_cmds)
     merge_trans_cmd = merge_scallop_transcripts_cmd(assembly_cmds, step_name='MergeTranscript')

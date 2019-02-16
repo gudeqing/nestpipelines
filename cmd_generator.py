@@ -302,3 +302,20 @@ def exp_analysis(**kwargs):
     cmd += "--log2 "
     cmd += "--prin_comp 2"
     return cmd
+
+
+def get_alignment_summary(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += '-bam {} '.format(kwargs['bam'])
+    cmd += '-bed {} '.format(kwargs['bed'])
+    cmd += '-rRNA_bed {} '.format(kwargs['rRNA_bed'])
+    cmd += '-overlap {} '.format(kwargs['overlap'])
+    cmd += '-rRNA_overlap {} '.format(kwargs['rRNA_overlap'])
+    cmd += '-bedtools {} '.format(kwargs['bedtools'])
+    cmd += '-samtools {} '.format(kwargs['samtools'])
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-threads {} '.format(kwargs['threads'])
+    cmd += '-cov_limit {} '.format(kwargs['cov_limit'])
+    cmd += '-step {} '.format(kwargs['step'])
+    return cmd
