@@ -319,3 +319,49 @@ def get_alignment_summary(**kwargs):
     cmd += '-cov_limit {} '.format(kwargs['cov_limit'])
     cmd += '-step {} '.format(kwargs['step'])
     return cmd
+
+
+def CollectAlignmentSummaryMetrics(**kwargs):
+    "https://broadinstitute.github.io/picard/command-line-overview.html#CollectAlignmentSummaryMetrics"
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += 'CollectAlignmentSummaryMetrics '
+    cmd += 'R={} '.format(kwargs['genome'])
+    cmd += 'I={} '.format(kwargs['bam'])
+    cmd += 'O={} '.format(kwargs['outfile'])
+    return cmd
+
+
+def CollectInsertSizeMetrics(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += 'CollectInsertSizeMetrics '
+    cmd += 'I={} '.format(kwargs['bam'])
+    cmd += 'O={} '.format(kwargs['outfile'])
+    cmd += 'H={} '.format(kwargs['outimage'])
+    cmd += 'M={} '.format(kwargs['min_percent'])
+    return cmd
+
+
+def CollectTargetedPcrMetrics(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += 'CollectTargetedPcrMetrics  '
+    cmd += 'I={} '.format(kwargs['bam'])
+    cmd += 'O={} '.format(kwargs['outfile'])
+    cmd += 'R={} '.format(kwargs['genome'])
+    cmd += 'AMPLICON_INTERVALS={} '.format(kwargs['amplicon_interval_list'])
+    cmd += 'TARGET_INTERVALS={} '.format(kwargs['targets_interval_list'])
+    return cmd
+
+
+def CollectRnaSeqMetrics(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += 'CollectRnaSeqMetrics  '
+    cmd += 'I={} '.format(kwargs['bam'])
+    cmd += 'O={} '.format(kwargs['bam'])
+    cmd += 'REF_FLAT={} '.format(kwargs['ref_flat'])
+    cmd += 'STRAND={} '.format(kwargs['strand'])
+    cmd += 'RIBOSOMAL_INTERVALS={} '.format(kwargs['ribosomal_interval_list'])
+    return cmd
