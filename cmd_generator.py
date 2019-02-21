@@ -352,6 +352,7 @@ def CollectTargetedPcrMetrics(**kwargs):
     cmd += 'R={} '.format(kwargs['genome'])
     cmd += 'AMPLICON_INTERVALS={} '.format(kwargs['amplicon_interval_list'])
     cmd += 'TARGET_INTERVALS={} '.format(kwargs['targets_interval_list'])
+    cmd += 'PER_TARGET_COVERAGE={} '.format(kwargs['per_target_coverage_outfile'])
     return cmd
 
 
@@ -360,7 +361,8 @@ def CollectRnaSeqMetrics(**kwargs):
     cmd += '{} '.format(kwargs['picard'])
     cmd += 'CollectRnaSeqMetrics  '
     cmd += 'I={} '.format(kwargs['bam'])
-    cmd += 'O={} '.format(kwargs['bam'])
+    cmd += 'O={} '.format(kwargs['outfile'])
+    cmd += 'CHART={} '.format(kwargs['outimage'])
     cmd += 'REF_FLAT={} '.format(kwargs['ref_flat'])
     cmd += 'STRAND={} '.format(kwargs['strand'])
     cmd += 'RIBOSOMAL_INTERVALS={} '.format(kwargs['ribosomal_interval_list'])

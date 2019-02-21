@@ -768,6 +768,84 @@ def get_alignment_summary_cmds(index_bam_cmds, step_name='AlignmentSummary'):
     return commands
 
 
+def CollectAlignmentSummaryMetrics_cmds(index_bam_cmds, step_name='CollectAlignmentSummaryMetrics'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['CollectAlignmentSummaryMetrics'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outfile'] = os.path.join(out_dir, '{}.{}.xls'.format(sample, step_name))
+        cmd = CollectAlignmentSummaryMetrics(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            metrics=args['outfile']
+
+        )
+    return commands
+
+
+def CollectInsertSizeMetrics_cmds(index_bam_cmds, step_name='CollectInsertSizeMetrics'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['CollectInsertSizeMetrics'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outfile'] = os.path.join(out_dir, '{}.{}.xls'.format(sample, step_name))
+        args['outimage'] = os.path.join(out_dir, '{}.{}.pdf'.format(sample, step_name))
+        cmd = CollectInsertSizeMetrics(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            metrics=args['outfile']
+
+        )
+    return commands
+
+
+def CollectTargetedPcrMetrics_cmds(index_bam_cmds, step_name='CollectTargetedPcrMetrics'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['CollectTargetedPcrMetrics'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outfile'] = os.path.join(out_dir, '{}.{}.xls'.format(sample, step_name))
+        cmd = CollectTargetedPcrMetrics(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            metrics=args['outfile']
+
+        )
+    return commands
+
+
+def CollectRnaSeqMetrics_cmds(index_bam_cmds, step_name='CollectRnaSeqMetrics'):
+    commands = dict()
+    out_dir = os.path.join(project_dir, step_name)
+    mkdir(out_dir)
+    args = dict(arg_pool['CollectRnaSeqMetrics'])
+    for step, cmd_info in index_bam_cmds.items():
+        sample = cmd_info['sample_name']
+        args['bam'] = cmd_info['sorted_bam']
+        args['outfile'] = os.path.join(out_dir, '{}.{}.xls'.format(sample, step_name))
+        args['outimage'] = os.path.join(out_dir, '{}.{}.pdf'.format(sample, step_name))
+        cmd = CollectRnaSeqMetrics(**args)
+        commands[step_name + '_' + sample] = cmd_dict(
+            cmd=cmd,
+            depend=step,
+            metrics=args['outfile']
+
+        )
+    return commands
+
+
 def run_existed_pipeline(steps=''):
     if arguments.pipeline_cfg is None or not os.path.exists(arguments.pipeline_cfg):
         raise Exception('Please provide valid pipeline.ini file')
@@ -829,12 +907,16 @@ def pipeline():
         monitor_time_step=arguments.monitor_time_step,
         check_resource_before_run=not arguments.no_check_resource_before_run,
     )
+
+    # fastqc and trimmomatic
     fastq_info_dict = parse_fastq_info(fastq_info_file)
     commands.update(fastqc_raw_data_cmds(fastq_info_dict, step_name='RawDataQC'))
     trim_cmds = trimmomatic_cmds(fastq_info_dict, step_name='Trim')
     commands.update(trim_cmds)
     fastqc_cmds = fastqc_trimmed_data_cmds(trimming_cmds=trim_cmds, step_name='TrimmedDataQC')
     commands.update(fastqc_cmds)
+
+    # align and bam index
     star_indexing = star_index_cmd(step_name='AlignIndex')
     commands.update(star_indexing)
     if list(trim_cmds.keys())[0].split('_', 1)[0] in skip_steps:
@@ -844,6 +926,8 @@ def pipeline():
     commands.update(align_cmds)
     bam_indexing_cmds = bam_index_cmds(align_cmds, step_name='IndexBam')
     commands.update(bam_indexing_cmds)
+
+    # run some RseQC cmds
     gbc_cmds = gene_body_coverage_cmds(bam_indexing_cmds, step_name='GeneBodyCoverage')
     commands.update(gbc_cmds)
     inner_dist_cmds = inner_distance_cmds(bam_indexing_cmds, step_name='InnerDistance')
@@ -854,14 +938,32 @@ def pipeline():
     commands.update(rdup_cmds)
     frag_size_cmds = rna_fragment_size_cmds(bam_indexing_cmds, step_name='FragmentSize')
     commands.update(frag_size_cmds)
+
+    # run TPM saturation
     saturation_cmds = tpm_saturation_cmds(bam_indexing_cmds, step_name='TPMSaturation')
     commands.update(saturation_cmds)
+
+    # 根据star比对结果log文件和使用bedtools intersect 结合 samtools flagstat 统计比对结果
     alignment_summary_cmds = get_alignment_summary_cmds(bam_indexing_cmds, step_name='AlignmentSummary')
     commands.update(alignment_summary_cmds)
+
+    # run some picard tools 获得大量响应的比对结果，包括insert_size 和 gene_body_coverage
+    collect_alignment_summary_cmds = CollectAlignmentSummaryMetrics_cmds(bam_indexing_cmds)
+    commands.update(collect_alignment_summary_cmds)
+    collect_insert_size_cmds = CollectInsertSizeMetrics_cmds(bam_indexing_cmds)
+    commands.update(collect_insert_size_cmds)
+    collect_target_info_cmds = CollectTargetedPcrMetrics_cmds(bam_indexing_cmds)
+    commands.update(collect_target_info_cmds)
+    collect_rna_metric_cmds = CollectRnaSeqMetrics_cmds(bam_indexing_cmds)
+    commands.update(collect_rna_metric_cmds)
+
+    # assemble and merge
     assembly_cmds = scallop_cmds(align_cmds=align_cmds, step_name='Assembly')
     commands.update(assembly_cmds)
     merge_trans_cmd = merge_scallop_transcripts_cmd(assembly_cmds, step_name='MergeTranscript')
     commands.update(merge_trans_cmd)
+
+    # quant with salmon and merge result
     if list(merge_trans_cmd.keys())[0] in skip_steps or list(assembly_cmds.keys())[0].split('_', 1)[0] in skip_steps:
         salmon_indexing = salmon_index_cmd(merge_transcript_cmd=None, step_name='QuantIndex')
     else:
@@ -874,12 +976,16 @@ def pipeline():
     commands.update(quant_cmds)
     merge_gene_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, step_name="MergeQuant")
     commands.update(merge_gene_exp_cmd)
+
+    # expression analysis
     gene_exp_cluster_cmd = exp_analysis_cmd(merge_gene_exp_cmd, step_name='ExpAnalysis', level='gene')
     commands.update(gene_exp_cluster_cmd)
     merge_trans_exp_cmd = merge_quant_cmd(quant_cmds=quant_cmds, level='transcript', step_name='MergeQuant')
     commands.update(merge_trans_exp_cmd)
     trans_exp_cluster_cmd = exp_analysis_cmd(merge_trans_exp_cmd, step_name='ExpAnalysis', level='transcript')
     commands.update(trans_exp_cluster_cmd)
+
+    # diff and enrich
     if arguments.group and arguments.compare:
         diff_gene_cmd = diff_exp_cmd(merge_gene_exp_cmd, level='gene', step_name='Diff')
         commands.update(diff_gene_cmd)
