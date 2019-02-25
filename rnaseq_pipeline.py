@@ -71,10 +71,11 @@ logger = set_logger(os.path.join(project_dir, 'workflow.log'))
 if arguments.arg_cfg:
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 else:
-    arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
-    logger.warning("You are using unchanged configuration: {}".format(arg_file))
-    arguments.arg_cfg = arg_file
-    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
+    if not arguments.pipeline_cfg:
+        arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
+        logger.warning("You are using unchanged configuration: {}".format(arg_file))
+        arguments.arg_cfg = arg_file
+        arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 
 
 def cmd_dict(cmd, cpu=1, mem=200*1024*1024, retry=arguments.retry,
