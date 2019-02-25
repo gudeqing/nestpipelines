@@ -29,6 +29,20 @@ def _kill_processes_when_exit():
             proc.kill()
 
 
+def set_logger(name='log.info', logger_id='x'):
+    logger = logging.getLogger(logger_id)
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(name, mode='w+')
+    sh = logging.StreamHandler()
+    fmt = '%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'
+    format_str = logging.Formatter(fmt)  # 设置日志格式
+    sh.setFormatter(format_str)  # 设置屏幕上显示的格式
+    sh = logging.StreamHandler()  # 往屏幕上输出
+    logger.addHandler(sh)
+    logger.addHandler(fh)
+    return logger
+
+
 class Command(object):
     def __init__(self, cmd, name, timeout=604800, outdir=os.getcwd(),
                  monitor_resource=True, monitor_time_step=2, logger=None, **kwargs):
@@ -45,17 +59,9 @@ class Command(object):
         self.monitor_time_step = int(monitor_time_step)
         self.outdir = outdir
         if not logger:
-            self.logger = self.set_logger(name=os.path.join(self.outdir, 'log.info'))
+            self.logger = set_logger(name=os.path.join(self.outdir, 'log.info'))
         else:
             self.logger = logger
-
-    @staticmethod
-    def set_logger(name='log.info', logger_id='x'):
-        logger = logging.getLogger(logger_id)
-        fh = logging.FileHandler(name, mode='w+')
-        logger.addHandler(fh)
-        logger.setLevel(logging.INFO)
-        return logger
 
     def _monitor_resource(self):
         while self.proc.is_running():
@@ -77,13 +83,13 @@ class Command(object):
                 if memory > self.max_mem:
                     self.max_mem = memory
             except Exception as e:
-                self.logger.info('Failed to capture cpu/mem info for: ', e)
+                # print('Failed to capture cpu/mem info for: ', e)
                 break
 
     def run(self):
         start_time = time.time()
         self.logger.warning("RunStep: {}".format(self.name))
-        self.logger.info("RunCmd: {}".format(self.name, self.cmd))
+        self.logger.info("RunCmd: {}".format(self.cmd))
         self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
         PROCESS_SET.add(self.proc)
         if self.monitor:
@@ -274,22 +280,17 @@ class StateGraph(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10):
+    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
         self.timeout = timeout
-        self.logger = self.set_logger(name=os.path.join(self.outdir, 'log.info'))
-
-    @staticmethod
-    def set_logger(name='log.info', logger_id='x'):
-        logger = logging.getLogger(logger_id)
-        fh = logging.FileHandler(name, mode='w+')
-        logger.addHandler(fh)
-        logger.setLevel(logging.INFO)
-        return logger
+        if not logger:
+            self.logger = set_logger(name=os.path.join(self.outdir, 'workflow.log'))
+        else:
+            self.logger = logger
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -422,7 +423,10 @@ class RunCommands(CommandNetwork):
                     self.ever_queued.add(line_lst[0])
                     self.state[line_lst[0]] = dict(zip(fields, line_lst[1:]))
         failed = set(self.names()) - self.ever_queued
-        self.logger.warning('continue to run: ', failed)
+        if failed:
+            self.logger.warning('Continue to run: {}'.format(failed))
+        else:
+            self.logger.warning('Nothing to continue run')
         self.queue = queue.Queue()
         self._update_queue()
         self.parallel_run()

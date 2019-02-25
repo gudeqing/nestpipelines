@@ -6,8 +6,7 @@ import shutil
 from pprint import pprint
 
 from cmd_generator import *
-from nestcmd import RunCommands
-
+from nestcmd import RunCommands, set_logger
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-arg_cfg', required=False, help="config file containing all parameters info")
@@ -74,6 +73,7 @@ if not os.path.exists(project_dir):
     os.mkdir(project_dir)
 project_dir = os.path.abspath(project_dir)
 # fastq_info_file = arguments.fastq_info
+logger = set_logger(os.path.join(project_dir, 'workflow.log'))
 
 
 def cmd_dict(cmd, cpu=1, mem=200*1024*1024, retry=arguments.retry,
@@ -854,7 +854,7 @@ def CollectRnaSeqMetrics_cmds(index_bam_cmds, step_name='CollectRnaSeqMetrics'):
 def run_existed_pipeline(steps=''):
     if arguments.pipeline_cfg is None or not os.path.exists(arguments.pipeline_cfg):
         raise Exception('Please provide valid pipeline.ini file')
-    workflow = RunCommands(arguments.pipeline_cfg, outdir=project_dir)
+    workflow = RunCommands(arguments.pipeline_cfg, outdir=project_dir, logger=logger)
 
     if arguments.only_show_steps:
         pprint('----Pipeline has the following main steps----')
@@ -1082,7 +1082,7 @@ def pipeline():
     if arguments.only_write_pipeline:
         return
     # ----------------run-----------------
-    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
+    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'), logger=logger,
                            outdir=project_dir, timeout=arguments.wait_resource_time)
     workflow.parallel_run()
 
