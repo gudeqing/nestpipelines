@@ -68,7 +68,8 @@ else:
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 project_dir = arguments.o
 if arguments.only_show_steps or arguments.only_show_detail_steps:
-    project_dir = project_dir + '.tmp'
+    if arguments.pipeline_cfg is None and (not arguments.continue_run):
+        project_dir = project_dir + '.tmp'
 if not os.path.exists(project_dir):
     os.mkdir(project_dir)
 project_dir = os.path.abspath(project_dir)
