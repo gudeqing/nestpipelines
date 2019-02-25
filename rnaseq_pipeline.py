@@ -58,13 +58,6 @@ skip_steps = arguments.skip
 arg_pool = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 arg_pool.optionxform = str
 
-if arguments.arg_cfg:
-    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
-else:
-    arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
-    print("You are using unchanged configuration: {}".format(arg_file))
-    arguments.arg_cfg = arg_file
-    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 project_dir = arguments.o
 if arguments.only_show_steps or arguments.only_show_detail_steps:
     if arguments.pipeline_cfg is None and (not arguments.continue_run):
@@ -74,6 +67,14 @@ if not os.path.exists(project_dir):
 project_dir = os.path.abspath(project_dir)
 # fastq_info_file = arguments.fastq_info
 logger = set_logger(os.path.join(project_dir, 'workflow.log'))
+
+if arguments.arg_cfg:
+    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
+else:
+    arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
+    logger.warning("You are using unchanged configuration: {}".format(arg_file))
+    arguments.arg_cfg = arg_file
+    arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 
 
 def cmd_dict(cmd, cpu=1, mem=200*1024*1024, retry=arguments.retry,
@@ -210,7 +211,7 @@ def star_index_cmd(step_name='AlignIndex'):
         if len(os.listdir(arg_pool['star_index']['genomeDir'])) <= 1:
             mkdir(arg_pool['star_index']['genomeDir'])
         else:
-            print('STAR index existed, and skip this indexing step!')
+            logger.warning('STAR index existed, and skip this indexing step!')
             return commands
     else:
         mkdir(arg_pool['star_index']['genomeDir'])
@@ -343,7 +344,7 @@ def salmon_index_cmd(step_name='QuantIndex', merge_transcript_cmd=None):
     commands = dict()
     if not merge_transcript_cmd:
         if os.path.exists(arg_pool['salmon_index']['index_prefix']):
-            print('salmon index existed, and skip this indexing step!')
+            logger.warning('salmon index existed, and skip this indexing step!')
             return commands
         args = dict(arg_pool['salmon_index'])
         cmd = salmon_index(**args)
@@ -882,7 +883,7 @@ def show_cmd_example(cmd_name):
         raise Exception("please first input arg_cfg ")
     if cmd_name not in arg_pool:
         raise Exception('please provide valid cmd_name, refer --list_cmd_names')
-    exec("print({}(**arg_pool['{}']))".format(cmd_name, cmd_name))
+    exec("pprint({}(**arg_pool['{}']))".format(cmd_name, cmd_name))
 
 
 def list_cmd_names():
@@ -917,7 +918,7 @@ def pipeline():
         return
     else:
         if arguments.pipeline_cfg:
-            print('You are re-running the whole existed pipeline')
+            logger.warning('You are re-running the whole existed pipeline')
             run_existed_pipeline()
             return
 
@@ -1058,8 +1059,8 @@ def pipeline():
             if all(len(set(workflow.get_dependency(x)) - set(commands.keys())) == 0 for x in commands):
                 break
         if total_deduced_skips:
-            print("Warning: the following steps are also skipped for depending relationship")
-            print(set(x.split('_', 1)[0] for x in total_deduced_skips))
+            logger.warning("Warning: the following steps are also skipped for depending relationship")
+            logger.warning(set(x.split('_', 1)[0] for x in total_deduced_skips))
 
     # ----only show steps----
     tmp_list = [x.split('_', 1)[0] for x in commands.keys()]
