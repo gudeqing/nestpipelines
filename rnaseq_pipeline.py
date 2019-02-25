@@ -713,22 +713,22 @@ def rna_fragment_size_cmds(index_bam_cmds, step_name='FragmentSize'):
     return commands
 
 
-def rpkm_saturation_cmds(index_bam_cmds, step_name='RPKMSaturation'):
-    commands = dict()
-    out_dir = os.path.join(project_dir, step_name)
-    mkdir(out_dir)
-    args = dict(arg_pool['rpkm_saturation'])
-    for step, cmd_info in index_bam_cmds.items():
-        sample = cmd_info['sample_name']
-        args['bam'] = cmd_info['sorted_bam']
-        args['out_prefix'] = os.path.join(out_dir, sample)
-        cmd = rpkm_saturation(**args)
-        commands[step_name + '_' + sample] = cmd_dict(
-            cmd=cmd,
-            depend=step,
-            out_prefix=args['out_prefix']
-        )
-    return commands
+# def rpkm_saturation_cmds(index_bam_cmds, step_name='RPKMSaturation'):
+#     commands = dict()
+#     out_dir = os.path.join(project_dir, step_name)
+#     mkdir(out_dir)
+#     args = dict(arg_pool['rpkm_saturation'])
+#     for step, cmd_info in index_bam_cmds.items():
+#         sample = cmd_info['sample_name']
+#         args['bam'] = cmd_info['sorted_bam']
+#         args['out_prefix'] = os.path.join(out_dir, sample)
+#         cmd = rpkm_saturation(**args)
+#         commands[step_name + '_' + sample] = cmd_dict(
+#             cmd=cmd,
+#             depend=step,
+#             out_prefix=args['out_prefix']
+#         )
+#     return commands
 
 
 def tpm_saturation_cmds(index_bam_cmds, step_name='TPMSaturation'):
@@ -947,7 +947,7 @@ def pipeline():
     alignment_summary_cmds = get_alignment_summary_cmds(bam_indexing_cmds, step_name='AlignmentSummary')
     commands.update(alignment_summary_cmds)
 
-    # run some picard tools 获得大量响应的比对结果，包括insert_size 和 gene_body_coverage
+    # run some picard tools 获得大量的比对情况的统计结果，包括insert_size 和 gene_body_coverage
     collect_alignment_summary_cmds = CollectAlignmentSummaryMetrics_cmds(bam_indexing_cmds)
     commands.update(collect_alignment_summary_cmds)
     collect_insert_size_cmds = CollectInsertSizeMetrics_cmds(bam_indexing_cmds)
@@ -1044,10 +1044,11 @@ def pipeline():
     # ---------write pipeline cmds--------------------
     with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
         commands.write(configfile)
-    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'), outdir=project_dir, timeout=arguments.wait_resource_time)
     if arguments.only_write_pipeline:
         return
     # ----------------run-----------------
+    workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
+                           outdir=project_dir, timeout=arguments.wait_resource_time)
     workflow.parallel_run()
 
 

@@ -4,6 +4,7 @@ import os
 import configparser
 import psutil
 import queue
+import logging
 from subprocess import PIPE
 import threading
 import matplotlib
@@ -30,7 +31,7 @@ def _kill_processes_when_exit():
 
 class Command(object):
     def __init__(self, cmd, name, timeout=604800, outdir=os.getcwd(),
-                 monitor_resource=True, monitor_time_step=2, **kwargs):
+                 monitor_resource=True, monitor_time_step=2, logger=None, **kwargs):
         self.name = name
         self.cmd = cmd
         self.proc = None
@@ -43,6 +44,18 @@ class Command(object):
         self.monitor = monitor_resource
         self.monitor_time_step = int(monitor_time_step)
         self.outdir = outdir
+        if not logger:
+            self.logger = self.set_logger(name=os.path.join(self.outdir, 'log.info'))
+        else:
+            self.logger = logger
+
+    @staticmethod
+    def set_logger(name='log.info', logger_id='x'):
+        logger = logging.getLogger(logger_id)
+        fh = logging.FileHandler(name, mode='w+')
+        logger.addHandler(fh)
+        logger.setLevel(logging.INFO)
+        return logger
 
     def _monitor_resource(self):
         while self.proc.is_running():
@@ -64,12 +77,13 @@ class Command(object):
                 if memory > self.max_mem:
                     self.max_mem = memory
             except Exception as e:
-                print('Failed to capture cpu/mem info for: ', e)
+                self.logger.info('Failed to capture cpu/mem info for: ', e)
                 break
 
     def run(self):
         start_time = time.time()
-        print("Run {}: ".format(self.name), self.cmd)
+        self.logger.warning("RunStep: {}".format(self.name))
+        self.logger.info("RunCmd: {}".format(self.name, self.cmd))
         self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
         PROCESS_SET.add(self.proc)
         if self.monitor:
@@ -267,6 +281,15 @@ class RunCommands(CommandNetwork):
         self.state = self.__init_state()
         self.outdir = outdir
         self.timeout = timeout
+        self.logger = self.set_logger(name=os.path.join(self.outdir, 'log.info'))
+
+    @staticmethod
+    def set_logger(name='log.info', logger_id='x'):
+        logger = logging.getLogger(logger_id)
+        fh = logging.FileHandler(name, mode='w+')
+        logger.addHandler(fh)
+        logger.setLevel(logging.INFO)
+        return logger
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -298,7 +321,7 @@ class RunCommands(CommandNetwork):
                 self.ever_queued.add(each)
                 self.state[each]['state'] = 'failed'
                 self.state[each]['used_time'] = 'FailedDependencies'
-                print(each, 'cannot be started for some failed dependencies!')
+                self.logger.warning(each, 'cannot be started for some failed dependencies!')
             if not (dependency - success):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
@@ -308,7 +331,7 @@ class RunCommands(CommandNetwork):
         if cmd.proc is None:
             cmd_state['state'] = 'failed'
             cmd_state['used_time'] = 'NotEnoughResource'
-            print(cmd.name, 'cannot be started for not enough resource!')
+            self.logger.warning(cmd.name, 'cannot be started for not enough resource!')
         else:
             cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
             cmd_state['used_time'] = cmd.used_time
@@ -351,7 +374,7 @@ class RunCommands(CommandNetwork):
             tmp_dict = self.get_cmd_description_dict(name)
 
             try_times = 0
-            cmd = Command(**tmp_dict, outdir=self.outdir)
+            cmd = Command(**tmp_dict, outdir=self.outdir, logger=self.logger)
             while try_times <= int(tmp_dict['retry']):
                 try_times += 1
                 enough = True
@@ -362,7 +385,7 @@ class RunCommands(CommandNetwork):
                         enough = False
                 if enough:
                     if try_times > 1:
-                        print('{}th run {}'.format(try_times, cmd.name))
+                        self.logger.warning('{}th run {}'.format(try_times, cmd.name))
                     cmd.run()
                     if cmd.proc.returncode == 0:
                         break
@@ -399,7 +422,7 @@ class RunCommands(CommandNetwork):
                     self.ever_queued.add(line_lst[0])
                     self.state[line_lst[0]] = dict(zip(fields, line_lst[1:]))
         failed = set(self.names()) - self.ever_queued
-        print('continue to run: ', failed)
+        self.logger.warning('continue to run: ', failed)
         self.queue = queue.Queue()
         self._update_queue()
         self.parallel_run()
