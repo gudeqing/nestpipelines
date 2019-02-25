@@ -31,7 +31,7 @@ def _kill_processes_when_exit():
 
 def set_logger(name='log.info', logger_id='x'):
     logger = logging.getLogger(logger_id)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
     fh = logging.FileHandler(name, mode='w+')
     sh = logging.StreamHandler()
     fmt = '%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'
