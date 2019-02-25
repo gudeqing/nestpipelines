@@ -823,6 +823,7 @@ def CollectTargetedPcrMetrics_cmds(index_bam_cmds, step_name='CollectTargetedPcr
         sample = cmd_info['sample_name']
         args['bam'] = cmd_info['sorted_bam']
         args['outfile'] = os.path.join(out_dir, '{}.{}.xls'.format(sample, step_name))
+        args['per_target_coverage_outfile'] = os.path.join(out_dir, '{}.PerTargetCoverage.txt'.format(sample))
         cmd = CollectTargetedPcrMetrics(**args)
         commands[step_name + '_' + sample] = cmd_dict(
             cmd=cmd,
