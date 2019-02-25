@@ -2,6 +2,7 @@
 import os
 import configparser
 import argparse
+import shutil
 from pprint import pprint
 
 from cmd_generator import *
@@ -28,26 +29,30 @@ parser.add_argument('--only_write_pipeline', default=False, action='store_true',
                     help="仅仅生成流程pipeline.ini")
 parser.add_argument('-threads', default=5, type=int, help="允许并行的步骤数")
 parser.add_argument('-retry', default=1, type=int,
-                    help='某步骤运行失败后再尝试运行的次数, 默认1次. 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
+                    help='某步骤运行失败后再尝试运行的次数, 默认1次. 如需对某一步设置不同的值, 可在运行流程前修改pipeline.ini')
 parser.add_argument('--continue_run', default=False, action='store_true',
-                    help='流程运行结束后, 从失败的步骤续跑, 记得要用-o指定之前的结果目录; '
-                         '如果想重新跑已经成功的某一步, 可以通过-rerun_steps指定, 或者在状态表cmd_stat.txt中手动将其修改为failed即可')
+                    help='流程运行结束后, 从失败的步骤续跑, 记得要用-o指定之前的结果目录, 用-pipeline_cfg指定pipeline.ini; '
+                         '如果顺便还想重新跑已经成功运行的步骤, 可通过-rerun_steps指定, 或者在状态表cmd_stat.txt中将其修改为failed即可')
 parser.add_argument('-rerun_steps', default=list(), nargs='+',
-                    help="续跑时, 可以通过该参数指定重跑已经成功的步骤, 空格分隔,这样做的可能原因: 你重新设置了参数")
+                    help="使用--continue_run有效, 通过该参数指定重跑已经成功的步骤, 空格分隔, 这样做的可能原因可以是: 你重新设置了参数")
 parser.add_argument('-pipeline_cfg', default=None,
-                    help="已有的pipeline.ini, 续跑时也需提供此参数; 如提供, 则此时无需 arg_cfg,fastq_info,group,cmp,skip 等参数")
-parser.add_argument('--list_cmd_names', default=False, action='store_true', help="仅输出参数文件里的包含的cmd名称")
+                    help="已有的pipeline.ini, 续跑时必须需提供; 如提供该参数, 则此时无视 arg_cfg,fastq_info,group,cmp,skip 等参数")
+parser.add_argument('--list_cmd_names', default=False, action='store_true', help="仅输出参数配置文件里的包含的cmd名称")
 parser.add_argument('-show_cmd_example', help="提供一个cmd名称,输出该cmd的样例")
 parser.add_argument('--no_monitor_resource', default=False, action='store_true',
-                    help='是否监控每一步运行时的资源消耗, 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
+                    help='是否监控每一步运行时的资源消耗, 如需对某一步设置不同的值, 可在运行流程前修改pipeline.ini')
 parser.add_argument('--monitor_time_step', default=3, type=int,
-                    help='监控资源时的时间间隔,默认3秒, 如需对某一步设置不同的值, 可在真正运行流程前修改pipeline.ini或者直接修改流程')
-parser.add_argument('-wait_resource_time', default=10, type=int,
-                    help="等待资源的时间上限, 超过这个上限,资源不足时判定任务失败")
+                    help='监控资源时的时间间隔, 默认3秒, 如需对某一步设置不同的值, 可在运行流程前修改pipeline.ini')
+parser.add_argument('-wait_resource_time', default=60, type=int,
+                    help="等待资源的时间上限, 默认60秒, 等待时间超过这个时间时,资源不足时判定任务失败")
 parser.add_argument('--no_check_resource_before_run', default=False, action='store_true',
-                    help="运行某步骤前检测指定的资源是否足够, 如不足, 则该步骤失败;如果设置该参数,则运行前不检查资源. "
-                         "如需对某一步设置不同的值,可在流程中修改或运行前修改pipeline.ini. "
-                         "如需更改指定的资源, 可在真正运行流程前修改pipeline.ini或者直接修改流程")
+                    help="指示运行某步骤前检测指定的资源是否足够, 如不足, 则该步骤失败; 如果设置该参数, 则运行前不检查资源. "
+                         "如需对某一步设置不同的值,可运行前修改pipeline.ini. "
+                         "如需更改指定的资源, 可在运行流程前修改pipeline.ini")
+# get script path
+script_path = os.path.abspath(__file__)
+if os.path.islink(script_path):
+    script_path = os.readlink(script_path)
 
 arguments = parser.parse_args()
 skip_steps = arguments.skip
@@ -57,18 +62,17 @@ arg_pool.optionxform = str
 if arguments.arg_cfg:
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 else:
-    script_path = os.path.abspath(__file__)
-    if os.path.islink(script_path):
-        script_path = os.readlink(script_path)
     arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
     print("You are using unchanged configuration: {}".format(arg_file))
     arguments.arg_cfg = arg_file
     arg_pool.read(arguments.arg_cfg, encoding='utf-8')
 project_dir = arguments.o
+if arguments.only_show_steps or arguments.only_show_detail_steps:
+    project_dir = project_dir + '.tmp'
 if not os.path.exists(project_dir):
     os.mkdir(project_dir)
 project_dir = os.path.abspath(project_dir)
-fastq_info_file = arguments.fastq_info
+# fastq_info_file = arguments.fastq_info
 
 
 def cmd_dict(cmd, cpu=1, mem=200*1024*1024, retry=arguments.retry,
@@ -850,6 +854,18 @@ def run_existed_pipeline(steps=''):
     if arguments.pipeline_cfg is None or not os.path.exists(arguments.pipeline_cfg):
         raise Exception('Please provide valid pipeline.ini file')
     workflow = RunCommands(arguments.pipeline_cfg, outdir=project_dir)
+
+    if arguments.only_show_steps:
+        pprint('----Pipeline has the following main steps----')
+        tmp_list = [x.split('_', 1)[0] for x in workflow.names()]
+        main_steps = list()
+        _ = [main_steps.append(x) for x in tmp_list if x not in main_steps]
+        pprint(main_steps)
+        return
+    elif arguments.only_show_detail_steps:
+        pprint('----Pipeline has the following steps----')
+        pprint(workflow.names())
+        return
     if arguments.continue_run:
         workflow.continue_run(steps=steps)
     else:
@@ -878,6 +894,14 @@ def pipeline():
     """
     为了能正常跳过一些步骤,步骤名即step_name不能包含'_',且保证最后生成的步骤名不能有重复。
     """
+    if arguments.only_show_steps:
+        if arguments.fastq_info is None:
+            test_data_dir = os.path.join(os.path.dirname(script_path), 'testdata')
+            if os.path.exists(test_data_dir):
+                arguments.fastq_info = os.path.join(test_data_dir, 'fastq_info.txt')
+                arguments.compare = os.path.join(test_data_dir, 'compare')
+                arguments.group = os.path.join(test_data_dir, 'group')
+
     if arguments.show_cmd_example:
         show_cmd_example(arguments.show_cmd_example)
         return
@@ -885,10 +909,16 @@ def pipeline():
         list_cmd_names()
         return
 
-    if arguments.pipeline_cfg or arguments.continue_run:
-        # print(arguments.rerun_steps)
+    if arguments.continue_run:
+        if not arguments.pipeline_cfg:
+            raise Exception('Existed pipeline_cfg must be provided !')
         run_existed_pipeline(steps=arguments.rerun_steps)
         return
+    else:
+        if arguments.pipeline_cfg:
+            print('You are re-running the whole existed pipeline')
+            run_existed_pipeline()
+            return
 
     if not arguments.continue_run or arguments.pipeline_cfg is None:
         if not arguments.arg_cfg:
@@ -896,6 +926,8 @@ def pipeline():
         if not os.path.exists(arguments.arg_cfg):
             raise Exception('arg_cfg file not exist')
         if not arguments.fastq_info:
+            if arguments.only_show_detail_steps:
+                shutil.rmtree(project_dir)
             raise Exception('-fastq_info is needed!')
 
     commands = configparser.ConfigParser()
@@ -909,7 +941,7 @@ def pipeline():
     )
 
     # fastqc and trimmomatic
-    fastq_info_dict = parse_fastq_info(fastq_info_file)
+    fastq_info_dict = parse_fastq_info(arguments.fastq_info)
     commands.update(fastqc_raw_data_cmds(fastq_info_dict, step_name='RawDataQC'))
     trim_cmds = trimmomatic_cmds(fastq_info_dict, step_name='Trim')
     commands.update(trim_cmds)
@@ -1002,7 +1034,7 @@ def pipeline():
 
     # -----------skip some steps--------------
     if skip_steps:
-        with open(os.path.join(project_dir, 'pipeline_raw.ini'), 'w') as configfile:
+        with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
             commands.write(configfile)
         workflow = RunCommands(os.path.join(project_dir, 'pipeline_raw.ini'), outdir=project_dir)
         for each in skip_steps:
@@ -1035,10 +1067,12 @@ def pipeline():
     if arguments.only_show_steps:
         pprint('----Pipeline has the following main steps----')
         pprint(main_steps[2:])
+        shutil.rmtree(project_dir)
         return
     elif arguments.only_show_detail_steps:
         pprint('----Pipeline has the following steps----')
         pprint(list(commands.keys())[2:])
+        shutil.rmtree(project_dir)
         return
 
     # ---------write pipeline cmds--------------------
