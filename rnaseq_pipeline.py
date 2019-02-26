@@ -1040,7 +1040,7 @@ def pipeline():
     if skip_steps:
         with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
             commands.write(configfile)
-        workflow = RunCommands(os.path.join(project_dir, 'pipeline_raw.ini'), outdir=project_dir)
+        workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'), outdir=project_dir)
         for each in skip_steps:
             skips = [x for x in commands if x == each or x.startswith(each+'_')]
             if not skips:
