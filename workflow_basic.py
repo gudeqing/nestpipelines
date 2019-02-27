@@ -170,7 +170,7 @@ class Basic(object):
         :param cmd_name: cmd_generator中的函数名,也是arguments.ini中的section名
         :return: None
         """
-        print('This function should be overvided')
+        print('This function should be overrided')
         if not self.workflow_arguments.arg_cfg:
             raise Exception("please first input arg_cfg ")
         if cmd_name not in self.arg_pool:
