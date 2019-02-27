@@ -29,8 +29,9 @@ def _kill_processes_when_exit():
             proc.kill()
 
 
-def set_logger(name='log.info', logger_id='x'):
+def set_logger(name='workflow.log', logger_id='x'):
     logger = logging.getLogger(logger_id)
+    logger.propagate = False
     logger.setLevel(logging.INFO)
     fh = logging.FileHandler(name, mode='w+')
     fh.setLevel(logging.INFO)
@@ -61,7 +62,7 @@ class Command(object):
         self.monitor_time_step = int(monitor_time_step)
         self.outdir = outdir
         if not logger:
-            self.logger = set_logger(name=os.path.join(self.outdir, 'log.info'))
+            self.logger = set_logger(name=os.path.join(self.outdir, 'command.log'))
         else:
             self.logger = logger
 
