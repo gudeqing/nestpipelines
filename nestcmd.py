@@ -218,7 +218,7 @@ class CheckResource(object):
 class StateGraph(object):
     def __init__(self, state):
         self.state = state
-        self.graph = pgv.AGraph(directed=True)
+        self.graph = pgv.AGraph(directed=True, rankdir='LR')
 
     def _add_nodes(self):
         for node, cmd_info in self.state.items():
