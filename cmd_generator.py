@@ -321,6 +321,11 @@ def get_alignment_summary(**kwargs):
     return cmd
 
 
+def chromosome_read_distribution(**kwargs):
+    cmd = '{} idxstats '.format(kwargs['samtools'])
+    cmd += '{} > {}'.format(kwargs['bam'], kwargs['outfile'])
+
+
 def CollectAlignmentSummaryMetrics(**kwargs):
     "https://broadinstitute.github.io/picard/command-line-overview.html#CollectAlignmentSummaryMetrics"
     cmd = '{} -jar '.format(kwargs['java'])

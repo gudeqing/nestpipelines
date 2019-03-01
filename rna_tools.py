@@ -586,6 +586,24 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
+    def chromosome_read_distribution_cmds(self, index_bam_cmds, step_name='ChrReadDistribution'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['chromosome_read_distribution'])
+        for step, cmd_info in index_bam_cmds.items():
+            sample = cmd_info['sample_name']
+            args['bam'] = cmd_info['sorted_bam']
+            args['outfile'] = os.path.join(out_dir, '{}.chromosome.alignment.stat.txt'.format(sample))
+            cmd = cmdx.chromosome_read_distribution(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                outfile=args['outfile']
+            )
+        self.workflow.update(commands)
+        return commands
+
     def read_duplication_cmds(self, index_bam_cmds, step_name='ReadDuplication'):
         commands = dict()
         out_dir = os.path.join(self.project_dir, step_name)

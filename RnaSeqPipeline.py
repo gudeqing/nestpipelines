@@ -45,8 +45,11 @@ def pipeline():
     # run TPM saturation
     saturation_cmds = nc.tpm_saturation_cmds(bam_indexing_cmds, step_name='TPMSaturation')
 
+    # stat chromosome read distribution
+    chr_read_distribution_cmds = nc.chromosome_read_distribution_cmds(bam_indexing_cmds)
+
     # 根据star比对结果log文件和使用bedtools intersect 结合 samtools flagstat 统计比对结果
-    alignment_summary_cmds = nc.get_alignment_summary_cmds(bam_indexing_cmds, step_name='AlignmentSummary')
+    # alignment_summary_cmds = nc.get_alignment_summary_cmds(bam_indexing_cmds, step_name='AlignmentSummary')
 
     # run some picard tools 获得大量的比对情况的统计结果，包括insert_size 和 gene_body_coverage
     collect_alignment_summary_cmds = nc.CollectAlignmentSummaryMetrics_cmds(bam_indexing_cmds)
