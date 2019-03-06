@@ -324,6 +324,7 @@ def get_alignment_summary(**kwargs):
 def chromosome_read_distribution(**kwargs):
     cmd = '{} idxstats '.format(kwargs['samtools'])
     cmd += '{} > {}'.format(kwargs['bam'], kwargs['outfile'])
+    return cmd
 
 
 def CollectAlignmentSummaryMetrics(**kwargs):
