@@ -23,10 +23,9 @@ PROCESS_SET = weakref.WeakKeyDictionary()
 @atexit.register
 def _kill_processes_when_exit():
     print("....Ending....")
-    for proc in PROCESS_SET:
+    for proc, cmd_name in PROCESS_SET.items():
         if psutil.pid_exists(proc.pid):
-            print("Shutting down running tasks...")
-            print('killing process {}:{}'.format(proc.pid, proc.name()))
+            print('Shutting down running tasks {}:{}'.format(proc.pid, cmd_name))
             proc.kill()
 
 
