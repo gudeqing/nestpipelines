@@ -12,6 +12,7 @@ matplotlib.use('agg')
 from threading import Timer, Lock
 import weakref
 import atexit
+import signal
 import pygraphviz as pgv
 __author__ = 'gdq and dp'
 
@@ -27,6 +28,14 @@ def _kill_processes_when_exit():
             print("Shutting down running tasks...")
             print('killing process {}:{}'.format(proc.pid, proc.name()))
             proc.kill()
+
+
+def shutdownFunction(signum, frame):
+    exit(1)
+
+# kill signal will be captured
+signal.signal(signal.SIGTERM, shutdownFunction)
+signal.signal(signal.SIGINT, shutdownFunction)
 
 
 def set_logger(name='workflow.log', logger_id='x'):
