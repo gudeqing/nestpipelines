@@ -449,6 +449,7 @@ class RunCommands(CommandNetwork):
             self.logger.warning('Nothing to continue run')
         self.queue = queue.Queue()
         self._update_queue()
+        self._draw_state()
         self.parallel_run()
 
 
