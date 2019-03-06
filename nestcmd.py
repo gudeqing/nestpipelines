@@ -31,7 +31,8 @@ def _kill_processes_when_exit():
 
 
 def shutdownFunction(signum, frame):
-    exit(1)
+    print('Killing main process, thus its derived processes will also be killed')
+    exit(0)
 
 # kill signal will be captured
 signal.signal(signal.SIGTERM, shutdownFunction)
