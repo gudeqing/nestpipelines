@@ -17,7 +17,7 @@ import pygraphviz as pgv
 __author__ = 'gdq and dp'
 
 
-PROCESS_SET = weakref.WeakSet()
+PROCESS_SET = weakref.WeakKeyDictionary()
 
 
 @atexit.register
@@ -103,7 +103,7 @@ class Command(object):
         self.logger.warning("RunStep: {}".format(self.name))
         self.logger.info("RunCmd: {}".format(self.cmd))
         self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
-        PROCESS_SET.add(self.proc)
+        PROCESS_SET[self.proc] = self.name
         if self.monitor:
             thread = threading.Thread(target=self._monitor_resource, daemon=True)
             thread.start()
@@ -239,6 +239,8 @@ class StateGraph(object):
                 color = '#FFD700'
             elif status == 'running':
                 color = '#9F79EE'
+            elif status == 'queueing':
+                color = '#87CEFF'
             else:
                 color = '#A8A8A8'
             used_time = cmd_info['used_time']
@@ -275,7 +277,7 @@ class StateGraph(object):
                 if self.state[target]['state'] == 'success':
                     color = '#836FFF'
                 elif self.state[target]['state'] == 'running':
-                    color = '#836FFF'
+                    color = 'red'
                 else:
                     color = '#4D4D4D'
                 self.graph.add_edges_from(edges, color=color)
@@ -357,9 +359,13 @@ class RunCommands(CommandNetwork):
         running = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
         for each in running:
-            self.state[each]['state'] = 'running'
+            tmp_dict = {y: x for x, y in PROCESS_SET.items()}
+            if cmd.name in tmp_dict and psutil.pid_exists(tmp_dict[cmd.name]):
+                self.state[each]['state'] = 'running'
+            else:
+                self.state[each]['state'] = 'queueing'
         for each in waiting:
-            self.state[each]['state'] = 'waiting'
+            self.state[each]['state'] = 'outdoor'
 
     def _write_state(self):
         with open(os.path.join(self.outdir, 'cmd_state.txt'), 'w') as f:
