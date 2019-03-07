@@ -360,8 +360,8 @@ class RunCommands(CommandNetwork):
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
         running = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
+        tmp_dict = {y: x for x, y in PROCESS_SET.items()}
         for each in running:
-            tmp_dict = {y: x for x, y in PROCESS_SET.items()}
             if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
                 if tmp_dict[each].is_running():
                     self.state[each]['state'] = 'running'
