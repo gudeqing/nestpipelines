@@ -24,7 +24,7 @@ PROCESS_SET = weakref.WeakKeyDictionary()
 def _kill_processes_when_exit():
     print("....Ending....")
     for proc, cmd_name in PROCESS_SET.items():
-        if psutil.pid_exists(proc.pid):
+        if psutil.pid_exists(proc.pid) and proc.is_running():
             print('Shutting down running tasks {}:{}'.format(proc.pid, cmd_name))
             proc.kill()
 
@@ -243,6 +243,8 @@ class StateGraph(object):
                 color = '#9F79EE'
             elif status == 'queueing':
                 color = '#87CEFF'
+            elif status == 'killed':
+                color = 'red'
             else:
                 color = '#A8A8A8'
             used_time = cmd_info['used_time']
@@ -344,7 +346,7 @@ class RunCommands(CommandNetwork):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
 
-    def _update_state(self, cmd=None):
+    def _update_state(self, cmd=None, killed=False):
         if cmd is not None:
             cmd_state = self.state[cmd.name]
             if cmd.proc is None:
@@ -365,7 +367,10 @@ class RunCommands(CommandNetwork):
         for each in running:
             if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
                 if tmp_dict[each].is_running():
-                    self.state[each]['state'] = 'running'
+                    if killed:
+                        self.state[each]['state'] = 'killed'
+                    else:
+                        self.state[each]['state'] = 'running'
                 else:
                     if tmp_dict[each].returncode == 0:
                         self.state[each]['state'] = 'success'
@@ -386,6 +391,12 @@ class RunCommands(CommandNetwork):
 
     def _draw_state(self):
         StateGraph(self.state).draw(os.path.join(self.outdir, 'state.svg'))
+
+    def _update_status_when_exit(self):
+        # print('final update status')
+        self._update_state(killed=True)
+        self._write_state()
+        self._draw_state()
 
     def single_run(self):
         while True:
@@ -425,6 +436,7 @@ class RunCommands(CommandNetwork):
                 self._draw_state()
 
     def parallel_run(self):
+        atexit.register(self._update_status_when_exit)
         pool_size = self.parser.getint('mode', 'threads')
         threads = list()
         for _ in range(pool_size):
