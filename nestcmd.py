@@ -111,6 +111,8 @@ class Command(object):
         try:
             timer.start()
             self.stdout, self.stderr = self.proc.communicate()
+            if self.monitor:
+                thread.join()
         finally:
             timer.cancel()
         self._write_log()
