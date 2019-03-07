@@ -361,7 +361,13 @@ class RunCommands(CommandNetwork):
         for each in running:
             tmp_dict = {y: x for x, y in PROCESS_SET.items()}
             if cmd.name in tmp_dict and psutil.pid_exists(tmp_dict[cmd.name].pid):
-                self.state[each]['state'] = 'running'
+                if tmp_dict[cmd.name].is_running():
+                    self.state[each]['state'] = 'running'
+                else:
+                    if tmp_dict[cmd.name].returncode == 0:
+                        self.state[each]['state'] = 'success'
+                    else:
+                        self.state[each]['state'] = 'failed'
             else:
                 self.state[each]['state'] = 'queueing'
         for each in waiting:
@@ -422,6 +428,8 @@ class RunCommands(CommandNetwork):
             thread = threading.Thread(target=self.single_run, daemon=True)
             threads.append(thread)
             thread.start()
+        # draw state
+        thread =
         _ = [x.join() for x in threads]
 
     def continue_run(self, steps=''):
