@@ -428,9 +428,8 @@ class RunCommands(CommandNetwork):
             thread = threading.Thread(target=self.single_run, daemon=True)
             threads.append(thread)
             thread.start()
-        # draw state
-        thread =
         _ = [x.join() for x in threads]
+        self.logger.warning('Finished all tasks!')
 
     def continue_run(self, steps=''):
         detail_steps = []
