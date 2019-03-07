@@ -344,18 +344,19 @@ class RunCommands(CommandNetwork):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
 
-    def _update_state(self, cmd):
-        cmd_state = self.state[cmd.name]
-        if cmd.proc is None:
-            cmd_state['state'] = 'failed'
-            cmd_state['used_time'] = 'NotEnoughResource'
-            self.logger.warning(cmd.name, 'cannot be started for not enough resource!')
-        else:
-            cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
-            cmd_state['used_time'] = cmd.used_time
-            cmd_state['mem'] = cmd.max_mem
-            cmd_state['cpu'] = cmd.max_cpu
-            cmd_state['pid'] = cmd.proc.pid
+    def _update_state(self, cmd=None):
+        if cmd is not None:
+            cmd_state = self.state[cmd.name]
+            if cmd.proc is None:
+                cmd_state['state'] = 'failed'
+                cmd_state['used_time'] = 'NotEnoughResource'
+                self.logger.warning(cmd.name, 'cannot be started for not enough resource!')
+            else:
+                cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
+                cmd_state['used_time'] = cmd.used_time
+                cmd_state['mem'] = cmd.max_mem
+                cmd_state['cpu'] = cmd.max_cpu
+                cmd_state['pid'] = cmd.proc.pid
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
         running = self.ever_queued - success - failed
@@ -430,6 +431,13 @@ class RunCommands(CommandNetwork):
             thread = threading.Thread(target=self.single_run, daemon=True)
             threads.append(thread)
             thread.start()
+        # update state
+        time.sleep(1)
+        with self.__LOCK__:
+            self._update_state()
+            self._write_state()
+            self._draw_state()
+        # join threads
         _ = [x.join() for x in threads]
         self.logger.warning('Finished all tasks!')
 
