@@ -302,7 +302,7 @@ class RunCommands(CommandNetwork):
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
-        self._draw_state()
+        # self._draw_state()
         self.timeout = timeout
         if not logger:
             self.logger = set_logger(name=os.path.join(self.outdir, 'workflow.log'))
