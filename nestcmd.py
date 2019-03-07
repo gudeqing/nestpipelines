@@ -432,7 +432,7 @@ class RunCommands(CommandNetwork):
             threads.append(thread)
             thread.start()
         # update state
-        time.sleep(1)
+        time.sleep(2)
         with self.__LOCK__:
             self._update_state()
             self._write_state()
