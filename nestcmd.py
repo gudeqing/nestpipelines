@@ -362,11 +362,11 @@ class RunCommands(CommandNetwork):
         waiting = set(self.names()) - self.ever_queued
         for each in running:
             tmp_dict = {y: x for x, y in PROCESS_SET.items()}
-            if cmd.name in tmp_dict and psutil.pid_exists(tmp_dict[cmd.name].pid):
-                if tmp_dict[cmd.name].is_running():
+            if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
+                if tmp_dict[each].is_running():
                     self.state[each]['state'] = 'running'
                 else:
-                    if tmp_dict[cmd.name].returncode == 0:
+                    if tmp_dict[each].returncode == 0:
                         self.state[each]['state'] = 'success'
                     else:
                         self.state[each]['state'] = 'failed'
