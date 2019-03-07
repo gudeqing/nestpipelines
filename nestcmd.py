@@ -277,9 +277,9 @@ class StateGraph(object):
                 sources = sources.split(',')
                 edges = zip(sources, [target]*len(sources))
                 if self.state[target]['state'] == 'success':
-                    color = '#836FFF'
+                    color = 'green'
                 elif self.state[target]['state'] == 'running':
-                    color = 'red'
+                    color = '#836FFF'
                 else:
                     color = '#4D4D4D'
                 self.graph.add_edges_from(edges, color=color)
