@@ -7,8 +7,6 @@ import queue
 import logging
 from subprocess import PIPE
 import threading
-import matplotlib
-matplotlib.use('agg')
 from threading import Timer, Lock
 import weakref
 import atexit
@@ -29,13 +27,13 @@ def _kill_processes_when_exit():
             proc.kill()
 
 
-def shutdownFunction(signum, frame):
+def shutdown(signum, frame):
     print('Killing main process, thus its derived processes will also be killed')
     exit(0)
 
 # kill signal will be captured
-signal.signal(signal.SIGTERM, shutdownFunction)
-signal.signal(signal.SIGINT, shutdownFunction)
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
 
 
 def set_logger(name='workflow.log', logger_id='x'):
@@ -366,6 +364,7 @@ class RunCommands(CommandNetwork):
         tmp_dict = {y: x for x, y in PROCESS_SET.items()}
         for each in running:
             if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
+                self.state[each]['pid'] = tmp_dict[each].pid
                 if tmp_dict[each].is_running():
                     if killed:
                         self.state[each]['state'] = 'killed'
