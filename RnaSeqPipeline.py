@@ -21,9 +21,6 @@ if args.only_show_steps:
             args.group = os.path.join(test_data_dir, 'group')
 
 nc = NestedCmd(args)
-terminate = nc.do_some_pre_judge(nc.workflow_arguments)
-if terminate:
-    exit(0)
 if (args.pipeline_cfg is None) and (not args.fastq_info):
     raise Exception('-fastq_info or -pipeline_cfg is needed! Use -h for help')
 

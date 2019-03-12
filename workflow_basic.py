@@ -171,11 +171,11 @@ class Basic(object):
         :return: None
         """
         print('This function should be overrided')
-        if not self.workflow_arguments.arg_cfg:
-            raise Exception("please first input arg_cfg ")
-        if cmd_name not in self.arg_pool:
-            raise Exception('please provide valid cmd_name, refer --list_cmd_names')
-        exec("print(cmdx.{}(**self.arg_pool['{}']))".format(cmd_name, cmd_name))
+        # if not self.workflow_arguments.arg_cfg:
+        #     raise Exception("please first input arg_cfg ")
+        # if cmd_name not in self.arg_pool:
+        #     raise Exception('please provide valid cmd_name, refer --list_cmd_names')
+        # exec("print(cmdx.{}(**self.arg_pool['{}']))".format(cmd_name, cmd_name))
 
     def list_cmd_names(self):
         if not self.workflow_arguments.arg_cfg:
