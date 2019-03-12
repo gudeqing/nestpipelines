@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append('..')
 
-import cmd_generator as cmdx
+import rnaseq_pipeline.cmd_generator as cmdx
 from basic.workflow_basic import Basic
 
 

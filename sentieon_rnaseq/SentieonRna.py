@@ -1,9 +1,9 @@
 # coding=utf-8
 import sys
 import os
-
-from batch_cmd_generator import NestedCmd
 sys.path.append('..')
+
+from sentieon_rnaseq.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
 parser = basic_arg_parser()

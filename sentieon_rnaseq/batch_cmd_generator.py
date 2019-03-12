@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append("..")
 
-import one_cmd_generator as cmdx
+import sentieon_rnaseq.one_cmd_generator as cmdx
 from basic.workflow_basic import Basic
 
 

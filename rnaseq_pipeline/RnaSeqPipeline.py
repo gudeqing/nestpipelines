@@ -3,7 +3,7 @@ import os
 import sys
 sys.path.append('..')
 
-from rna_tools import NestedCmd
+from rnaseq_pipeline.rna_tools import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
 parser = basic_arg_parser()
