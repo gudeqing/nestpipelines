@@ -27,7 +27,8 @@ class Basic(object):
             script_path = os.readlink(script_path)
 
         project_dir = arguments.o
-        if arguments.only_show_steps or arguments.only_show_detail_steps:
+        if arguments.only_show_steps or arguments.only_show_detail_steps \
+                or arguments.list_cmd_names or arguments.show_cmd_example:
             if arguments.pipeline_cfg is None and (not arguments.continue_run):
                 # the project dir will be deleted after showing help
                 project_dir = project_dir + '.tmp'
@@ -42,7 +43,9 @@ class Basic(object):
         if not arguments.arg_cfg:
             if not arguments.pipeline_cfg:
                 arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
-                self.logger.warning("You are using unchanged configuration: {}".format(arg_file))
+                if not arguments.only_show_steps and (not arguments.only_show_detail_steps) \
+                        and (not arguments.show_cmd_example) and (not arguments.list_cmd_names):
+                    self.logger.warning("You are using unchanged configuration: {}".format(arg_file))
                 arguments.arg_cfg = arg_file
 
         return arguments
@@ -50,27 +53,35 @@ class Basic(object):
     def do_some_pre_judge(self, arguments):
         if arguments.show_cmd_example:
             self.show_cmd_example(arguments.show_cmd_example)
+            shutil.rmtree(self.project_dir)
             return True
 
         if arguments.list_cmd_names:
             self.list_cmd_names()
+            shutil.rmtree(self.project_dir)
             return True
 
         if arguments.continue_run:
             if not arguments.pipeline_cfg:
+                if len(os.listdir(self.project_dir)) <= 2:
+                    shutil.rmtree(self.project_dir)
                 raise Exception('Existed pipeline_cfg must be provided !')
             self.run_existed_pipeline(steps=arguments.rerun_steps)
             return True
         else:
             if arguments.pipeline_cfg:
-                self.logger.warning('You are re-running the whole existed pipeline')
+                self.logger.warning('You are running the whole existed pipeline')
                 self.run_existed_pipeline()
                 return True
 
         if not arguments.continue_run or arguments.pipeline_cfg is None:
             if not arguments.arg_cfg:
+                if len(os.listdir(self.project_dir)) <= 2:
+                    shutil.rmtree(self.project_dir)
                 raise Exception('-arg_cfg is needed!')
             if not os.path.exists(arguments.arg_cfg):
+                if len(os.listdir(self.project_dir)) <= 2:
+                    shutil.rmtree(self.project_dir)
                 raise Exception('arg_cfg file not exist')
 
     def init_workflow_dict(self):
