@@ -45,13 +45,6 @@ class Basic(object):
                 self.logger.warning("You are using unchanged configuration: {}".format(arg_file))
                 arguments.arg_cfg = arg_file
 
-        if arguments.only_show_steps:
-            if arguments.fastq_info is None:
-                test_data_dir = os.path.join(os.path.dirname(script_path), 'testdata')
-                if os.path.exists(test_data_dir):
-                    arguments.fastq_info = os.path.join(test_data_dir, 'fastq_info.txt')
-                    arguments.compare = os.path.join(test_data_dir, 'compare')
-                    arguments.group = os.path.join(test_data_dir, 'group')
         return arguments
 
     def do_some_pre_judge(self, arguments):
@@ -79,10 +72,6 @@ class Basic(object):
                 raise Exception('-arg_cfg is needed!')
             if not os.path.exists(arguments.arg_cfg):
                 raise Exception('arg_cfg file not exist')
-            if not arguments.fastq_info:
-                if arguments.only_show_detail_steps:
-                    shutil.rmtree(arguments.o)
-                raise Exception('-fastq_info is needed! Use -h for help')
 
     def init_workflow_dict(self):
         commands = configparser.ConfigParser()
@@ -102,7 +91,7 @@ class Basic(object):
             monitor_resource=not self.workflow_arguments.no_monitor_resource,
             monitor_time_step=self.workflow_arguments.monitor_time_step,
             check_resource_before_run=not self.workflow_arguments.no_check_resource_before_run,
-            cpu=1, mem=200 * 1024 * 1024,
+            cpu=1, mem=1024 * 1024 * 1024,
             cmd=cmd
         )
         if kwargs:

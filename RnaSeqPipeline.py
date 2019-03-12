@@ -1,4 +1,5 @@
 # coding=utf-8
+import os
 from rna_tools import NestedCmd
 from workflow_basic import basic_arg_parser
 
@@ -9,16 +10,28 @@ parser.add_argument('-fastq_info', required=False,
 parser.add_argument('-group', help="样本分组信息文件,至少两列,第一列样本名,第二列为分组名,其他列也是分组名")
 parser.add_argument('-compare', help="比较信息文件,两列,第1列是对照组名,第2列是实验组名")
 args = parser.parse_args()
+
+if args.only_show_steps:
+    script_path = os.path.abspath(__file__)
+    if args.fastq_info is None:
+        test_data_dir = os.path.join(os.path.dirname(script_path), 'testdata')
+        if os.path.exists(test_data_dir):
+            args.fastq_info = os.path.join(test_data_dir, 'fastq_info.txt')
+            args.compare = os.path.join(test_data_dir, 'compare')
+            args.group = os.path.join(test_data_dir, 'group')
+
 nc = NestedCmd(args)
 terminate = nc.do_some_pre_judge(nc.workflow_arguments)
+if terminate:
+    exit(0)
+if (args.pipeline_cfg is None) and (not args.fastq_info):
+    raise Exception('-fastq_info or -pipeline_cfg is needed! Use -h for help')
 
 
 def pipeline():
     """
     **为了能正常跳过一些步骤,步骤名即step_name不能包含'_',且保证最后生成的步骤名不能有重复**
     """
-    if terminate:
-        return
     # fastqc and trimmomatic
     fastq_info_dict = nc.parse_fastq_info(nc.workflow_arguments.fastq_info)
     nc.fastqc_raw_data_cmds(fastq_info_dict, step_name='RawDataQC')
