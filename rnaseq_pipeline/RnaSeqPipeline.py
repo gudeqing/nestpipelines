@@ -1,7 +1,10 @@
 # coding=utf-8
 import os
+import sys
+sys.path.append('..')
+
 from rna_tools import NestedCmd
-from workflow_basic import basic_arg_parser
+from basic.workflow_basic import basic_arg_parser
 
 parser = basic_arg_parser()
 parser.add_argument('-fastq_info', required=False,

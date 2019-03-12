@@ -4,7 +4,7 @@ from pprint import pprint
 import configparser
 import shutil
 
-from nestcmd import RunCommands, set_logger
+from basic.nestcmd import RunCommands, set_logger
 
 
 class Basic(object):
