@@ -22,7 +22,7 @@ class Basic(object):
 
     def arg_preprocess(self, arguments):
         # get script path
-        script_path = os.path.abspath(__file__)
+        script_path = os.path.abspath(arguments.script_path)
         if os.path.islink(script_path):
             script_path = os.readlink(script_path)
 
