@@ -339,7 +339,7 @@ class RunCommands(CommandNetwork):
                 self.ever_queued.add(each)
                 self.state[each]['state'] = 'failed'
                 self.state[each]['used_time'] = 'FailedDependencies'
-                self.logger.warning(each, 'cannot be started for some failed dependencies!')
+                self.logger.warning(each + ' cannot be started for some failed dependencies!')
             if not (dependency - success):
                 self.ever_queued.add(each)
                 self.queue.put(each, block=True)
