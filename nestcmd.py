@@ -350,7 +350,7 @@ class RunCommands(CommandNetwork):
             if cmd.proc is None:
                 cmd_state['state'] = 'failed'
                 cmd_state['used_time'] = 'NotEnoughResource'
-                self.logger.warning(cmd.name, 'cannot be started for not enough resource!')
+                self.logger.warning(cmd.name + ' cannot be started for not enough resource!')
             else:
                 cmd_state['state'] = 'success' if cmd.proc.returncode == 0 else 'failed'
                 cmd_state['used_time'] = cmd.used_time
@@ -400,7 +400,7 @@ class RunCommands(CommandNetwork):
     def single_run(self):
         while True:
             if self.queue.empty():
-                time.sleep(1)
+                time.sleep(3)
                 with self.__LOCK__:
                     self._update_queue()
                     self._write_state()
