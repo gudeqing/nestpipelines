@@ -31,8 +31,10 @@ def _kill_processes_when_exit():
         if psutil.pid_exists(proc.pid):
             print('Shutting down running tasks {}:{}'.format(proc.pid, cmd_name))
             proc.kill()
-    for proc, cmd_name in PROCESS_remote.items():
-        if proc.pid_exists:
+    # 有些已经发起但还没有收进来的无法终止
+    for proc in list(PROCESS_remote.keys()):
+        cmd_name = PROCESS_remote[proc]
+        if proc.pid_exists and proc.is_running():
             print('Shutting down remote running tasks {}:{}'.format(proc.pid, cmd_name))
             proc.kill()
 
@@ -519,8 +521,7 @@ class RunCommands(CommandNetwork):
                 if enough:
                     if try_times > 1:
                         self.logger.warning('{}th run {}'.format(try_times, cmd.name))
-                    # cmd.run(remote_run=remote_run)
-                    cmd.run(remote_run=True)
+                    cmd.run(remote_run=remote_run)
                     if cmd.proc.returncode == 0:
                         break
             with self.__LOCK__:
