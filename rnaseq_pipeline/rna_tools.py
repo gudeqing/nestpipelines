@@ -152,7 +152,7 @@ class NestedCmd(Basic):
             args['outFileNamePrefix'] = prefix
             cmd = cmdx.star_align(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
-                cmd=cmd, mem=1024 ** 3 * 1, cpu=2,
+                cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
                 monitor_time_step=5, depend=','.join(depend_steps),
                 sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
                 sample_name=sample,
@@ -181,7 +181,7 @@ class NestedCmd(Basic):
             args['outFileNamePrefix'] = prefix
             cmd = cmdx.star_align(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
-                cmd=cmd, mem=1024 ** 3 * 2, cpu=2,
+                cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
                 monitor_time_step=5, depend=','.join(depend_steps),
                 sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
                 sample_name=sample,
