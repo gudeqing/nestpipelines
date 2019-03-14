@@ -150,6 +150,7 @@ class NestedCmd(Basic):
             self.mkdir(result_dir)
             prefix = os.path.join(result_dir, sample + '.')
             args['outFileNamePrefix'] = prefix
+            args['outSAMattrRGline'] = 'ID:{prefix} SM:{prefix} PL:{platform}'.format(prefix=sample, platform="ILLUMINA")
             cmd = cmdx.star_align(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
@@ -179,6 +180,7 @@ class NestedCmd(Basic):
             self.mkdir(result_dir)
             prefix = os.path.join(result_dir, sample + '.')
             args['outFileNamePrefix'] = prefix
+            args['outSAMattrRGline'] = 'ID:{prefix} SM:{prefix} PL:{platform}'.format(prefix=sample, platform="ILLUMINA")
             cmd = cmdx.star_align(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd, mem=1024 ** 3 * 10, cpu=2,

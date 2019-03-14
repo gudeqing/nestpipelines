@@ -78,6 +78,7 @@ def star_align(**kwargs):
     cmd += '--outFilterType {} '.format(kwargs['outFilterType'])
     cmd += '--outSAMstrandField {} '.format(kwargs['outSAMstrandField'])
     cmd += '--quantMode {} '.format(kwargs['quantMode'])
+    cmd += '--outSAMattrRGline {} '.format(kwargs['outSAMattrRGline'])
     return cmd
 
 
