@@ -514,9 +514,12 @@ class RunCommands(CommandNetwork):
                 remote_run = False
                 if tmp_dict['check_resource_before_run']:
                     if not CheckResource().is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
+                        self.logger.warning('Local resource is Not enough for {}!'.format(cmd.name))
                         if not RemoteWork.resource_is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
+                            self.logger.warning('Remote resource is Not enough for {}!'.format(cmd.name))
                             enough = False
                         else:
+                            self.logger.warning('Run {} on remote sever'.format(cmd.name))
                             remote_run = True
                 if enough:
                     if try_times > 1:

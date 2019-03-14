@@ -43,7 +43,7 @@ class NestedCmd(Basic):
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
                 cpu=3,
-                mem=1024**3*3,
+                mem=1024**3*10,
                 score_txt=args['score_txt'],
                 bam=args['bam'],
                 sample=sample,

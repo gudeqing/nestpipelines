@@ -12,8 +12,8 @@ args = parser.parse_args()
 args.script_path = os.path.abspath(__file__)
 
 nc = NestedCmd(args)
-if (args.pipeline_cfg is None) and (not args.b) and(not args.e):
-    raise Exception('-b or -be or -pipeline_cfg is needed! Use -h for help')
+if (args.pipeline_cfg is None) and (not args.b):
+    raise Exception('-b or -pipeline_cfg is needed! Use -h for help')
 
 
 def pipeline():
