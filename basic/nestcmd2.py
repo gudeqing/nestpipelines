@@ -34,7 +34,7 @@ def _kill_processes_when_exit():
     # 有些已经发起但还没有收进来的无法终止
     for proc in list(PROCESS_remote.keys()):
         cmd_name = PROCESS_remote[proc]
-        if proc.pid_exists and proc.is_running():
+        if proc.pid_exists:
             print('Shutting down remote running tasks {}:{}'.format(proc.pid, cmd_name))
             proc.kill()
 
