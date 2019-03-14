@@ -296,7 +296,7 @@ class StateGraph(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None):
+    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None, only_run_local=True):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()

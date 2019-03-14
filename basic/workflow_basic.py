@@ -147,6 +147,7 @@ class Basic(object):
             raise Exception('Please provide valid pipeline.ini file')
         workflow = RunCommands(
             self.workflow_arguments.pipeline_cfg,
+            only_run_local=self.workflow_arguments.only_run_local,
             outdir=self.project_dir, logger=self.logger
         )
 
@@ -191,6 +192,7 @@ class Basic(object):
             with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
                 commands.write(configfile)
             workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
+                                   only_run_local=self.workflow_arguments.only_run_local,
                                    outdir=project_dir, logger=self.logger)
             for each in skip_steps:
                 skips = [x for x in commands if x == each or x.startswith(each + '_')]
@@ -245,6 +247,7 @@ class Basic(object):
         workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
                                logger=self.logger,
                                outdir=project_dir,
+                               only_run_local=self.workflow_arguments.only_run_local,
                                timeout=arguments.wait_resource_time)
         workflow.parallel_run()
 
@@ -256,6 +259,7 @@ def basic_arg_parser():
     parser.add_argument('-skip', default=list(), nargs='+',
                         help='指定要跳过的步骤名, 空格分隔,程序会自动跳过依赖他们的步骤, --only_show_steps可查看步骤名; '
                              '注意: 如果跳过trim步骤, 则用原始数据; 如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
+    parser.add_argument('--only_run_local', default=False, action="store_true", help="如果设置该参数, 则仅在当前服务器上跑任务")
     parser.add_argument('--only_show_steps', default=False, action="store_true",
                         help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤; "
                              "你还可以通过--list_cmd_names查看当前流程包含哪些命令行")

@@ -390,12 +390,13 @@ class StateGraph(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None):
+    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None, only_run_local=False):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
+        self.only_run_local = only_run_local
         # self._draw_state()
         self.timeout = timeout
         if not logger:
@@ -515,12 +516,15 @@ class RunCommands(CommandNetwork):
                 if tmp_dict['check_resource_before_run']:
                     if not CheckResource().is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
                         self.logger.warning('Local resource is Not enough for {}!'.format(cmd.name))
-                        if not RemoteWork.resource_is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
-                            self.logger.warning('Remote resource is Not enough for {}!'.format(cmd.name))
+                        if self.only_run_local:
                             enough = False
                         else:
-                            self.logger.warning('Run {} on remote sever'.format(cmd.name))
-                            remote_run = True
+                            if not RemoteWork.resource_is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
+                                self.logger.warning('Remote resource is Not enough for {}!'.format(cmd.name))
+                                enough = False
+                            else:
+                                self.logger.warning('Run {} on remote sever'.format(cmd.name))
+                                remote_run = True
                 if enough:
                     if try_times > 1:
                         self.logger.warning('{}th run {}'.format(try_times, cmd.name))
