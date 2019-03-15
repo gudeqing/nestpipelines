@@ -1,7 +1,11 @@
 # coding=utf-8
 import sys
 import os
-sys.path.append('..')
+
+script_path = os.path.abspath(__file__)
+if os.path.islink(script_path):
+    script_path = os.readlink(script_path)
+sys.path.append(os.path.dirname(os.path.dirname(script_path)))
 
 from sentieon_rnaseq.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser

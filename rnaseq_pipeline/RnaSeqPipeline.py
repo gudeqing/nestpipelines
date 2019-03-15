@@ -1,7 +1,11 @@
 # coding=utf-8
 import os
 import sys
-sys.path.append('..')
+
+script_path = os.path.abspath(__file__)
+if os.path.islink(script_path):
+    script_path = os.readlink(script_path)
+sys.path.append(os.path.dirname(os.path.dirname(script_path)))
 
 from rnaseq_pipeline.rna_tools import NestedCmd
 from basic.workflow_basic import basic_arg_parser
@@ -13,7 +17,7 @@ parser.add_argument('-fastq_info', required=False,
 parser.add_argument('-group', help="样本分组信息文件,至少两列,第一列样本名,第二列为分组名,其他列也是分组名")
 parser.add_argument('-compare', help="比较信息文件,两列,第1列是对照组名,第2列是实验组名")
 args = parser.parse_args()
-args.script_path = os.path.abspath(__file__)
+args.script_path = script_path
 
 if args.only_show_steps:
     if args.fastq_info is None:
