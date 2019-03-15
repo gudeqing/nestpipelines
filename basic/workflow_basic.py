@@ -21,6 +21,12 @@ class Basic(object):
         self.workflow_arguments = workflow_arguments
         self.workflow = self.init_workflow_dict()
 
+    def close_logger(self):
+        handlers = self.logger.handlers[:]
+        for handler in handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+
     def arg_preprocess(self, arguments):
         # get script path
         script_path = os.path.abspath(arguments.script_path)
@@ -54,17 +60,20 @@ class Basic(object):
     def do_some_pre_judge(self, arguments):
         if arguments.show_cmd_example:
             self.show_cmd_example(arguments.show_cmd_example)
+            self.close_logger()
             shutil.rmtree(self.project_dir)
             return True
 
         if arguments.list_cmd_names:
             self.list_cmd_names()
+            self.close_logger()
             shutil.rmtree(self.project_dir)
             return True
 
         if arguments.continue_run:
             if not arguments.pipeline_cfg:
                 if len(os.listdir(self.project_dir)) <= 2:
+                    self.close_logger()
                     shutil.rmtree(self.project_dir)
                 raise Exception('Existed pipeline_cfg must be provided !')
             self.run_existed_pipeline(steps=arguments.rerun_steps)
@@ -78,10 +87,12 @@ class Basic(object):
         if not arguments.continue_run or arguments.pipeline_cfg is None:
             if not arguments.arg_cfg:
                 if len(os.listdir(self.project_dir)) <= 2:
+                    self.close_logger()
                     shutil.rmtree(self.project_dir)
                 raise Exception('-arg_cfg is needed!')
             if not os.path.exists(arguments.arg_cfg):
                 if len(os.listdir(self.project_dir)) <= 2:
+                    self.close_logger()
                     shutil.rmtree(self.project_dir)
                 raise Exception('arg_cfg file not exist')
 
@@ -229,12 +240,14 @@ class Basic(object):
         if arguments.only_show_steps:
             pprint('----Pipeline has the following main steps----')
             pprint(main_steps[2:])
+            self.close_logger()
             shutil.rmtree(project_dir)
             return
 
         elif arguments.only_show_detail_steps:
             pprint('----Pipeline has the following steps----')
             pprint(list(commands.keys())[2:])
+            self.close_logger()
             shutil.rmtree(project_dir)
             return
 
