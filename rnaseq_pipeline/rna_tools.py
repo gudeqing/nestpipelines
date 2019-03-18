@@ -437,8 +437,8 @@ class NestedCmd(Basic):
             args['result_dir'] = out_dir
             args['count_matrix'] = depend_info['transcript_count_matrix']
             args['exp_matrix'] = depend_info['transcript_tpm_matrix']
-        args['group_info'] = self.workflow_arguments .group
-        args['comparison_info'] = self.workflow_arguments .compare
+        args['group_info'] = self.workflow_arguments.group
+        args['comparison_info'] = self.workflow_arguments.compare
         cmd = cmdx.diff_exp(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
