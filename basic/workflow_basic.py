@@ -159,7 +159,8 @@ class Basic(object):
         workflow = RunCommands(
             self.workflow_arguments.pipeline_cfg,
             only_run_local=self.workflow_arguments.only_run_local,
-            outdir=self.project_dir, logger=self.logger
+            outdir=self.project_dir, logger=self.logger,
+            timeout=self.workflow_arguments.wait_resource_time
         )
 
         if self.workflow_arguments.only_show_steps:
@@ -204,7 +205,8 @@ class Basic(object):
                 commands.write(configfile)
             workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
                                    only_run_local=self.workflow_arguments.only_run_local,
-                                   outdir=project_dir, logger=self.logger)
+                                   outdir=project_dir, logger=self.logger,
+                                   timeout=self.workflow_arguments.wait_resource_time)
             for each in skip_steps:
                 skips = [x for x in commands if x == each or x.startswith(each + '_')]
                 if not skips:
