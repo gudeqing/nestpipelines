@@ -252,7 +252,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'GeneBodyCoverage.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "基因覆盖度, 正常为钟罩型, 纵坐标为覆盖度百分比，即横坐标区域对应的覆盖度除以整个基因区域的覆盖度的上四分位值"
+            args['image_desc'] = self.arg_pool['image_description']['gene_body_coverage']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -266,21 +266,21 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'FragmentSize.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "Pair-read 长度分布图"
+            args['image_desc'] = self.arg_pool['image_description']['fragment_length']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
         return commands
 
-    def make_inner_size_slider(self, depend_cmd:dict, step_name='InnerSizeSlider'):
+    def make_inner_distance_slider(self, depend_cmd:dict, step_name='InnerDistanceSlider'):
         commands = dict()
         slider_dir = os.path.join(self.project_dir, 'htmls')
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'InnerSize.html')
+            args['out'] = os.path.join(slider_dir, 'InnerDistance.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "pair-end read 之间的相对距离，负数表明有测序有overlap"
+            args['image_desc'] = self.arg_pool['image_description']['inner_distance']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -294,7 +294,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'ReadDistribution.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "read比对到各个基因区域的比例分布图"
+            args['image_desc'] = self.arg_pool['image_description']['read_distribution']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -308,7 +308,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'ReadDuplication.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "冗余度分析图，正常时左边快速下降，尾部平滑无突起"
+            args['image_desc'] = self.arg_pool['image_description']['read_duplication']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -322,7 +322,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'ExpSaturation.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "基因测序饱和度分析，曲线(中位线)越快到达最低点表示测序越饱和",
+            args['image_desc'] = self.arg_pool['image_description']['exp_saturation']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -336,7 +336,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'ChrReadDistribution.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "read比对到各个染色体或scaffold的统计分布图"
+            args['image_desc'] = self.arg_pool['image_description']['chromosome_read_distribution']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -350,7 +350,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'ExpressionDistribution.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "表达量分布密度图"
+            args['image_desc'] = self.arg_pool['image_description']['exp_density']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -364,7 +364,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'CorrelationCluster.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "基于相关性作为距离度量的样本聚类分析，用于查看样本重复性和离群样本",
+            args['image_desc'] = self.arg_pool['image_description']['sample_correlation']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -378,7 +378,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'PCA.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "主成份分析，可用于查看样本重复性和离群样本"
+            args['image_desc'] = self.arg_pool['image_description']['exp_pca']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -392,7 +392,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'CollectAlignmentSummaryMetrics.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "比对结果统计表"
+            args['image_desc'] = self.arg_pool['image_description']['CollectAlignmentSummaryMetrics']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -406,7 +406,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'CollectInsertSizeMetrics.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "Insert Size (包含内含子的长度) 统计表"
+            args['image_desc'] = self.arg_pool['image_description']['CollectInsertSizeMetrics']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -420,7 +420,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'CollectRnaSeqMetrics.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "基于RNA尺度的比对结果统计表"
+            args['image_desc'] = self.arg_pool['image_description']['CollectRnaSeqMetrics']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
@@ -434,7 +434,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'TargetedSummaryMetrics.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "比对到捕获区域的统计表"
+            args['image_desc'] = self.arg_pool['image_description']['CollectTargetedPcrMetrics']
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)

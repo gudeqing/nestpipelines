@@ -54,7 +54,7 @@ def pipeline():
 
     if inner_distance:
         inner_distance_cmd = nc.inner_distance_cmd(inner_distance)
-        inner_distance_slider = nc.make_inner_size_slider(inner_distance_cmd)
+        inner_distance_slider = nc.make_inner_distance_slider(inner_distance_cmd)
     else:
         print('inner_distance stat file not found')
 
