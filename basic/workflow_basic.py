@@ -17,6 +17,8 @@ class Basic(object):
             self.arg_pool = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
             self.arg_pool.optionxform = str
             self.arg_pool.read(workflow_arguments.arg_cfg, encoding='utf-8')
+        else:
+            self.arg_pool = None
         self.project_dir = workflow_arguments.o
         self.workflow_arguments = workflow_arguments
         self.workflow = self.init_workflow_dict()

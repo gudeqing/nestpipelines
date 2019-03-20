@@ -17,8 +17,8 @@ parser.add_argument('-result_dir', required=False)
 parser.add_argument('-group_dict', required=False)
 args = parser.parse_args()
 args.script_path = script_path
-if args.o == os.path.join(os.getcwd(), 'Result'):
-    args.o = os.path.join(os.getcwd(), 'Report')
+if args.o == join(os.getcwd(), 'Result'):
+    args.o = join(os.getcwd(), 'Report')
 
 nc = NestedCmd(args)
 if (args.pipeline_cfg is None) and (args.result_dir is None):

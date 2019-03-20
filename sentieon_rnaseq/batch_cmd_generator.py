@@ -9,6 +9,9 @@ from basic.workflow_basic import Basic
 class NestedCmd(Basic):
     def __init__(self, workflow_arguments):
         super().__init__(workflow_arguments)
+        terminate = self.do_some_pre_judge(workflow_arguments)
+        if terminate:
+            exit(0)
         # self.arg_pool is from Basic after processing workflow_arguments
         # self.cmd_dict is from Basic after processing workflow_arguments
         # self.project_dir is from Basic after processing workflow_arguments

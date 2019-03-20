@@ -8,6 +8,7 @@ def gene_body_coverage(**kwargs):
     cmd += '-scale {} '.format(kwargs['scale'])
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-file_from {} '.format(kwargs['file_from'])
     return cmd
 
 
@@ -209,8 +210,9 @@ def make_slider(**kwargs):
     cmd += '{} '.format(kwargs['script'])
     cmd += 'make_slider '
     cmd += '-images {} '.format(kwargs['images'])
-    cmd += '-image_ids {} '.format(kwargs['image_ids'])
-    cmd += '-image_desc {} '.format(kwargs['image_desc'])
+    if kwargs['image_ids']:
+        cmd += '-image_ids {} '.format(kwargs['image_ids'])
+    cmd += '-image_desc "{}" '.format(kwargs['image_desc'])
     cmd += '-template {} '.format(kwargs['template'])
     cmd += '-out {} '.format(kwargs['out'])
     if kwargs['link_images'] != 'no' and kwargs['link_images']:

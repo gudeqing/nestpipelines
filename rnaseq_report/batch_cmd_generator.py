@@ -9,6 +9,12 @@ from basic.workflow_basic import Basic
 class NestedCmd(Basic):
     def __init__(self, workflow_arguments):
         super().__init__(workflow_arguments)
+        terminate = self.do_some_pre_judge(workflow_arguments)
+        if terminate:
+            exit(0)
+        self.script_dir = os.path.dirname(self.workflow_arguments.script_path)
+        if self.arg_pool:
+            self.arg_pool['make_slider']['template'] = os.path.join(self.script_dir, 'templates', 'slide.jinja2')
         # self.arg_pool is from Basic after processing workflow_arguments
         # self.cmd_dict is from Basic after processing workflow_arguments
         # self.project_dir is from Basic after processing workflow_arguments
@@ -288,7 +294,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(slider_dir, 'ReadDistribution.html')
             args['images'] = os.path.join(cmd_info['outdir'], '*.html')
             args['image_ids'] = None
-            args['image_desc'] = "read的比对到各个基因区域的比例分布图",
+            args['image_desc'] = "read比对到各个基因区域的比例分布图"
             cmd = cmdx.make_slider(**args)
             commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
         self.workflow.update(commands)
