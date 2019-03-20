@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+    <title>分析报告</title>
+	<meta charset="UTF-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" type="text/css" href="html.utils/fonts/feather/style.css">
+	<link rel="stylesheet" type="text/css" href="html.utils/css/demo.css" />
+	<link rel="stylesheet" type="text/css" href="html.utils/css/component.css" />
+	<script src="html.utils/js/modernizr.custom.js"></script>
+	<link rel="stylesheet" type="text/css" href="html.utils/css/nav.css" />
+</head>
+<body>
+<!--author = gu-de-qing-->
+<nav class="nav">
+    {% for module, module_result in result.items() %}
+	<details class="menu" open>
+        <summary>{{ module }}</summary>
+        <ul>
+            {% for key, value in module_result.items() %}
+            <li><a href="{{ value }}" target='iframe'>{{ key }}</a></li>
+            {% endfor %}
+        </ul>
+	</details>
+	{% endfor %}
+	<br>
+	<br>
+	<address class="address">
+		邮箱：info@dunwill.com<br/>
+        电话+86-21-57077888<br/>
+        传真+86-21-57077889<br/>
+        地址：上海市松江区中心路1158号7号楼6楼<br/>
+	</address>
+    <br>
+    <br>
+    <br>
+    <img class="nav" src="html.utils/images/dunwill.gif" alt="dunwill-two-bar-code"/>
+</nav>
+
+
+<article class='article'>
+	<iframe name="iframe" height="100%" width="100%" frameborder="0"></iframe>
+</article>
+
+</body>
+</html>

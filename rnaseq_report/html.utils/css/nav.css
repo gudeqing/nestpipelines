@@ -1,0 +1,42 @@
+.nav {
+  float: left;
+  width: 20%;
+  height: 100%;
+  padding-top: 10px;
+}
+
+.address {
+	float: left;
+	font-size: 10px;
+}
+
+.article {
+  float: left;
+  width: 80%;
+  height: 100%;
+  padding-top: 3px
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+/*自定义图标，可用图片或字符,如果使用图片，请把content的值设置成空字符*/
+/*展开*/
+.menu summary:before {
+     content: "+";
+     /*background: url(../Images/right.png) no-repeat center center;*/ /*收起时的图片*/
+     /*vertical-align: middle;*/
+}
+
+/*收起*/
+.menu[open] summary:before {
+    content: "-";
+    /*background: url(../Images/down.png) no-repeat center center;*/ /*展开时的图片*/
+}
+
+html, body {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}

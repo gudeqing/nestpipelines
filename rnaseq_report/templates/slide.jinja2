@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+	<meta charset="UTF-8" />
+	<meta author="gudeqing" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>image slider</title>
+	<link rel="stylesheet" type="text/css" href="../html.utils/fonts/feather/style.css">
+	<link rel="stylesheet" type="text/css" href="../html.utils/css/demo.css" />
+	<link rel="stylesheet" type="text/css" href="../html.utils/css/component.css" />
+	<script src="../html.utils/js/modernizr.custom.js"></script>
+</head>
+
+<body>
+<div class="container">
+	<section class="slider">
+        {% for key, value in img_info_dict.items() %}
+		<div class="{{ value.cls }}" data-content="{{ key }}">
+			<div class="slide__mover">
+				<div class="zoomer flex-center">
+					<iframe src="{{ value.path }}" height="100%" width="100%" frameborder="0"></iframe>
+                    <div class="preview rounded">
+						<div class="zoomer__area zoomer__area--size"></div>
+					</div>
+				</div>
+			</div>
+			<p class="slide__title"><strong><a href="{{ value.path }}">{{ key }}</a>&nbsp</strong>{{ value.description }}</p>
+		</div>
+        {% endfor %}
+
+        <nav class="slider__nav">
+            <br>
+            <button class="button button--nav-prev"><i class="icon icon--arrow-left"></i><span class="text-hidden">Previous</span></button>
+            <button class="button button--zoom" ><i class="icon icon--zoom"></i><span class="text-hidden">View details</span></button>
+            <button class="button button--nav-next"><i class="icon icon--arrow-right"></i><span class="text-hidden">Next</span></button>
+        </nav>
+
+	</section>
+
+	<section class="content">
+        {% for key, value in img_info_dict.items() %}
+		<div class="content__item" id="{{ key }}">
+            <iframe src="{{ value.path }}" height="100%" width="100%" frameborder="0"></iframe>
+		</div>
+        {% endfor %}
+		<button class="button button--close"><i class="icon icon--circle-cross"></i><span class="text-hidden">Close content</span></button>
+	</section>
+
+</div>
+
+<script src="../html.utils/js/classie.js"></script>
+<script src="../html.utils/js/dynamics.min.js"></script>
+<script src="../html.utils/js/main.js"></script>
+
+</body>
+</html>
