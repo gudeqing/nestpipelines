@@ -506,7 +506,10 @@ class RunCommands(CommandNetwork):
                 self.queue.put(None)
                 break
             tmp_dict = self.get_cmd_description_dict(name)
-
+            if 'outdir' in tmp_dict:
+                tmp_dict.pop('outdir')
+            if 'logger' in tmp_dict:
+                tmp_dict.pop('logger')
             try_times = 0
             cmd = Command(**tmp_dict, outdir=self.outdir, logger=self.logger)
             while try_times <= int(tmp_dict['retry']):
