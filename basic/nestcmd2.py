@@ -102,7 +102,7 @@ class RemoteWork(object):
             command += '-pid {} '.format(self.pid)
         # print(command)
         stdin, stdout, stderr = SSH.exec_command(command)
-        return stdout.read().decode() + '\n' + stderr.read().decode().strip()
+        return stdout.read().decode().strip()
 
     def get_pid(self):
         pid = int(self.exec_command('get_pid'))
