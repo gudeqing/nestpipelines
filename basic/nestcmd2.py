@@ -73,7 +73,7 @@ class RemoteWork(object):
         self.marker = str(uuid.uuid1())
         self.pid = 0
         self.result = ''
-        self.returncode = 0
+        self.returncode = 1
         self.timeout = timeout
         self.monitor = not no_monitor
         self.monitor_time_step = monitor_time_step
@@ -454,24 +454,23 @@ class RunCommands(CommandNetwork):
                 cmd_state['pid'] = cmd.proc.pid
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
-        running = self.ever_queued - success - failed
+        running_or_queueing = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
         tmp_dict = {y: x for x, y in PROCESS_local.items()}
-        for each in running:
-            if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
-                self.state[each]['pid'] = tmp_dict[each].pid
-                if tmp_dict[each].is_running():
-                    if killed:
-                        self.state[each]['state'] = 'killed'
-                    else:
-                        self.state[each]['state'] = 'running'
+        tmp_dict.update({y: x for x, y in PROCESS_remote.items()})
+        for each in running_or_queueing:
+            try:
+                if each in tmp_dict:
+                    self.state[each]['pid'] = tmp_dict[each].pid
+                    if tmp_dict[each].is_running():
+                        if killed:
+                            self.state[each]['state'] = 'killed'
+                        else:
+                            self.state[each]['state'] = 'running'
                 else:
-                    if tmp_dict[each].returncode == 0:
-                        self.state[each]['state'] = 'success'
-                    else:
-                        self.state[each]['state'] = 'failed'
-            else:
-                self.state[each]['state'] = 'queueing'
+                    self.state[each]['state'] = 'queueing'
+            except Exception:
+                pass
         for each in waiting:
             self.state[each]['state'] = 'outdoor'
 
