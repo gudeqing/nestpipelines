@@ -476,7 +476,10 @@ class RunCommands(CommandNetwork):
             self.state[each]['state'] = 'outdoor'
 
     def _write_state(self):
-        with open(os.path.join(self.outdir, 'cmd_state.txt'), 'w') as f:
+        outfile = os.path.join(self.outdir, 'cmd_state.txt')
+        if os.path.exists(outfile):
+            os.rename(outfile, outfile+'.bak')
+        with open(outfile, 'w') as f:
             fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
             f.write('\t'.join(fields)+'\n')
             for name in self.state:
