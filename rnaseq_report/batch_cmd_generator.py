@@ -12,6 +12,8 @@ class NestedCmd(Basic):
         terminate = self.do_some_pre_judge(workflow_arguments)
         if terminate:
             exit(0)
+        # ----------------------------------------------------
+        self.slider_dir = os.path.join(self.project_dir, 'Summary')
         self.script_dir = os.path.dirname(self.workflow_arguments.script_path)
         if self.arg_pool:
             self.arg_pool['make_slider']['template'] = os.path.join(self.script_dir, 'templates', 'slide.jinja2')
@@ -246,7 +248,7 @@ class NestedCmd(Basic):
 
     def make_gene_body_cov_slider(self, depend_cmd:dict, step_name='GeneBodyCovSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'GeneBodyCoverage.html')
@@ -260,7 +262,7 @@ class NestedCmd(Basic):
 
     def make_fragment_size_slider(self, depend_cmd:dict, step_name='FragmentSizeSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'FragmentSize.html')
@@ -274,7 +276,7 @@ class NestedCmd(Basic):
 
     def make_inner_distance_slider(self, depend_cmd:dict, step_name='InnerDistanceSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'InnerDistance.html')
@@ -288,7 +290,7 @@ class NestedCmd(Basic):
 
     def make_read_distribution_slider(self, depend_cmd:dict, step_name='ReadDistributionSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'ReadDistribution.html')
@@ -302,7 +304,7 @@ class NestedCmd(Basic):
 
     def make_read_duplication_slider(self, depend_cmd:dict, step_name='ReadDuplicationSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'ReadDuplication.html')
@@ -316,7 +318,7 @@ class NestedCmd(Basic):
 
     def make_exp_saturation_slider(self, depend_cmd:dict, step_name='ExpSaturationSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'ExpSaturation.html')
@@ -330,7 +332,7 @@ class NestedCmd(Basic):
 
     def make_chr_read_distribution_slider(self, depend_cmd:dict, step_name='ChrReadDistributionSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'ChrReadDistribution.html')
@@ -344,7 +346,7 @@ class NestedCmd(Basic):
 
     def make_exp_distribution_slider(self, depend_cmd:dict, step_name='ExpDistributionSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'ExpressionDistribution.html')
@@ -358,7 +360,7 @@ class NestedCmd(Basic):
 
     def make_corr_cluster_slider(self, depend_cmd:dict, step_name='CorrelationClusterSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'CorrelationCluster.html')
@@ -372,7 +374,7 @@ class NestedCmd(Basic):
 
     def make_pca_slider(self, depend_cmd:dict, step_name='PCASlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'PCA.html')
@@ -386,7 +388,7 @@ class NestedCmd(Basic):
 
     def make_AlignmentSummary_slider(self, depend_cmd:dict, step_name='AlignmentSummarySlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'CollectAlignmentSummaryMetrics.html')
@@ -400,7 +402,7 @@ class NestedCmd(Basic):
 
     def make_InsertSizeSlider_slider(self, depend_cmd:dict, step_name='InsertSizeSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'CollectInsertSizeMetrics.html')
@@ -414,7 +416,7 @@ class NestedCmd(Basic):
 
     def make_RnaSeqMetrics_slider(self, depend_cmd:dict, step_name='RnaSeqMetricsSlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'CollectRnaSeqMetrics.html')
@@ -428,7 +430,7 @@ class NestedCmd(Basic):
 
     def make_TargetedSummary_slider(self, depend_cmd:dict, step_name='TargetedSummarySlider'):
         commands = dict()
-        slider_dir = os.path.join(self.project_dir, 'htmls')
+        slider_dir = self.slider_dir
         args = dict(self.arg_pool['make_slider'])
         for step, cmd_info in depend_cmd.items():
             args['out'] = os.path.join(slider_dir, 'TargetedSummaryMetrics.html')
