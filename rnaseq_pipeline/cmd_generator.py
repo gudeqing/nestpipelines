@@ -79,6 +79,11 @@ def star_align(**kwargs):
     cmd += '--outSAMstrandField {} '.format(kwargs['outSAMstrandField'])
     cmd += '--quantMode {} '.format(kwargs['quantMode'])
     cmd += '--outSAMattrRGline {} '.format(kwargs['outSAMattrRGline'])
+    cmd += '--limitBAMsortRAM {} '.format(kwargs['limitBAMsortRAM'])
+    cmd += '--limitIObufferSize {} '.format(kwargs['limitIObufferSize'])
+    cmd += '--outFilterMatchNminOverLread {} '.format(kwargs['outFilterMatchNminOverLread'])
+    cmd += '--limitOutSAMoneReadBytes {} '.format(kwargs['limitOutSAMoneReadBytes'])
+    cmd += '--outSAMattrIHstart {} '.format(kwargs['outSAMattrIHstart'])
     return cmd
 
 
