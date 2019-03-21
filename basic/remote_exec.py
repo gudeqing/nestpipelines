@@ -21,7 +21,7 @@ class MyThread(threading.Thread):
         return self.result
 
 
-def run(cmd, marker, timeout=3600*24, no_monitor=False, monitor_time_step=3):
+def run(cmd, marker, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
     proc = psutil.Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
     if not os.path.exists('/data/users/dqgu/nestcmd.tmp'):
         os.mkdir('/data/users/dqgu/nestcmd.tmp')

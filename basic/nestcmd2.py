@@ -68,7 +68,7 @@ def set_logger(name='workflow.log', logger_id='x'):
 class RemoteWork(object):
     script = 'python /data/users/dqgu/PycharmProjects/nestcmd/basic/remote_exec.py '
 
-    def __init__(self, cmd, timeout=3600*24, no_monitor=False, monitor_time_step=3):
+    def __init__(self, cmd, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
         self.cmd = cmd
         self.marker = str(uuid.uuid1())
         self.pid = 0
@@ -125,7 +125,7 @@ class RemoteWork(object):
 
 
 class Command(object):
-    def __init__(self, cmd, name, timeout=604800, outdir=os.getcwd(),
+    def __init__(self, cmd, name, timeout=3600*24*10, outdir=os.getcwd(),
                  monitor_resource=True, monitor_time_step=2, logger=None, **kwargs):
         self.name = name
         self.cmd = cmd
@@ -278,7 +278,7 @@ class CommandNetwork(object):
         else:
             tmp_dict['monitor_resource'] = self.parser.getboolean(name, 'monitor_resource')
         if 'timeout' not in tmp_dict:
-            tmp_dict['timeout'] = 3600*24*7
+            tmp_dict['timeout'] = 3600*24*10
         else:
             tmp_dict['timeout'] = self.parser.getint(name, 'timeout')
         if 'monitor_time_step' not in tmp_dict:
