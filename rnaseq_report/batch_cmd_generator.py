@@ -33,7 +33,7 @@ class NestedCmd(Basic):
             raise Exception('please provide valid cmd_name, refer --list_cmd_names')
         exec("print(cmdx.{}(**self.arg_pool['{}']))".format(cmd_name, cmd_name))
 
-    def gene_body_coverage_cmd(self, files:list, step_name='geneBodyCoverage'):
+    def gene_body_coverage_cmd(self, files:list, step_name='GeneBodyCoverage'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -48,7 +48,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def fragment_length_cmd(self, files:list, step_name='fragmentLength'):
+    def fragment_length_cmd(self, files:list, step_name='FragmentLength'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -63,7 +63,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def inner_distance_cmd(self, files:list, step_name='innerDistance'):
+    def inner_distance_cmd(self, files:list, step_name='InnerDistance'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -78,7 +78,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def read_distribution_cmd(self, files:list, step_name='readDistribution'):
+    def read_distribution_cmd(self, files:list, step_name='ReadDistribution'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -93,7 +93,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def read_duplication_cmd(self, files:list, step_name='readDuplication'):
+    def read_duplication_cmd(self, files:list, step_name='ReadDuplication'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -108,7 +108,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def chromosome_read_distribution_cmd(self, files:list, step_name='chrReadDistribution'):
+    def chromosome_read_distribution_cmd(self, files:list, step_name='ChrReadDistribution'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -123,7 +123,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def exp_saturation_cmd(self, files:list, step_name='expSaturation'):
+    def exp_saturation_cmd(self, files:list, step_name='ExpSaturation'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -138,7 +138,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def exp_pca_cmd(self, exp_table, step_name='expPCA'):
+    def exp_pca_cmd(self, exp_table, step_name='ExpPCA'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -154,7 +154,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def exp_density_cmd(self, exp_table, step_name='expDensity'):
+    def exp_density_cmd(self, exp_table, step_name='ExpDensity'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -170,7 +170,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def sample_correlation_cmd(self, exp_table, step_name='sampleCorrelation'):
+    def sample_correlation_cmd(self, exp_table, step_name='SampleCorrelation'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
