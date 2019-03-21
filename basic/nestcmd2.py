@@ -487,7 +487,10 @@ class RunCommands(CommandNetwork):
                 f.write(name+'\t'+content+'\n')
 
     def _draw_state(self):
-        StateGraph(self.state).draw(os.path.join(self.outdir, 'state.svg'))
+        outfile = os.path.join(self.outdir, 'state.svg')
+        if os.path.exists(outfile):
+            os.rename(outfile, outfile+'.bak')
+        StateGraph(self.state).draw(outfile)
 
     def _update_status_when_exit(self):
         # print('final update status')
