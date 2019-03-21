@@ -64,55 +64,23 @@ def recalibrate(**kwargs):
     return cmd
 
 
-def recalibrate2(**kwargs):
-    "sentieon driver -t NUMBER_THREADS -r REFERENCE -i REALIGNED_BAM \
--q RECAL_DATA.TABLE --algo QualCal [-k KNOWN_SITES] \
-RECAL_DATA.TABLE.POST [--algo ReadWriter RECALIBRATED_BAM]"
-    cmd = "{} driver ".format(kwargs['sentieon'])
-    cmd += "-t {} ".format(kwargs['threads'])
-    cmd += "-i {} ".format(kwargs['bam'])
-    cmd += "-r {} ".format(kwargs['ref_fasta'])
-    if 'known_sites' in kwargs:
-        cmd += "-k {} ".format(kwargs['known_sites'])
-    cmd += "-q {} ".format(kwargs['recal_data_table'])
-    cmd += "--algo QualCal "
-    cmd += "{} ".format(kwargs['recal_data_table_post'])
-    cmd += "--algo ReadWriter "
-    cmd += "{} ".format(kwargs['recalibrated_bam'])
-    return cmd
-
-
-def recalibrate3(**kwargs):
-    "sentieon driver -t NUMBER_THREADS --algo QualCal --plot \
---before RECAL_DATA.TABLE --after RECAL_DATA.TABLE.POST RECAL_RESULT.CSV"
-    cmd = "{} driver ".format(kwargs['sentieon'])
-    cmd += "-t {} ".format(kwargs['threads'])
-    cmd += "--algo QualCal "
-    cmd += "--plot "
-    cmd += "--before {} ".format(kwargs['recal_data_table'])
-    cmd += "--after {} ".format(kwargs['recal_data_table_post'])
-    cmd += '{} '.format(kwargs['recal_result_csv'])
-    return cmd
-
-
-def recalibrate4(**kwargs):
-    "sentieon plot QualCal -o BQSR_PDF RECAL_RESULT.CSV"
-    cmd = "{} plot QualCal -o {} {}".format(
-        kwargs['sentieon'], kwargs['bqsr_pdf'], kwargs['recal_result_csv']
-    )
-    return cmd
-
-
 def calling(**kwargs):
     "sentieon driver -t NUMBER_THREADS -r REFERENCE -i RECALIBRATED_BAM \
 --algo Genotyper [-d dbSNP] VARIANT_VCF"
+    "sentieon driver -t NUMBER_THREADS -r REFERENCE -i REALIGNED_BAM \
+-q RECAL_DATA.TABLE --algo Haplotyper --trim_soft_clip \
+--call_conf 20 --emit_conf 20 [-d dbSNP] VARIANT_VCF"
+
     cmd = "{} driver ".format(kwargs['sentieon'])
     cmd += "-t {} ".format(kwargs['threads'])
     cmd += "-i {} ".format(kwargs['bam'])
     cmd += "-r {} ".format(kwargs['ref_fasta'])
-    cmd += "--algo Genotyper "
-    if 'dbSNP' in kwargs:
+    cmd += "-q {} ".format(kwargs['recal_data_table'])
+    cmd += "--algo Haplotyper "
+    cmd += "--trim_soft_clip "
+    cmd += "--call_conf 20 "
+    cmd += "--emit_conf 20 "
+    if kwargs['dbSNP']:
         cmd += "-d {} ".format(kwargs['dbSNP'])
     cmd += "{} ".format(kwargs['variant_vcf'])
     return cmd
-

@@ -149,80 +149,6 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def recalibrate2_cmds(self, depend_cmds: dict, step_name='recalibrate2'):
-        if not depend_cmds:
-            return
-        commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
-        for step, cmd_info in depend_cmds.items():
-            sample = cmd_info['sample']
-            args = dict(self.arg_pool['recalibrate2'])
-            args['bam'] = cmd_info['realigned_bam']
-            args['recal_data_table'] = cmd_info['recal_data_table']
-            args['recal_data_table_post'] = os.path.join(outdir, '{}.recal_data.table.post'.format(sample))
-            args['recalibrated_bam'] = os.path.join(outdir, '{}.recalibrated.bam'.format(sample))
-            cmd = cmdx.recalibrate2(**args)
-            commands[step_name + '_' + sample] = self.cmd_dict(
-                cmd=cmd,
-                mem=1024 ** 3 * 10,
-                cpu=5,
-                depend=step,
-                sample=sample,
-                recalibrated_bam=args['recalibrated_bam'],
-                recal_data_table=args['recal_data_table'],
-                recal_data_table_post=args['recal_data_table_post'],
-            )
-        self.workflow.update(commands)
-        return commands
-
-    def recalibrate3_cmds(self, depend_cmds: dict, step_name='recalibrate3'):
-        if not depend_cmds:
-            return
-        commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
-        for step, cmd_info in depend_cmds.items():
-            sample = cmd_info['sample']
-            args = dict(self.arg_pool['recalibrate3'])
-            args['recal_data_table'] = cmd_info['recal_data_table']
-            args['recal_data_table_post'] = cmd_info['recal_data_table_post']
-            args['recal_result_csv'] = os.path.join(outdir, '{}.recal_result_csv'.format(sample))
-            cmd = cmdx.recalibrate3(**args)
-            commands[step_name + '_' + sample] = self.cmd_dict(
-                cmd=cmd,
-                mem=1024 ** 3 * 2,
-                cpu=2,
-                depend=step,
-                sample=sample,
-                recal_result_csv=args['recal_result_csv']
-            )
-        self.workflow.update(commands)
-        return commands
-
-    def recalibrate4_cmds(self, depend_cmds: dict, step_name='recalibrate4'):
-        if not depend_cmds:
-            return
-        commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
-        for step, cmd_info in depend_cmds.items():
-            sample = cmd_info['sample']
-            args = dict(self.arg_pool['recalibrate4'])
-            args['recal_result_csv'] = cmd_info['recal_result_csv']
-            args['bqsr_pdf'] = os.path.join(outdir, '{}.bqsr.pdf'.format(sample))
-            cmd = cmdx.recalibrate4(**args)
-            commands[step_name + '_' + sample] = self.cmd_dict(
-                cmd=cmd,
-                mem=1024 ** 3 * 2,
-                cpu=2,
-                depend=step,
-                sample=sample,
-                bqsr_pdf=args['bqsr_pdf']
-            )
-        self.workflow.update(commands)
-        return commands
-
     def calling_cmds(self, depend_cmds: dict, step_name='calling'):
         if not depend_cmds:
             return
@@ -232,7 +158,8 @@ class NestedCmd(Basic):
         for step, cmd_info in depend_cmds.items():
             sample = cmd_info['sample']
             args = dict(self.arg_pool['calling'])
-            args['bam'] = cmd_info['recalibrated_bam']
+            args['bam'] = cmd_info['realigned_bam']
+            args['recal_data_table'] = cmd_info['recal_data_table']
             args['variant_vcf'] = os.path.join(outdir, '{}.variant.vcf'.format(sample))
             cmd = cmdx.calling(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(

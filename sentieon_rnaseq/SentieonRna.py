@@ -26,10 +26,7 @@ def pipeline():
     split_cmds = nc.split_cmds(dedup_cmds)
     realign_cmds = nc.realign_cmds(split_cmds)
     recalibrate_cmds = nc.recalibrate_cmds(realign_cmds)
-    recalibrate2_cmds = nc.recalibrate2_cmds(recalibrate_cmds)
-    recalibrate3_cmds = nc.recalibrate3_cmds(recalibrate2_cmds)
-    recalibrate4_cmds = nc.recalibrate4_cmds(recalibrate3_cmds)
-    calling_cmds = nc.calling_cmds(recalibrate2_cmds)
+    calling_cmds = nc.calling_cmds(recalibrate_cmds)
     nc.run()
 
 
