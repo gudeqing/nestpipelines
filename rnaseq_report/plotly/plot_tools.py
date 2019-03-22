@@ -257,7 +257,7 @@ def read_duplication(files:list, outdir=os.getcwd(), max_dup=500,
     draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def exp_saturation(files:list, outdir=os.getcwd(), outlier_limit=5,
+def exp_saturation(files:list, outdir=os.getcwd(), outlier_limit=5, exp_lower=0.5,
                    formats=('html',), height:int=None, width:int=None, scale=3):
     all_fig = tools.make_subplots(
         rows=2, cols=2,
@@ -274,6 +274,8 @@ def exp_saturation(files:list, outdir=os.getcwd(), outlier_limit=5,
         sample = os.path.basename(exp_file).split('.', 1)[0]
         data = pd.read_table(exp_file, header=0, index_col=0)
         # plot deviation
+        data = data[data['100'] >= exp_lower]
+        data = data.sort_values(by='100')
         describe = data['100'].describe()
         regions = [
             (describe['min'], describe['25%']),
