@@ -8,6 +8,7 @@ from scipy.spatial.distance import squareform
 from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
+__author__ = 'gudeqing'
 
 
 class ClusterHeatMap(object):
