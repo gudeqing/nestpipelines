@@ -14,7 +14,8 @@ def make_report(report_dir):
     # QC
     result_dict['质量评估'] = {
         "GeneBodyCoverage": join(report_dir, 'Summary', 'CorrelationCluster.html'),
-        "GeneBodyCoverage2": join(report_dir, 'Summary', 'CorrelationCluster.html')
+        "GeneBodyCoverage2": join(report_dir, 'Summary', 'CorrelationCluster.html'),
+
     }
 
     # use relative path, this is important
