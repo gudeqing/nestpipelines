@@ -314,6 +314,6 @@ def basic_arg_parser():
                              "如需更改指定的资源, 可在运行流程前修改pipeline.ini")
     parser.add_argument('-hostname', default='10.60.2.133', help='其他服务器地址,默认 10.60.2.133')
     parser.add_argument('-port', default=22, type=int, help='服务器端口号, 默认 22')
-    parser.add_argument('-username', default='username', help='登录其他服务器的用户名')
-    parser.add_argument('-password', default='password', help='登录密码')
+    parser.add_argument('-username', default=None, help='登录其他服务器的用户名')
+    parser.add_argument('-password', default=None, help='登录密码')
     return parser
