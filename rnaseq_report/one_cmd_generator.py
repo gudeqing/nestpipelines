@@ -200,6 +200,10 @@ def sample_correlation(**kwargs):
     cmd += '-sample_label_angle {} '.format(kwargs['sample_label_angle'])
     cmd += '-color_scale {} '.format(kwargs['color_scale'])
     cmd += '--do_correlation_cluster '
+    cmd += '--cluster_sample '
+    cmd += '--cluster_gene '
+    cmd += '--show_gene_label '
+    cmd += '-gene_label_size {} '.format(kwargs['gene_label_size'])
     if kwargs['sample_group']:
         cmd += '-sample_group {} '.format(kwargs['sample_group'])
     return cmd
