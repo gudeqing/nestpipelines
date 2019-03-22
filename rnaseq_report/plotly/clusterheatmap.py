@@ -613,7 +613,7 @@ class ClusterHeatMap(object):
 
         from colorsys import hls_to_rgb
         color_pool = []
-        for i in np.arange(60., 360., 360. / n):
+        for i in np.arange(0., 360., 360. / n):
             hue = i / 300.
             rand_num = np.random.random_sample()
             lightness = (50 + rand_num * 10) / 100.
