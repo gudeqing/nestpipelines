@@ -660,22 +660,6 @@ class ClusterHeatMap(object):
 
 
 if __name__ == '__main__':
-    # import sys
-    # data_file = None
-    # if len(sys.argv) >= 2:
-    #     data_file = sys.argv[1]
-    # p = ClusterHeatMap(
-    #     data_file=data_file,
-    #     cluster_sample=True,
-    #     cluster_gene=True,
-    #     gene_distance_metric="correlation",
-    #     only_gene_dendrogram=False,
-    #     do_correlation_cluster=True,
-    #     label_gene=True,
-    #     zscore_before_cluster=True,
-    #     sample_group={'C180026R2L2': 'C', 'C180027R1L2': 'C', 'C180028R1L2': 'C'}
-    # )
-
     def introduce_command(func):
         import argparse
         import inspect
