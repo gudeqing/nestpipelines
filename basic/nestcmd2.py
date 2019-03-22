@@ -68,12 +68,12 @@ def set_logger(name='workflow.log', logger_id='x'):
 class RemoteWork(object):
     script = 'python /data/users/dqgu/PycharmProjects/nestcmd/basic/remote_exec.py '
 
-    def __init__(self, cmd, timeout=3600*24, no_monitor=False, monitor_time_step=3):
+    def __init__(self, cmd, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
         self.cmd = cmd
         self.marker = str(uuid.uuid1())
         self.pid = 0
         self.result = ''
-        self.returncode = 0
+        self.returncode = 1
         self.timeout = timeout
         self.monitor = not no_monitor
         self.monitor_time_step = monitor_time_step
@@ -102,7 +102,7 @@ class RemoteWork(object):
             command += '-pid {} '.format(self.pid)
         # print(command)
         stdin, stdout, stderr = SSH.exec_command(command)
-        return stdout.read().decode() + '\n' + stderr.read().decode().strip()
+        return stdout.read().decode().strip()
 
     def get_pid(self):
         pid = int(self.exec_command('get_pid'))
@@ -125,7 +125,7 @@ class RemoteWork(object):
 
 
 class Command(object):
-    def __init__(self, cmd, name, timeout=604800, outdir=os.getcwd(),
+    def __init__(self, cmd, name, timeout=3600*24*10, outdir=os.getcwd(),
                  monitor_resource=True, monitor_time_step=2, logger=None, **kwargs):
         self.name = name
         self.cmd = cmd
@@ -278,7 +278,7 @@ class CommandNetwork(object):
         else:
             tmp_dict['monitor_resource'] = self.parser.getboolean(name, 'monitor_resource')
         if 'timeout' not in tmp_dict:
-            tmp_dict['timeout'] = 3600*24*7
+            tmp_dict['timeout'] = 3600*24*10
         else:
             tmp_dict['timeout'] = self.parser.getint(name, 'timeout')
         if 'monitor_time_step' not in tmp_dict:
@@ -454,24 +454,23 @@ class RunCommands(CommandNetwork):
                 cmd_state['pid'] = cmd.proc.pid
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
-        running = self.ever_queued - success - failed
+        running_or_queueing = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
         tmp_dict = {y: x for x, y in PROCESS_local.items()}
-        for each in running:
-            if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
-                self.state[each]['pid'] = tmp_dict[each].pid
-                if tmp_dict[each].is_running():
-                    if killed:
-                        self.state[each]['state'] = 'killed'
-                    else:
-                        self.state[each]['state'] = 'running'
+        tmp_dict.update({y: x for x, y in PROCESS_remote.items()})
+        for each in running_or_queueing:
+            try:
+                if each in tmp_dict:
+                    self.state[each]['pid'] = tmp_dict[each].pid
+                    if tmp_dict[each].is_running():
+                        if killed:
+                            self.state[each]['state'] = 'killed'
+                        else:
+                            self.state[each]['state'] = 'running'
                 else:
-                    if tmp_dict[each].returncode == 0:
-                        self.state[each]['state'] = 'success'
-                    else:
-                        self.state[each]['state'] = 'failed'
-            else:
-                self.state[each]['state'] = 'queueing'
+                    self.state[each]['state'] = 'queueing'
+            except Exception:
+                pass
         for each in waiting:
             self.state[each]['state'] = 'outdoor'
 

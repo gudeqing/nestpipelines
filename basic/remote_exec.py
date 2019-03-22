@@ -21,12 +21,13 @@ class MyThread(threading.Thread):
         return self.result
 
 
-def run(cmd, marker, timeout=3600*24, no_monitor=False, monitor_time_step=3):
+def run(cmd, marker, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
     proc = psutil.Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
     if not os.path.exists('/data/users/dqgu/nestcmd.tmp'):
         os.mkdir('/data/users/dqgu/nestcmd.tmp')
     out_file = os.path.join('/data/users/dqgu/nestcmd.tmp', '{}.pid.{}'.format(marker, proc.pid))
     with open(out_file, 'w') as f:
+        # in future we will get pid from file name
         # f.write(str(proc.pid))
         pass
     timer = Timer(timeout, proc.kill)
@@ -76,19 +77,17 @@ def monitor_resource(proc, time_step=3):
 
 def get_pid(marker):
     start = time.time()
-    while True:
-        if not os.path.exists('/data/users/dqgu/nestcmd.tmp'):
-            os.mkdir('/data/users/dqgu/nestcmd.tmp')
+    if not os.path.exists('/data/users/dqgu/nestcmd.tmp'):
+        os.mkdir('/data/users/dqgu/nestcmd.tmp')
+    success = False
+    while not success:
         tmp = os.listdir('/data/users/dqgu/nestcmd.tmp')
-        success = False
         for each in tmp:
             if each.startswith(marker):
                 success = True
                 os.remove(os.path.join('/data/users/dqgu/nestcmd.tmp', each))
                 print(each.split('.pid.')[1])
                 break
-        if success:
-            break
         if time.time() - start > 1000:
             raise Exception('Failed to capture pid')
 
