@@ -11,19 +11,29 @@ from threading import Timer, Lock
 import weakref
 import atexit
 import signal
+import paramiko
+import uuid
 import pygraphviz as pgv
 __author__ = 'gdq and dp'
 
 
-PROCESS_SET = weakref.WeakKeyDictionary()
+PROCESS_local = weakref.WeakKeyDictionary()
+PROCESS_remote = weakref.WeakKeyDictionary()
+SSH: paramiko.SSHClient = None
 
 
 @atexit.register
 def _kill_processes_when_exit():
     print("....Ending....")
-    for proc, cmd_name in PROCESS_SET.items():
+    for proc, cmd_name in PROCESS_local.items():
         if psutil.pid_exists(proc.pid):
             print('Shutting down running tasks {}:{}'.format(proc.pid, cmd_name))
+            proc.kill()
+    # 有些已经发起但还没有收进来的无法终止
+    for proc in list(PROCESS_remote.keys()):
+        cmd_name = PROCESS_remote[proc]
+        if proc.pid_exists:
+            print('Shutting down remote running tasks {}:{}'.format(proc.pid, cmd_name))
             proc.kill()
 
 
@@ -53,8 +63,67 @@ def set_logger(name='workflow.log', logger_id='x'):
     return logger
 
 
+class RemoteWork(object):
+    script = os.path.join(os.path.dirname(__file__), 'runner.py')
+
+    def __init__(self, cmd, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
+        self.cmd = cmd
+        self.marker = str(uuid.uuid1())
+        self.pid = 0
+        self.result = ''
+        self.returncode = 1
+        self.timeout = timeout
+        self.monitor = not no_monitor
+        self.monitor_time_step = monitor_time_step
+
+    @classmethod
+    def resource_is_enough(cls, cpu, mem, timeout=10):
+        command = cls.script + ' {} '.format('resource_is_enough')
+        command += '-cpu {} '.format(cpu)
+        command += '-mem {} '.format(mem)
+        command += '-timeout {} '.format(timeout)
+        stdin, stdout, stderr = SSH.exec_command(command)
+        return stdout.read().decode().strip() == 'True'
+
+    def exec_command(self, task):
+        command = self.script + ' {} '.format(task)
+        if task == 'run':
+            command += '-cmd "{}" '.format(self.cmd)
+            command += '-marker {} '.format(self.marker)
+            command += '-timeout {} '.format(self.timeout)
+            command += '-monitor_time_step {} '.format(self.monitor_time_step)
+            if not self.monitor:
+                command += '--no_monitor '
+        elif task == 'get_pid':
+            command += '-marker {} '.format(self.marker)
+        else:
+            command += '-pid {} '.format(self.pid)
+        # print(command)
+        stdin, stdout, stderr = SSH.exec_command(command)
+        return stdout.read().decode().strip()
+
+    def get_pid(self):
+        pid = int(self.exec_command('get_pid'))
+        self.pid = pid
+        return pid
+
+    def run(self):
+        self.result = self.exec_command('run')
+        self.returncode = int(self.result.split(' ', 1)[0])
+
+    def is_running(self):
+        return str(self.exec_command('is_running')) == 'True'
+
+    def kill(self):
+        if self.pid_exists():
+            self.exec_command('kill')
+
+    def pid_exists(self):
+        return str(self.exec_command('pid_exists')) == 'True'
+
+
 class Command(object):
-    def __init__(self, cmd, name, timeout=604800, outdir=os.getcwd(),
+    def __init__(self, cmd, name, timeout=3600*24*10, outdir=os.getcwd(),
                  monitor_resource=True, monitor_time_step=2, logger=None, **kwargs):
         self.name = name
         self.cmd = cmd
@@ -96,26 +165,49 @@ class Command(object):
                 # print('Failed to capture cpu/mem info for: ', e)
                 break
 
-    def run(self):
-        start_time = time.time()
-        self.logger.warning("RunStep: {}".format(self.name))
-        self.logger.info("RunCmd: {}".format(self.cmd))
-        self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
-        PROCESS_SET[self.proc] = self.name
-        if self.monitor:
-            thread = threading.Thread(target=self._monitor_resource, daemon=True)
-            thread.start()
-        timer = Timer(self.timeout, self.proc.kill)
-        try:
-            timer.start()
-            self.stdout, self.stderr = self.proc.communicate()
+    def run(self, remote_run=False):
+        if not remote_run:
+            start_time = time.time()
+            self.logger.warning("RunStep: {}".format(self.name))
+            self.logger.info("RunCmd: {}".format(self.cmd))
+            self.proc = psutil.Popen(self.cmd, shell=True, stderr=PIPE, stdout=PIPE)
+            PROCESS_local[self.proc] = self.name
             if self.monitor:
-                thread.join()
-        finally:
-            timer.cancel()
-        self._write_log()
-        end_time = time.time()
-        self.used_time = round(end_time - start_time, 4)
+                thread = threading.Thread(target=self._monitor_resource, daemon=True)
+                thread.start()
+            timer = Timer(self.timeout, self.proc.kill)
+            try:
+                timer.start()
+                self.stdout, self.stderr = self.proc.communicate()
+                if self.monitor:
+                    thread.join()
+            finally:
+                timer.cancel()
+            self._write_log()
+            end_time = time.time()
+            self.used_time = round(end_time - start_time, 4)
+        else:
+            start_time = time.time()
+            self.logger.warning("Remote RunStep: {}".format(self.name))
+            self.logger.info("Remote RunCmd: {}".format(self.cmd))
+            self.proc = RemoteWork(self.cmd, timeout=self.timeout,
+                                   no_monitor=not self.monitor,
+                                   monitor_time_step=self.monitor_time_step)
+            # 便于关闭远程进程
+            PROCESS_remote[self.proc] = self.name
+            # 运行前先开启捕获pid的工作
+            thread = threading.Thread(target=self.proc.get_pid, daemon=True)
+            thread.start()
+            # 运行cmd
+            self.proc.run()
+            # print(self.proc.pid)
+            thread.join()
+            # print(self.proc.result)
+            self.stderr = self.proc.result.encode()
+            self.max_cpu, self.max_mem = [float(x) for x in self.proc.result.split(' ', 3)[1:3]]
+            self._write_log()
+            end_time = time.time()
+            self.used_time = round(end_time - start_time, 4)
 
     def _write_log(self):
         log_dir = os.path.join(self.outdir, 'logs')
@@ -184,7 +276,7 @@ class CommandNetwork(object):
         else:
             tmp_dict['monitor_resource'] = self.parser.getboolean(name, 'monitor_resource')
         if 'timeout' not in tmp_dict:
-            tmp_dict['timeout'] = 3600*24*7
+            tmp_dict['timeout'] = 3600*24*10
         else:
             tmp_dict['timeout'] = self.parser.getint(name, 'timeout')
         if 'monitor_time_step' not in tmp_dict:
@@ -296,18 +388,31 @@ class StateGraph(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None, only_run_local=True):
+    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None,
+                 hostname='10.60.2.133', port=22, username=None, password=None):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
-        # self._draw_state()
+        # wait resource time limit
         self.timeout = timeout
         if not logger:
             self.logger = set_logger(name=os.path.join(self.outdir, 'workflow.log'))
         else:
             self.logger = logger
+        if hostname and username and password:
+            global SSH
+            SSH = paramiko.SSHClient()
+            SSH.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+            try:
+                SSH.connect(hostname=hostname, port=port, username=username, password=password)
+                self.only_run_local = False
+            except Exception:
+                self.logger.warning('Failed to login remote server, fall back to run only locally!')
+                self.only_run_local = True
+        else:
+            self.only_run_local = True
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -359,29 +464,31 @@ class RunCommands(CommandNetwork):
                 cmd_state['pid'] = cmd.proc.pid
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
-        running = self.ever_queued - success - failed
+        running_or_queueing = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
-        tmp_dict = {y: x for x, y in PROCESS_SET.items()}
-        for each in running:
-            if each in tmp_dict and psutil.pid_exists(tmp_dict[each].pid):
-                self.state[each]['pid'] = tmp_dict[each].pid
-                if tmp_dict[each].is_running():
-                    if killed:
-                        self.state[each]['state'] = 'killed'
-                    else:
-                        self.state[each]['state'] = 'running'
+        tmp_dict = {y: x for x, y in PROCESS_local.items()}
+        tmp_dict.update({y: x for x, y in PROCESS_remote.items()})
+        for each in running_or_queueing:
+            try:
+                if each in tmp_dict:
+                    self.state[each]['pid'] = tmp_dict[each].pid
+                    if tmp_dict[each].is_running():
+                        if killed:
+                            self.state[each]['state'] = 'killed'
+                        else:
+                            self.state[each]['state'] = 'running'
                 else:
-                    if tmp_dict[each].returncode == 0:
-                        self.state[each]['state'] = 'success'
-                    else:
-                        self.state[each]['state'] = 'failed'
-            else:
-                self.state[each]['state'] = 'queueing'
+                    self.state[each]['state'] = 'queueing'
+            except Exception:
+                pass
         for each in waiting:
             self.state[each]['state'] = 'outdoor'
 
     def _write_state(self):
-        with open(os.path.join(self.outdir, 'cmd_state.txt'), 'w') as f:
+        outfile = os.path.join(self.outdir, 'cmd_state.txt')
+        if os.path.exists(outfile):
+            os.rename(outfile, outfile+'.bak')
+        with open(outfile, 'w') as f:
             fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
             f.write('\t'.join(fields)+'\n')
             for name in self.state:
@@ -389,7 +496,10 @@ class RunCommands(CommandNetwork):
                 f.write(name+'\t'+content+'\n')
 
     def _draw_state(self):
-        StateGraph(self.state).draw(os.path.join(self.outdir, 'state.svg'))
+        outfile = os.path.join(self.outdir, 'state.svg')
+        if os.path.exists(outfile):
+            os.rename(outfile, outfile+'.bak')
+        StateGraph(self.state).draw(outfile)
 
     def _update_status_when_exit(self):
         # print('final update status')
@@ -400,7 +510,7 @@ class RunCommands(CommandNetwork):
     def single_run(self):
         while True:
             if self.queue.empty():
-                time.sleep(3)
+                time.sleep(5)
                 with self.__LOCK__:
                     self._update_queue()
                     self._write_state()
@@ -411,21 +521,32 @@ class RunCommands(CommandNetwork):
                 self.queue.put(None)
                 break
             tmp_dict = self.get_cmd_description_dict(name)
-
+            if 'outdir' in tmp_dict:
+                tmp_dict.pop('outdir')
+            if 'logger' in tmp_dict:
+                tmp_dict.pop('logger')
             try_times = 0
             cmd = Command(**tmp_dict, outdir=self.outdir, logger=self.logger)
             while try_times <= int(tmp_dict['retry']):
                 try_times += 1
                 enough = True
+                remote_run = False
                 if tmp_dict['check_resource_before_run']:
-                    if not CheckResource().is_enough(tmp_dict['cpu'],
-                                                     tmp_dict['mem'],
-                                                     timeout=self.timeout):
-                        enough = False
+                    if not CheckResource().is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
+                        self.logger.warning('Local resource is Not enough for {}!'.format(cmd.name))
+                        if self.only_run_local:
+                            enough = False
+                        else:
+                            if not RemoteWork.resource_is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
+                                self.logger.warning('Remote resource is also Not enough for {}!'.format(cmd.name))
+                                enough = False
+                            else:
+                                self.logger.warning('Run {} on remote sever'.format(cmd.name))
+                                remote_run = True
                 if enough:
                     if try_times > 1:
                         self.logger.warning('{}th run {}'.format(try_times, cmd.name))
-                    cmd.run()
+                    cmd.run(remote_run=remote_run)
                     if cmd.proc.returncode == 0:
                         break
             with self.__LOCK__:
@@ -481,7 +602,9 @@ class RunCommands(CommandNetwork):
 
 
 if __name__ == '__main__':
-    workflow = RunCommands('sample.ini', timeout=10)
+    workflow = RunCommands('sample.ini', timeout=10,
+                           hostname='10.60.2.133', port=22, username='dqgu', password='xx')
     # workflow.single_run()
-    # workflow.parallel_run()
-    workflow.continue_run()
+    workflow.parallel_run()
+    # workflow.continue_run()
+    # Command('sleep 5', 'hh').run(True)

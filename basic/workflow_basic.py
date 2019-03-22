@@ -3,9 +3,7 @@ import argparse
 from pprint import pprint
 import configparser
 import shutil
-
-# from basic.nestcmd import RunCommands, set_logger
-from basic.nestcmd2 import RunCommands, set_logger
+from basic.nestcmd import RunCommands, set_logger
 
 
 class Basic(object):
@@ -160,7 +158,10 @@ class Basic(object):
             raise Exception('Please provide valid pipeline.ini file')
         workflow = RunCommands(
             self.workflow_arguments.pipeline_cfg,
-            only_run_local=self.workflow_arguments.only_run_local,
+            hostname=self.workflow_arguments.hostname,
+            port=self.workflow_arguments.port,
+            username=self.workflow_arguments.username,
+            password=self.workflow_arguments.password,
             outdir=self.project_dir, logger=self.logger,
             timeout=self.workflow_arguments.wait_resource_time
         )
@@ -206,7 +207,10 @@ class Basic(object):
             with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
                 commands.write(configfile)
             workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
-                                   only_run_local=self.workflow_arguments.only_run_local,
+                                   hostname=self.workflow_arguments.hostname,
+                                   port=self.workflow_arguments.port,
+                                   username=self.workflow_arguments.username,
+                                   password=self.workflow_arguments.password,
                                    outdir=project_dir, logger=self.logger,
                                    timeout=self.workflow_arguments.wait_resource_time)
             for each in skip_steps:
@@ -264,7 +268,10 @@ class Basic(object):
         workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
                                logger=self.logger,
                                outdir=project_dir,
-                               only_run_local=self.workflow_arguments.only_run_local,
+                               hostname=self.workflow_arguments.hostname,
+                               port=self.workflow_arguments.port,
+                               username=self.workflow_arguments.username,
+                               password=self.workflow_arguments.password,
                                timeout=arguments.wait_resource_time)
         workflow.parallel_run()
 
@@ -276,7 +283,6 @@ def basic_arg_parser():
     parser.add_argument('-skip', default=list(), nargs='+',
                         help='指定要跳过的步骤名, 空格分隔,程序会自动跳过依赖他们的步骤, --only_show_steps可查看步骤名; '
                              '注意: 如果跳过trim步骤, 则用原始数据; 如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
-    parser.add_argument('--only_run_local', default=False, action="store_true", help="如果设置该参数, 则仅在当前服务器上跑任务")
     parser.add_argument('--only_show_steps', default=False, action="store_true",
                         help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤; "
                              "你还可以通过--list_cmd_names查看当前流程包含哪些命令行")
@@ -306,4 +312,8 @@ def basic_arg_parser():
                         help="指示运行某步骤前检测指定的资源是否足够, 如不足, 则该步骤失败; 如果设置该参数, 则运行前不检查资源. "
                              "如需对某一步设置不同的值,可运行前修改pipeline.ini. "
                              "如需更改指定的资源, 可在运行流程前修改pipeline.ini")
+    parser.add_argument('-hostname', default='10.60.2.133', help='其他服务器地址,默认 10.60.2.133')
+    parser.add_argument('-port', default=22, type=int, help='服务器端口号, 默认 22')
+    parser.add_argument('-username', default='username', help='登录其他服务器的用户名')
+    parser.add_argument('-password', default='password', help='登录密码')
     return parser
