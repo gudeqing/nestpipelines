@@ -125,14 +125,18 @@ class ClusterHeatMap(object):
                                      columns=list('abcdef'),
                                      index=['x'+str(x) for x in range(100)])
 
-        if do_correlation_cluster:
+        if self.do_correlation_cluster:
             self.data = self.data.corr(method=corr_method)
+            # we choose not use the following codes to enable more freedom of users
+            # self.cluster_gene = True
+            # self.cluster_sample = True
+            # self.label_gene = True
 
-        if cluster_gene:
+        if self.cluster_gene:
             self.left_dendrogram_width = left_dendrogram_width
         else:
             self.left_dendrogram_width = 0
-        if cluster_sample:
+        if self.cluster_sample:
             self.top_dendrogram_height = top_dendrogram_height
         else:
             self.top_dendrogram_height = 0
@@ -153,7 +157,7 @@ class ClusterHeatMap(object):
 
         self.layout = self.all_layout()
         self.draw()
-        if do_correlation_cluster:
+        if self.do_correlation_cluster:
             out_corr_file = os.path.join(outdir, 'corr.matrix.txt')
             self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
 
