@@ -196,6 +196,7 @@ class ClusterHeatMap(object):
             'showline': False,
             'zeroline': False,
             'ticks': "",
+            'dtick': 1,
             'anchor': 'y',
             'autorange': True,
             'scaleanchor': "x3",
