@@ -19,9 +19,7 @@ __author__ = 'gdq and dp'
 
 PROCESS_local = weakref.WeakKeyDictionary()
 PROCESS_remote = weakref.WeakKeyDictionary()
-SSH = paramiko.SSHClient()
-SSH.set_missing_host_key_policy(paramiko.AutoAddPolicy)
-SSH.connect(hostname='10.60.2.133', port=22, username='dqgu', password='dunwill1220')
+SSH: paramiko.SSHClient = None
 
 
 @atexit.register
@@ -66,7 +64,7 @@ def set_logger(name='workflow.log', logger_id='x'):
 
 
 class RemoteWork(object):
-    script = 'python /data/users/dqgu/PycharmProjects/nestcmd/basic/remote_exec.py '
+    script = os.path.join(os.path.dirname(__file__), 'runner.py')
 
     def __init__(self, cmd, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
         self.cmd = cmd
@@ -390,19 +388,31 @@ class StateGraph(object):
 class RunCommands(CommandNetwork):
     __LOCK__ = Lock()
 
-    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None, only_run_local=False):
+    def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None,
+                 hostname='10.60.2.133', port=22, username=None, password=None):
         super().__init__(cmd_config)
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
-        self.only_run_local = only_run_local
-        # self._draw_state()
+        # wait resource time limit
         self.timeout = timeout
         if not logger:
             self.logger = set_logger(name=os.path.join(self.outdir, 'workflow.log'))
         else:
             self.logger = logger
+        if hostname and username and password:
+            global SSH
+            SSH = paramiko.SSHClient()
+            SSH.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+            try:
+                SSH.connect(hostname=hostname, port=port, username=username, password=password)
+                self.only_run_local = False
+            except Exception:
+                self.logger.warning('Failed to login remote server, fall back to run only locally!')
+                self.only_run_local = True
+        else:
+            self.only_run_local = True
 
     def __init_queue(self):
         cmd_pool = queue.Queue()
@@ -528,7 +538,7 @@ class RunCommands(CommandNetwork):
                             enough = False
                         else:
                             if not RemoteWork.resource_is_enough(tmp_dict['cpu'], tmp_dict['mem'], self.timeout):
-                                self.logger.warning('Remote resource is Not enough for {}!'.format(cmd.name))
+                                self.logger.warning('Remote resource is also Not enough for {}!'.format(cmd.name))
                                 enough = False
                             else:
                                 self.logger.warning('Run {} on remote sever'.format(cmd.name))
@@ -592,7 +602,8 @@ class RunCommands(CommandNetwork):
 
 
 if __name__ == '__main__':
-    workflow = RunCommands('sample.ini', timeout=10)
+    workflow = RunCommands('sample.ini', timeout=10,
+                           hostname='10.60.2.133', port=22, username='dqgu', password='xx')
     # workflow.single_run()
     workflow.parallel_run()
     # workflow.continue_run()
