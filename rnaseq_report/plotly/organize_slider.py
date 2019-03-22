@@ -11,12 +11,27 @@ def make_report(report_dir):
     shutil.copytree(join(html_utils_dir, 'html.utils'), join(report_dir, 'html.utils'))
     index_template = join(html_utils_dir, 'templates', 'index.jinja2')
     result_dict = dict()
-    # QC
     result_dict['质量评估'] = {
-        "GeneBodyCoverage": join(report_dir, 'Summary', 'CorrelationCluster.html'),
-        "GeneBodyCoverage2": join(report_dir, 'Summary', 'CorrelationCluster.html'),
-
+        "GeneBodyCoverage": join(report_dir, 'Summary', 'GeneBodyCoverage.html'),
+        "ReadDistribution": join(report_dir, 'Summary', 'ReadDistribution.html'),
+        "ChrReadDistribution": join(report_dir, 'Summary', 'ChrReadDistribution.html'),
+        "FragmentSize": join(report_dir, 'Summary', 'FragmentSize.html'),
+        "ReadDuplication": join(report_dir, 'Summary', 'ReadDuplication.html'),
+        "InnerDistance": join(report_dir, 'Summary', 'InnerDistance.html'),
+        "ExpSaturation": join(report_dir, 'Summary', 'ExpSaturation.html'),
+        "InsertSize": join(report_dir, 'Summary', 'CollectInsertSizeMetrics.html'),
     }
+    result_dict['表达量分析'] = {
+        "ExpressionDistribution": join(report_dir, 'Summary', 'ExpressionDistribution.html'),
+        "SampleCorrelationCluster": join(report_dir, 'Summary', 'CorrelationCluster.html'),
+        "PrincipalComponentAnalysis": join(report_dir, 'Summary', 'PCA.html'),
+    }
+    result_dict['比对结果统计表'] = {
+        "AlignmentSummary": join(report_dir, 'Summary', 'CollectAlignmentSummaryMetrics.html'),
+        "RnaSeqMetrics": join(report_dir, 'Summary', 'CollectRnaSeqMetrics.html'),
+        "TargetedSummary": join(report_dir, 'Summary', 'TargetedSummaryMetrics.html'),
+    }
+
 
     # use relative path, this is important
     for section in result_dict:
