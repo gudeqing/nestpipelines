@@ -751,7 +751,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
     :param files:
     :param outdir:
     :param formats:
-    :param limit:
+    :param limit: pvalue取-log10后, 有的可能100, 有的可能是10, 差异太大, 因此使用 中位值*1imit 作为上限使图形尽量美观
     :param height:
     :param width:
     :param scale:
@@ -834,6 +834,10 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
         fig = go.Figure(data=[trace, trace2, trace3], layout=layout)
         prefix = '{}_vs_{}.volcano'.format(ctrl, test)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
+
+
+def enriched_term_bubble(files: list, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+
 
 
 
