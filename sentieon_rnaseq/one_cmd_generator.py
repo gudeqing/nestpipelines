@@ -44,7 +44,7 @@ def realign(**kwargs):
     cmd += "-i {} ".format(kwargs['bam'])
     cmd += "-r {} ".format(kwargs['ref_fasta'])
     cmd += "--algo Realigner "
-    if 'known_sites' in kwargs:
+    if kwargs['known_sites']:
         cmd += "-k {} ".format(kwargs['known_sites'])
     cmd += "{} ".format(kwargs['realigned_bam'])
     return cmd
