@@ -6,6 +6,10 @@ import os
 import threading
 from threading import Timer
 
+TMP_DIR = 'nestcmd.tmp'
+if not os.path.exists(TMP_DIR):
+    os.mkdir(TMP_DIR)
+
 
 class MyThread(threading.Thread):
     def __init__(self, func, args=(), daemon=True):
@@ -24,9 +28,7 @@ class MyThread(threading.Thread):
 
 def run(cmd, marker, timeout=3600*24*10, no_monitor=False, monitor_time_step=3):
     proc = psutil.Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
-    if not os.path.exists('/data/users/dqgu/nestcmd.tmp'):
-        os.mkdir('/data/users/dqgu/nestcmd.tmp')
-    out_file = os.path.join('/data/users/dqgu/nestcmd.tmp', '{}.pid.{}'.format(marker, proc.pid))
+    out_file = os.path.join(TMP_DIR, '{}.pid.{}'.format(marker, proc.pid))
     with open(out_file, 'w') as f:
         # in future we will get pid from file name
         # f.write(str(proc.pid))
@@ -53,12 +55,6 @@ def monitor_resource(proc, time_step=3):
     max_mem, max_cpu = 0, 0
     while proc.is_running():
         try:
-            # if os.name == 'posix':
-            #     cpu_num = proc.cpu_num()
-            # elif os.name == 'nt':
-            #     cpu_num = psutil.cpu_count()
-            # else:
-            #     cpu_num = 0
             cpu_percent = proc.cpu_percent(time_step)
             used_cpu = round(cpu_percent*0.01, 4)
             if used_cpu > max_cpu:
@@ -78,15 +74,13 @@ def monitor_resource(proc, time_step=3):
 
 def get_pid(marker):
     start = time.time()
-    if not os.path.exists('/data/users/dqgu/nestcmd.tmp'):
-        os.mkdir('/data/users/dqgu/nestcmd.tmp')
     success = False
     while not success:
-        tmp = os.listdir('/data/users/dqgu/nestcmd.tmp')
+        tmp = os.listdir(TMP_DIR)
         for each in tmp:
             if each.startswith(marker):
                 success = True
-                os.remove(os.path.join('/data/users/dqgu/nestcmd.tmp', each))
+                os.remove(os.path.join(TMP_DIR, each))
                 print(each.split('.pid.')[1])
                 break
         if time.time() - start > 1000:

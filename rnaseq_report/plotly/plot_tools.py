@@ -1,4 +1,5 @@
 import os
+import re
 from functools import partial
 from collections import OrderedDict
 from glob import glob
@@ -743,6 +744,87 @@ def CollectTargetedPcrMetrics(files:list, outdir=os.getcwd(), formats=('html',),
         prefix = 'TargetedPcrMetrics_{}'.format(i + 1)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
     return data
+
+
+def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+    for table in files:
+        ctrl, test = re.fullmatch(r'(.*)_vs_(.*?)\..*.xls', os.path.basename(table)).groups()
+        df = pd.read_table(table, index_col=0, header=0)
+        exp_columns = [x for x in df.columns if x.lower().endswith(('tpm', 'fpkm'))]
+        target_columns = exp_columns + ['log2fc', 'padjust', 'significant', 'regulate']
+        df = df.loc[:, target_columns]
+        df = df[df['regulate'] != 'untested']
+        df = df[df.loc[:, exp_columns].sum(axis=1) > 1e-5]
+
+        fc_limit = abs(df['log2fc']).describe()['75%']*limit
+        df.loc[(df['log2fc'] >= fc_limit), ['log2fc']] = fc_limit
+        df.loc[(df['log2fc'] <= -fc_limit), ['log2fc']] = -fc_limit
+
+        df['padjust'] = -np.log10(df['padjust'])
+        p_limit = df['padjust'].describe()['75%']*limit
+        df.loc[(df['padjust'] >= p_limit), 'padjust'] = p_limit
+
+        df['colors'] = 'grey'
+        df.loc[((df['significant'] == 'yes') & (df['regulate'] == 'up')), 'colors'] = 'red'
+        df.loc[((df['significant'] == 'yes') & (df['regulate'] == 'down')), 'colors'] = 'green'
+
+        # draw grey
+        tmp_df = df[df['colors'] == 'grey']
+        trace = go.Scatter(
+            x=tmp_df['log2fc'],
+            y=tmp_df['padjust'],
+            mode='markers',
+            marker=dict(
+                color='grey',
+                opacity=0.8,
+                # symbol='circle',
+            ),
+            name='no change: {}'.format(tmp_df.shape[0])
+        )
+        # draw green
+        tmp_df = df[df['colors'] == 'green']
+        trace2 = go.Scatter(
+            x=tmp_df['log2fc'],
+            y=tmp_df['padjust'],
+            mode='markers',
+            text=tmp_df.index,
+            hoverinfo='text+x+y',
+            marker=dict(
+                color='green',
+                opacity=0.8,
+                # symbol='circle',
+            ),
+            name = 'Down regulate: {}'.format(tmp_df.shape[0])
+        )
+        # draw red
+        tmp_df = df[df['colors'] == 'red']
+        trace3 = go.Scatter(
+            x=tmp_df['log2fc'],
+            y=tmp_df['padjust'],
+            mode='markers',
+            text=tmp_df.index,
+            hoverinfo='text+x+y',
+            marker=dict(
+                color='red',
+                opacity=0.8,
+                # symbol='circle',
+            ),
+            name='Up regulate: {}'.format(tmp_df.shape[0])
+        )
+
+        layout = dict(
+            title='{} vs {}'.format(ctrl, test),
+            autosize=True,
+            # margin=dict(t=25, l=10, r=10, b=10),
+            showlegend=True,
+            xaxis=dict(title='log2FC'),
+            yaxis=dict(title='-log10(adjusted_P-value)'),
+        )
+
+        fig = go.Figure(data=[trace, trace2, trace3], layout=layout)
+        prefix = '{}_vs_{}.scatter'.format(ctrl, test)
+        draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
+
 
 
 if __name__ == '__main__':
