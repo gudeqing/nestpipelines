@@ -836,41 +836,98 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
     for table in files:
-        ctrl, test = re.fullmatch(r'(.*)_vs_(.*?)\..*.xls', os.path.basename(table)).groups()
+        df_big = pd.read_table(table, index_col=0, header=0)
+        for each in ['BP', 'CC', 'MF']:
+            prefix = os.path.basename(table)[:-4]
+            df = df_big[df_big['NS']==each].head(top)
+            gene_number = [int(x.split('/')[0]) for x in df['ratio_in_study']]
+            pval_color = -np.log10(df['p_'+correct])
+            pval_color_desc = pval_color.describe()
+            pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
+            score = [round(eval(x)/eval(y), 2) for x, y in zip(df['ratio_in_study'], df['ratio_in_pop'])]
+            text_list = []
+            for x, y, h in zip(gene_number, df.index, df['NS']):
+                text = ''
+                text += 'gene_number: {} <br>'.format(x)
+                text += 'id: {} <br>'.format(y)
+                text += 'type: {}'.format(h)
+                text_list.append(text)
+            trace = go.Scatter(
+                y=['<br>'.join(textwrap.wrap(x, width=80)) for x in df['name']],
+                x=score,
+                mode='markers',
+                text=text_list,
+                hoverinfo='text+x+y',
+                marker=dict(
+                    size=gene_number,
+                    sizemode='area',
+                    sizeref=2. * max(gene_number) / (30. ** 2),
+                    sizemin=4,
+                    color=pval_color,
+                    showscale=True,
+                    colorbar=dict(
+                        title='-log10(P-value)',
+                    ),
+                    colorscale='Rainbow'
+                )
+            )
+            layout = dict(
+                autosize=True,
+                margin=dict(l=350),
+                xaxis=dict(title='Enrichment Ratio (ratio_in_study/ratio_in_pop)'),
+                yaxis=dict(dtick=1, tickfont={'size': 8}),
+            )
+            fig = go.Figure(data=[trace], layout=layout)
+            prefix = '{}.{}.bubble'.format(prefix, each)
+            draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
+
+
+def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+    for table in files:
+        prefix = os.path.basename(table)[:-4]
         df = pd.read_table(table, index_col=0, header=0, nrows=top)
-        gene_number = [int(x.split('/')[0]) for x in df['ratio_in_study']]
-        pval_color = -np.log10(df['p_'+correct])
+        gene_number = [int(x.split('/')[0]) for x in df['Ratio_in_study']]
+        pval_color = -np.log10(df['Corrected P-Value'])
         pval_color_desc = pval_color.describe()
         pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
-        score = [round(eval(x)/eval(y), 2) for x, y in zip(df['ratio_in_study'], df['ratio_in_pop'])]
+        score = [round(eval(x)/eval(y), 2) for x, y in zip(df['Ratio_in_study'], df['Ratio_in_pop'])]
+        text_list = []
+        for x, y, h, k in zip(gene_number, df.ID, df['typeI'], df['typeII']):
+            text = ''
+            text += 'gene_number: {} <br>'.format(x)
+            text += 'path: {} <br>'.format(y)
+            text += 'typeI: {} <br>'.format(h)
+            text += 'typeII: {}'.format(k)
+            text_list.append(text)
         trace = go.Scatter(
-            y=['<br>'.join(textwrap.wrap(x, width=80)) for x in df['name']],
+            y=['<br>'.join(textwrap.wrap(x, width=80)) for x in df.index],
             x=score,
             mode='markers',
-            text=['gene_number:'+ str(x) for x in gene_number],
+            text=text_list,
             hoverinfo='text+x+y',
             marker=dict(
                 size=gene_number,
                 sizemode='area',
-                sizeref=2. * max(gene_number) / (40. ** 2),
+                sizeref=2. * max(gene_number) / (30. ** 2),
                 sizemin=4,
                 color=pval_color,
                 showscale=True,
-                colorbar=dict(title='-log10(P-value)'),
+                colorbar=dict(
+                    title='-log10(P-value)',
+                ),
                 colorscale='Rainbow'
-        )
+            )
         )
         layout = dict(
-            title='{} vs {}'.format(ctrl, test),
             autosize=True,
-            margin=dict(t=100, l=400, r=50, b=100),
+            margin=dict(l=350),
             xaxis=dict(title='Enrichment Ratio (ratio_in_study/ratio_in_pop)'),
-            yaxis=dict(dtick=1, tickfont={'size': 8}),
+            yaxis=dict(dtick=1, tickfont={'size': 9}),
         )
         fig = go.Figure(data=[trace], layout=layout)
-        prefix = '{}_vs_{}.GO.enrich.bubble'.format(ctrl, test)
+        prefix = '{}.bubble'.format(prefix)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
