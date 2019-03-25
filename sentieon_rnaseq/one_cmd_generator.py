@@ -58,7 +58,7 @@ def recalibrate(**kwargs):
     cmd += "-i {} ".format(kwargs['bam'])
     cmd += "-r {} ".format(kwargs['ref_fasta'])
     cmd += "--algo QualCal "
-    if 'known_sites' in kwargs:
+    if kwargs['known_sites']:
         cmd += "-k {} ".format(kwargs['known_sites'])
     cmd += "{} ".format(kwargs['recal_data_table'])
     return cmd
