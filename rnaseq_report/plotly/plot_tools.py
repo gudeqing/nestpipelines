@@ -747,6 +747,16 @@ def CollectTargetedPcrMetrics(files:list, outdir=os.getcwd(), formats=('html',),
 
 
 def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+    """
+    :param files:
+    :param outdir:
+    :param formats:
+    :param limit:
+    :param height:
+    :param width:
+    :param scale:
+    :return:
+    """
     for table in files:
         ctrl, test = re.fullmatch(r'(.*)_vs_(.*?)\..*.xls', os.path.basename(table)).groups()
         df = pd.read_table(table, index_col=0, header=0)
@@ -822,7 +832,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
         )
 
         fig = go.Figure(data=[trace, trace2, trace3], layout=layout)
-        prefix = '{}_vs_{}.scatter'.format(ctrl, test)
+        prefix = '{}_vs_{}.volcano'.format(ctrl, test)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
