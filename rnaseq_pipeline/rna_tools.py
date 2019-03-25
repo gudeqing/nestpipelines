@@ -466,12 +466,13 @@ class NestedCmd(Basic):
             args = dict(self.arg_pool['goatools'])
             args['study'] = each
             cmp_name = os.path.basename(each).split('.', 1)[0]
-            args['outfile'] = os.path.join(out_dir, str(cmp_name) + '.goea.xls')
+            args['goea_out'] = os.path.join(out_dir, str(cmp_name) + '.goea.xls')
+            args['dag_out'] = os.path.join(out_dir, str(cmp_name) + '.dag.svg')
             if level == 'gene':
                 cmd = cmdx.goatools(**args)
             else:
                 args['population'] = args['trans_population']
-                args['association'] = args['trans_association']
+                args['gene2go'] = args['trans_association']
                 cmd = cmdx.goatools(**args)
             commands[step_name + level.capitalize() + '_' + str(cmp_name)] = self.cmd_dict(
                 cmd=cmd,

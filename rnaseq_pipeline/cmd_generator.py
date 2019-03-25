@@ -185,14 +185,18 @@ def diff_exp(**kwargs):
 
 
 def goatools(**kwargs):
-    cmd = '{} '.format(kwargs['script'])
-    cmd += '--alpha {} '.format(kwargs['fdr_cutoff'])
-    cmd += '--outfile {} '.format(kwargs['outfile'])
-    cmd += '--method {} '.format(kwargs['pvalue_correct_method'])
-    cmd += '--obo {} '.format(kwargs['go_obo'])
-    cmd += '{} '.format(kwargs['study'])
-    cmd += '{} '.format(kwargs['population'])
-    cmd += '{} '.format(kwargs['association'])
+    cmd = '{} {} enrich '.format(kwargs['python'], kwargs['script'])
+    cmd += '-alpha {} '.format(kwargs['alpha'])
+    cmd += '-correct {} '.format(kwargs['correct'])
+    cmd += '-goea_out {} '.format(kwargs['goea_out'])
+    cmd += '-dag_out {} '.format(kwargs['dag_out'])
+    cmd += '-obo {} '.format(kwargs['obo'])
+    cmd += '-study {} '.format(kwargs['study'])
+    cmd += '-population {} '.format(kwargs['population'])
+    cmd += '-gene2go {} '.format(kwargs['gene2go'])
+    cmd += '-geneid2symbol {} '.format(kwargs['geneid2symbol'])
+    cmd += '-top {} '.format(kwargs['top'])
+    cmd += '-dpi {} '.format(kwargs['dpi'])
     return cmd
 
 
