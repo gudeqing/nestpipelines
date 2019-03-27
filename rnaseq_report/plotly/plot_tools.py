@@ -931,7 +931,6 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-
 if __name__ == '__main__':
     class Func2Command(object):
         def __init__(self, callable_dict):
@@ -943,10 +942,13 @@ if __name__ == '__main__':
             import inspect
             import json
             import time
+            import sys
             if isinstance(func, type):
                 description = func.__init__.__doc__
             else:
                 description = func.__doc__
+            if '-h' not in sys.argv or '--help' in sys.argv or '-help' in sys.argv:
+                description = None
             if description:
                 _ = [print(x.strip()) for x in description.split('\n') if x.strip()]
                 parser = argparse.ArgumentParser(add_help=False)
