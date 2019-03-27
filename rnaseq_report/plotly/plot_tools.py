@@ -769,7 +769,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
         fc_limit = abs(df['log2fc']).describe()['75%']*limit
         df.loc[(df['log2fc'] >= fc_limit), ['log2fc']] = fc_limit
         df.loc[(df['log2fc'] <= -fc_limit), ['log2fc']] = -fc_limit
-
+        df.loc[df['padjust'] == 0, 'padjust'] = df[df['padjust'] > 0]['padjust'].min()
         df['padjust'] = -np.log10(df['padjust'])
         p_limit = df['padjust'].describe()['75%']*limit
         df.loc[(df['padjust'] >= p_limit), 'padjust'] = p_limit
