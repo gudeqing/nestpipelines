@@ -1,0 +1,61 @@
+Field	Description	lower_limit	upper_limit
+CODING_BASES	Number of bases in primary alignments that align to a non-UTR coding base for some gene, and not ribosomal sequence.	none	none
+FOLD_ENRICHMENT	The fold by which the amplicon region has been amplified above genomic background.	30	none
+INTERGENIC_BASES	Number of bases in primary alignments that do not align to any gene.	none	none
+INTRONIC_BASES	Number of bases in primary alignments that align to an intronic base for some gene, and not a coding or UTR base.	none	none
+MEAN_READ_LENGTH	The mean read length of the set of reads examined. When looking at the data for a single lane with equal length reads this number is just the read length. When looking at data for merged lanes with differing read lengths this is the mean read length of all reads.	100	200
+MEAN_TARGET_COVERAGE	The mean read coverage of all target regions in an experiment.	50	none
+MEDIAN_3PRIME_BIAS	The median 3 prime bias of the 1000 most highly expressed transcripts, where 3 prime bias is calculated per transcript as: mean coverage of the 3 prime-most 100 bases divided by the mean coverage of the whole transcript.	0	0.1
+MEDIAN_5PRIME_BIAS	The median 5 prime bias of the 1000 most highly expressed transcripts. The 5 prime bias is calculated per transcript as: mean coverage of the 5 prime-most 100 bases divided by the mean coverage of the whole transcript.	0	0.1
+MEDIAN_CV_COVERAGE	The median coefficient of variation (CV) or stdev/mean for coverage values of the 1000 most highly expressed transcripts. Ideal value = 0.	none	none
+MEDIAN_TARGET_COVERAGE	The median coverage of reads that mapped to target regions of an experiment.	50	none
+NUM_R1_TRANSCRIPT_STRAND_READS	The number of reads that support the model where R1 is on the strand of transcription and R2 is on the opposite strand.	none	none
+NUM_R2_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model where R2 is on the strand of transcription and R1 is on the opposite strand.	none	none
+NUM_UNEXPLAINED_READS	The fraction of reads for which the transcription strand model could not be inferred.	none	none
+OFF_AMPLICON_BASES	The number of PF_BASES_ALIGNED that mapped neither on or near an amplicon.	none	none
+ON_AMPLICON_BASES	The number of PF_BASES_ALIGNED that mapped to an amplified region of the genome.	none	none
+ON_TARGET_BASES	The number of PF_BASES_ALIGNED that mapped to a targeted region of the genome.	none	none
+ON_TARGET_FROM_PAIR_BASES	The number of bases from PF_SELECTED_UNIQUE_PAIRS that mapped to a targeted region of the genome.	none	none
+PCT_AMPLIFIED_BASES	The fraction of PF_BASES_ALIGNED that mapped to or near an amplicon, (ON_AMPLICON_BASES + NEAR_AMPLICON_BASES)/PF_BASES_ALIGNED.	none	none
+PCT_CHIMERAS	The fraction of reads that map outside of a maximum insert size (usually 100kb) or that have the two ends mapping to different chromosomes.	none	none
+PCT_CODING_BASES	Fraction of PF_ALIGNED_BASES that mapped to protein coding regions of genes, CODING_BASES/PF_ALIGNED_BASES	0.7	1
+PCT_INTERGENIC_BASES	Fraction of PF_ALIGNED_BASES that mapped to intergenic regions of genomic DNA, INTERGENIC_BASES/PF_ALIGNED_BASES	none	none
+PCT_INTRONIC_BASES	Fraction of PF_ALIGNED_BASES that correspond to gene introns, INTRONIC_BASES/PF_ALIGNED_BASES	none	none
+PCT_MRNA_BASES	Sum of bases mapped to regions corresponding to UTRs and coding regions of mRNA transcripts, PCT_UTR_BASES + PCT_CODING_BASES	none	none
+PCT_OFF_AMPLICON	The fraction of PF_BASES_ALIGNED that mapped neither onto or near an amplicon, OFF_AMPLICON_BASES/PF_BASES_ALIGNED	none	none
+PCT_PF_READS_IMPROPER_PAIRS	The fraction of (primary) reads that are *not* "properly" aligned in pairs (as per SAM flag 0x2). PF_READS_IMPROPER_PAIRS / PF_READS_ALIGNED	0	0.05
+PCT_PF_UQ_READS	The fraction of TOTAL_READS that are unique, PF, and are not duplicates, PF_UNIQUE_READS/TOTAL_READS	none	none
+PCT_PF_UQ_READS_ALIGNED	Fraction of PF_READS that are unique and align to the reference genome, PF_UQ_READS_ALIGNED/PF_READS	none	none
+PCT_R1_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model where R1 is on the strand of transcription and R2 is on the opposite strand. For unpaired reads, it is the fraction of reads that are on the transcription strand (out of all the reads).	none	none
+PCT_R2_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model where R2 is on the strand of transcription and R1 is on the opposite strand. For unpaired reads, it is the fraction of reads that are on opposite strand than that of the the transcription strand (out of all the reads).	none	none
+PCT_READS_ALIGNED_IN_PAIRS	The fraction of reads whose mate pair was also aligned to the reference. READS_ALIGNED_IN_PAIRS / PF_READS_ALIGNED	0.8	1
+PCT_RIBOSOMAL_BASES	Fraction of PF_ALIGNED_BASES that mapped to regions encoding ribosomal RNA, RIBOSOMAL_BASES/PF_ALIGNED_BASES	0	0.3
+PCT_TARGET_BASES_10X	The fraction of all target bases achieving 10X or greater coverage depth.	none	none
+PCT_TARGET_BASES_1X	The fraction of all target bases achieving 1X or greater coverage.	none	none
+PCT_TARGET_BASES_20X	The fraction of all target bases achieving 20X or greater coverage depth.	none	none
+PCT_TARGET_BASES_2X	The fraction of all target bases achieving 2X or greater coverage depth.	none	none
+PCT_TARGET_BASES_30X	The fraction of all target bases achieving 30X or greater coverage depth.	none	none
+PCT_USABLE_BASES	The fraction of bases mapping to mRNA divided by the total number of PF bases, (CODING_BASES + UTR_BASES)/PF_BASES.	0.7	1
+PCT_UTR_BASES	Fraction of PF_ALIGNED_BASES that mapped to untranslated regions (UTR) of genes, UTR_BASES/PF_ALIGNED_BASES	0	0.5
+PF_ALIGNED_BASES	The total number of aligned PF bases. Non-primary alignments are not counted. Bases in aligned reads that do not correspond to reference (e.g. soft clips, insertions) are not counted.	none	none
+PF_ALIGNED_BASES	The total number of aligned bases, in all mapped PF reads, that are aligned to the reference sequence.	none	none
+PF_BASES	The total number of bases within the PF_READS of the SAM or BAM file to be examined	none	none
+PF_BASES_ALIGNED	The number of bases from PF_READS that align to the reference genome with mapping score > 0	none	none
+PF_HQ_ALIGNED_BASES	The number of bases aligned to the reference sequence in reads that were mapped at high quality. Will usually approximate PF_HQ_ALIGNED_READS * READ_LENGTH but may differ when either mixed read lengths are present or many reads are aligned with gaps.	none	none
+PF_HQ_ALIGNED_Q20_BASES	The subset of PF_HQ_ALIGNED_BASES where the base call quality was Q20 or higher.	none	none
+PF_HQ_ALIGNED_READS	The number of PF reads that were aligned to the reference sequence with a mapping quality of Q20 or higher signifying that the aligner estimates a 1/100 (or smaller) chance that the alignment is wrong.	none	none
+PF_HQ_ERROR_RATE	The fraction of bases that mismatch the reference in PF HQ aligned reads.	none	none
+PF_HQ_MEDIAN_MISMATCHES	The median number of mismatches versus the reference sequence in reads that were aligned to the reference at high quality (i.e. PF_HQ_ALIGNED READS).	none	none
+PF_INDEL_RATE	The number of insertion and deletion events per 100 aligned bases. Uses the number of events as the numerator, not the number of inserted or deleted bases.	none	none
+PF_MISMATCH_RATE	The rate of bases mismatching the reference for all bases aligned to the reference sequence.	none	none
+PF_READS	The total number of reads passing filter (PF), where the filter(s) can be platform/vendor quality controls	none	none
+PF_READS_ALIGNED	The number of PF reads that were aligned to the reference sequence. This includes reads that aligned with low quality (i.e. their alignments are ambiguous).	none	none
+PF_READS_IMPROPER_PAIRS	The number of (primary) aligned reads that are **not** "properly" aligned in pairs (as per SAM flag 0x2).	none	none
+PF_UNIQUE_READS	The number of PF_READS that were not marked as sample or optical duplicates.	none	none
+PF_UQ_BASES_ALIGNED	The number of bases from PF_UNIQUE_READS that align to the reference genome and have a mapping score > 0	none	none
+PF_UQ_READS_ALIGNED	The total number of PF_UNIQUE_READS that align to the reference genome with mapping scores > 0	none	none
+READS_ALIGNED_IN_PAIRS	The number of aligned reads whose mate pair was also aligned to the reference.	none	none
+RIBOSOMAL_BASES	Number of bases in primary alignments that align to ribosomal sequence.	none	none
+STRAND_BALANCE	The number of PF reads aligned to the positive strand of the genome divided by the number of PF reads aligned to the genome.	0.45	0.55
+UTR_BASES	Number of bases in primary alignments that align to a UTR base for some gene, and not a coding base.	none	none
+ZERO_CVG_TARGETS_PCT	The fraction of targets that did not reach coverage=1 over any base.	0	0.6
