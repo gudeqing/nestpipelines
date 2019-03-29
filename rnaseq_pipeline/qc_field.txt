@@ -8,7 +8,7 @@ MEAN_TARGET_COVERAGE	The mean read coverage of all target regions in an experime
 MEDIAN_3PRIME_BIAS	The median 3 prime bias of the 1000 most highly expressed transcripts, where 3 prime bias is calculated per transcript as: mean coverage of the 3 prime-most 100 bases divided by the mean coverage of the whole transcript.	bias	float	0	0.2
 MEDIAN_5PRIME_BIAS	The median 5 prime bias of the 1000 most highly expressed transcripts. The 5 prime bias is calculated per transcript as: mean coverage of the 5 prime-most 100 bases divided by the mean coverage of the whole transcript.	bias	float	0	0.2
 MEDIAN_CV_COVERAGE	The median coefficient of variation (CV) or stdev/mean for coverage values of the 1000 most highly expressed transcripts. Ideal value = 0.	cv	float	none	none
-MEDIAN_TARGET_COVERAGE	The median coverage of reads that mapped to target regions of an experiment.	read	int	50	none
+MEDIAN_TARGET_COVERAGE	The median coverage of reads that mapped to target regions of an experiment.	read	int	none	none
 NUM_R1_TRANSCRIPT_STRAND_READS	The number of reads that support the model where R1 is on the strand of transcription and R2 is on the opposite strand.	read	int	none	none
 NUM_R2_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model where R2 is on the strand of transcription and R1 is on the opposite strand.	read	int	none	none
 NUM_UNEXPLAINED_READS	The fraction of reads for which the transcription strand model could not be inferred.	read	int	none	none
@@ -18,7 +18,7 @@ ON_TARGET_BASES	The number of PF_BASES_ALIGNED that mapped to a targeted region 
 ON_TARGET_FROM_PAIR_BASES	The number of bases from PF_SELECTED_UNIQUE_PAIRS that mapped to a targeted region of the genome.	base	int	none	none
 PCT_AMPLIFIED_BASES	The fraction of PF_BASES_ALIGNED that mapped to or near an amplicon, (ON_AMPLICON_BASES + NEAR_AMPLICON_BASES)/PF_BASES_ALIGNED.	percent	float	none	none
 PCT_CHIMERAS	The fraction of reads that map outside of a maximum insert size (usually 100kb) or that have the two ends mapping to different chromosomes.	percent	float	none	none
-PCT_CODING_BASES	Fraction of PF_ALIGNED_BASES that mapped to protein coding regions of genes, CODING_BASES/PF_ALIGNED_BASES	percent	float	0.7	1
+PCT_CODING_BASES	Fraction of PF_ALIGNED_BASES that mapped to protein coding regions of genes, CODING_BASES/PF_ALIGNED_BASES	percent	float	0.5	1
 PCT_INTERGENIC_BASES	Fraction of PF_ALIGNED_BASES that mapped to intergenic regions of genomic DNA, INTERGENIC_BASES/PF_ALIGNED_BASES	percent	float	none	none
 PCT_INTRONIC_BASES	Fraction of PF_ALIGNED_BASES that correspond to gene introns, INTRONIC_BASES/PF_ALIGNED_BASES	percent	float	none	none
 PCT_MRNA_BASES	Sum of bases mapped to regions corresponding to UTRs and coding regions of mRNA transcripts, PCT_UTR_BASES + PCT_CODING_BASES	percent	float	none	none
@@ -38,7 +38,6 @@ PCT_TARGET_BASES_30X	The fraction of all target bases achieving 30X or greater c
 PCT_USABLE_BASES	The fraction of bases mapping to mRNA divided by the total number of PF bases, (CODING_BASES + UTR_BASES)/PF_BASES.	percent	float	0.7	1
 PCT_UTR_BASES	Fraction of PF_ALIGNED_BASES that mapped to untranslated regions (UTR) of genes, UTR_BASES/PF_ALIGNED_BASES	percent	float	0	0.5
 PF_ALIGNED_BASES	The total number of aligned PF bases. Non-primary alignments are not counted. Bases in aligned reads that do not correspond to reference (e.g. soft clips, insertions) are not counted.	base	int	none	none
-PF_ALIGNED_BASES	The total number of aligned bases, in all mapped PF reads, that are aligned to the reference sequence.	base	int	none	none
 PF_BASES	The total number of bases within the PF_READS of the SAM or BAM file to be examined	base	int	none	none
 PF_BASES_ALIGNED	The number of bases from PF_READS that align to the reference genome with mapping score > 0	base	int	none	none
 PF_HQ_ALIGNED_BASES	The number of bases aligned to the reference sequence in reads that were mapped at high quality. Will usually approximate PF_HQ_ALIGNED_READS * READ_LENGTH but may differ when either mixed read lengths are present or many reads are aligned with gaps.	base	int	none	none
