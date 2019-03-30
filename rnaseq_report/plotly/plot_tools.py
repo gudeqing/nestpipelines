@@ -864,13 +864,15 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
         df = df.loc[:, target_columns]
         df = df[df['regulate'] != 'untested']
         df = df[df.loc[:, exp_columns].sum(axis=1) > 1e-5]
-
-        fc_limit = abs(df['log2fc']).describe()['75%']*limit
-        df.loc[(df['log2fc'] >= fc_limit), ['log2fc']] = fc_limit
-        df.loc[(df['log2fc'] <= -fc_limit), ['log2fc']] = -fc_limit
+        fc_desc = df['log2fc'].describe()
+        fc_upper_limit = fc_desc['75%'] + (fc_desc['75%'] - fc_desc['25%'])*limit
+        fc_lower_limit = fc_desc['25%'] - (fc_desc['75%'] - fc_desc['25%'])*limit
+        df.loc[(df['log2fc'] >= fc_upper_limit), ['log2fc']] = fc_upper_limit
+        df.loc[(df['log2fc'] <= fc_lower_limit), ['log2fc']] = fc_lower_limit
         df.loc[df['padjust'] == 0, 'padjust'] = df[df['padjust'] > 0]['padjust'].min()
         df['padjust'] = -np.log10(df['padjust'])
-        p_limit = df['padjust'].describe()['75%']*limit
+        p_desc = df['padjust'].describe()
+        p_limit = p_desc['75%'] + (p_desc['75%'] - p_desc['25%'])*limit
         df.loc[(df['padjust'] >= p_limit), 'padjust'] = p_limit
 
         df['colors'] = 'grey'
