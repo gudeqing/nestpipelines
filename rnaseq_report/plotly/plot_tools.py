@@ -426,8 +426,14 @@ def exp_pca(exp_table, row_sum_cutoff=0.1, exp_cutoff=0.1, cv_cutoff=0.01,
     draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def exp_density(exp_table, outdir=os.getcwd(), row_sum_cutoff=0.1, exp_cutoff=0.1,
-                formats=('html',), height:int=None, width:int=None, scale=3):
+def exp_density(exp_table, outdir=os.getcwd(), row_sum_cutoff=0.1, exp_cutoff=0.1, logbase=2,
+                formats=('html',), height:int=None, width:int=None, scale=3, name_dict='', target_samples=''):
+    if name_dict:
+        name_dict = dict(x.strip().split()[:2] for x in open(name_dict))
+    else:
+        name_dict = dict()
+    if target_samples:
+        target_samples = [x.strip().split()[0] for x in open(target_samples)]
 
     def get_density(all_exp_pd):
         """
@@ -452,11 +458,20 @@ def exp_density(exp_table, outdir=os.getcwd(), row_sum_cutoff=0.1, exp_cutoff=0.
         return records
 
     data = pd.read_table(exp_table, header=0, index_col=0)
+    data.columns = [name_dict[x] if x in name_dict else x for x in data.columns]
+    if target_samples:
+        data = data.loc[:, target_samples]
+    data.to_csv(os.path.join(outdir, 'expression_matrix.xls'), header=True, index=True, sep='\t')
     data = data[data.sum(axis=1) >= row_sum_cutoff]
     pass_state = data.apply(lambda x: sum(x > exp_cutoff), axis=1)
     data = data[pass_state >= int(data.shape[1]) / 3]
     data.to_csv(os.path.join(outdir, 'density.filtered.data.txt'), header=True, index=True, sep='\t')
-    data = np.log(data)
+    if logbase == 2:
+        data = np.log2(data)
+    elif logbase == 10:
+        data = np.log10(data)
+    else:
+        raise Exception('logbase should be 2 or 10'.format(logbase))
     traces = list()
     density_point_df_list = get_density(data)
     color_pool = get_color_pool(len(data.columns))
@@ -477,7 +492,7 @@ def exp_density(exp_table, outdir=os.getcwd(), row_sum_cutoff=0.1, exp_cutoff=0.
     layout = go.Layout(
         barmode='overlay',
         title='Expression Density',
-        xaxis=dict(title='Log(Expression)', zeroline=False),
+        xaxis=dict(title='Log{}(Expression)'.format(logbase), zeroline=False),
         yaxis=dict(title='Density', )
     )
     fig = go.Figure(data=traces, layout=layout)
