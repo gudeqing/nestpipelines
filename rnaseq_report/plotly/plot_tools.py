@@ -850,7 +850,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
     :param files:
     :param outdir:
     :param formats:
-    :param limit: pvalue取-log10后, 有的可能100, 有的可能是10, 差异太大, 因此使用 中位值*1imit 作为上限使图形尽量美观
+    :param limit: 用于计算outlier q3+(q3-q1)*limit
     :param height:
     :param width:
     :param scale:
