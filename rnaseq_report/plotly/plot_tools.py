@@ -203,10 +203,13 @@ def inner_distance(files:list, outdir, min_dist=-250, max_dist=250,
     draw(all_fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def read_distribution(files:list, outdir, formats=('html',), height:int=None, width:int=None, scale=3):
+def read_distribution(files:list, outdir, formats=('html',), height:int=None, width:int=None, scale=3, name_dict=''):
+    if name_dict:
+        name_dict = dict(x.strip().split()[:2] for x in open(name_dict))
     all_data = list()
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
+        sample = name_dict[sample]
         data = pd.read_table(each, index_col=0, skiprows=4, skipfooter=1, sep='\s+', engine='python')
         data = data.loc[:, 'Tag_count']
         data.name = sample
@@ -219,10 +222,10 @@ def read_distribution(files:list, outdir, formats=('html',), height:int=None, wi
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
     df = pd.concat(all_data, axis=1).T
     # print(df.head())
-    data = [go.Bar(x=df.index, y=df[x], name=x) for x in df.columns]
+    data = [go.Bar(x=df.index, y=df[x]/df.sum(axis=1), name=x) for x in df.columns]
     layout = go.Layout(
         title="Read distribution",
-        xaxis=dict(title='Sample'),
+        # xaxis=dict(title='Sample'),
         barmode='stack'
     )
     fig = go.Figure(data=data, layout=layout)
@@ -744,6 +747,81 @@ def CollectTargetedPcrMetrics(files:list, outdir=os.getcwd(), formats=('html',),
         prefix = 'TargetedPcrMetrics_{}'.format(i + 1)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
     return data
+
+
+def merge_qc_metrics(files:list, outdir=os.getcwd(), ref_table=None, formats=('html',),
+                     height:int=None, width:int=None, scale=3, failed_cutoff=1):
+    raw = pd.concat([pd.read_table(x, index_col=0, header=0) for x in files], sort=False)
+    # raw = pd.read_table(raw_table, index_col=0, header=0)
+    ref = pd.read_table(ref_table, index_col=0, header=0)
+    data_type_dict = dict(zip(ref.index, [eval(x) for x in ref['type']]))
+    out_table = raw.loc[ref.index, :].transpose().astype(float).round(4).astype(data_type_dict)
+    out_table = out_table.transpose().reset_index().drop_duplicates().set_index('index')
+    lower_limit = [-np.inf if x.lower()=="none" else float(x) for x in ref['lower_limit']]
+    upper_limit = [np.inf if x.lower()=="none" else float(x) for x in ref['upper_limit']]
+    pass_lower = out_table.apply(lambda x: x >= lower_limit, axis=0)
+    pass_upper = out_table.apply(lambda x: x <= upper_limit, axis=0)
+    pass_state = pass_lower & pass_upper
+    failed_samples = pass_state.columns[pass_state.sum() < ref.shape[0]-failed_cutoff+1]
+    out_log = open(os.path.join(outdir, 'reason.txt'), 'w')
+    print('failed sample number: {}'.format(len(failed_samples)), file=out_log)
+    for sample in failed_samples:
+        reason = pass_state.index[pass_lower[sample] == False]
+        reason2 = pass_state.index[pass_upper[sample] == False]
+        all_reason = reason.append(reason2)
+        print(sample, 'failed for following reason:', file=out_log)
+        for metric in all_reason:
+            metric_value = out_table.loc[metric, sample]
+            limit = ref.loc[metric, ['lower_limit', 'upper_limit']]
+            print('  ',metric, '=', metric_value, 'out of range [{x[0]}, {x[1]}]'.format(x=list(limit)), file=out_log)
+    out_log.close()
+    # plot
+    pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x]
+    pct_data = out_table.loc[pct_cols, :]
+    pct_data.to_csv(os.path.join(outdir, 'pct_metrics.xls'), index=True, header=True, sep='\t')
+    traces = list()
+    colors = get_color_pool(pct_data.shape[0])
+    for metric, color in zip(pct_data.index, colors):
+        trace = go.Scatter(
+            x=pct_data.columns,
+            y=pct_data.loc[metric],
+            mode='lines',
+            name=metric,
+            marker=dict(color=color)
+        )
+        traces.append(trace)
+    fig = go.Figure(data=traces)
+    draw(fig, prefix="qc_percent_metric", outdir=outdir, formats=formats, height=height, width=width, scale=scale)
+
+    # plot after excluding failed samples
+    passed_samples = list()
+    for sample, score in sorted(zip(pass_state.columns, pass_state.sum()), key=lambda x:x[1], reverse=True):
+        if score > ref.shape[0]-failed_cutoff:
+            passed_samples.append(sample)
+    pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x]
+    pct_data = out_table.loc[pct_cols, passed_samples]
+    pct_data.to_csv(os.path.join(outdir, 'filtered.pct_metrics.xls'), index=True, header=True, sep='\t')
+    traces = list()
+    colors = get_color_pool(pct_data.shape[0])
+    for metric, color in zip(pct_data.index, colors):
+        trace = go.Scatter(
+            x=pct_data.columns,
+            y=pct_data.loc[metric],
+            mode='lines',
+            name=metric,
+            marker=dict(color=color)
+        )
+        traces.append(trace)
+    fig = go.Figure(data=traces)
+    draw(fig, prefix="filtered_qc_percent_metric", outdir=outdir, formats=formats, height=height, width=width, scale=scale)
+
+    # save result
+    out_table.loc['Pass'] = 'Yes'
+    out_table.loc['Pass', pass_state.sum() < 59] = 'No'
+    out_table['describe'] = list(ref['Description']) + ['Pass QC filter']
+    out_table.set_index('describe', inplace=True, append=True)
+    out_name = os.path.join(outdir, 'qc_summary.xls')
+    out_table.to_csv(out_name, index=True, header=True, sep='\t')
 
 
 def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
