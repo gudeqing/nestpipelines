@@ -209,7 +209,8 @@ def read_distribution(files:list, outdir, formats=('html',), height:int=None, wi
     all_data = list()
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
-        sample = name_dict[sample]
+        if sample in name_dict:
+            sample = name_dict[sample]
         data = pd.read_table(each, index_col=0, skiprows=4, skipfooter=1, sep='\s+', engine='python')
         data = data.loc[:, 'Tag_count']
         data.name = sample
@@ -749,9 +750,14 @@ def CollectTargetedPcrMetrics(files:list, outdir=os.getcwd(), formats=('html',),
     return data
 
 
-def merge_qc_metrics(files:list, outdir=os.getcwd(), ref_table=None, formats=('html',),
-                     height:int=None, width:int=None, scale=3, failed_cutoff=1):
+def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',),
+                     height:int=None, width:int=None, scale=3, failed_cutoff=1, name_dict=''):
+    if name_dict:
+        name_dict = dict(x.strip().split()[:2] for x in open(name_dict))
+    else:
+        name_dict = dict()
     raw = pd.concat([pd.read_table(x, index_col=0, header=0) for x in files], sort=False)
+    raw.columns = [name_dict[x] if x in name_dict else x for x in raw.columns]
     # raw = pd.read_table(raw_table, index_col=0, header=0)
     ref = pd.read_table(ref_table, index_col=0, header=0)
     data_type_dict = dict(zip(ref.index, [eval(x) for x in ref['type']]))
