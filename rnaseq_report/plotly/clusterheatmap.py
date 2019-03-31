@@ -24,7 +24,7 @@ class ClusterHeatMap(object):
                  sample_group=None, log_base=2, log_additive=1.0, zscore_before_cluster=False,
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0.,
-                 width=1000, height=800, group_color=None,
+                 width=1000, height=800, group_color=None, sort_cluster_by='distance',
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
@@ -61,6 +61,7 @@ class ClusterHeatMap(object):
         :param height: figure height
         :param group_color: group color dict, {'group': 'color', ...},
             or a file with two columns [group, color]
+        :param sort_cluster_by: sort cluster by distance or count
         :param gene_label_size: int, gen label size, default 6
         :param color_scale: pallete for heat map, refer to plotly,
             ['Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
@@ -81,6 +82,7 @@ class ClusterHeatMap(object):
         self.group_dict = sample_group
         self.group_color = group_color
         self.transpose_data = transpose_data
+        self.sort_cluster_by = sort_cluster_by
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -437,7 +439,7 @@ class ClusterHeatMap(object):
             z,
             orientation="top",
             no_plot=True,
-            distance_sort=True,
+            count_sort=True if self.sort_cluster_by == 'count' else False,
             above_threshold_color='black'
         )
         self.ordered_samples = list(map(int, results['ivl']))
@@ -485,7 +487,7 @@ class ClusterHeatMap(object):
             z,
             orientation="left",
             no_plot=True,
-            distance_sort=True,
+            count_sort=True if self.sort_cluster_by == 'count' else False,
             above_threshold_color='black'
         )
         self.ordered_genes = list(map(int, results['ivl']))
