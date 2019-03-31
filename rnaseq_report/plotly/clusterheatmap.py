@@ -23,7 +23,7 @@ class ClusterHeatMap(object):
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, log_base=2, log_additive=1.0, zscore_before_cluster=False,
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
-                 row_sum_cutoff=1, cv_cutoff=0.,
+                 row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None,
                  width=1000, height=800, group_color=None, sort_cluster_by='distance',
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
@@ -57,6 +57,8 @@ class ClusterHeatMap(object):
         :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered
         :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default 1
         :param cv_cutoff: genes with cv (=mean/std) higher than will be retained
+        :param target_cols: target columns to extract from data file for analysis
+        :param target_rows: target rows to extract from data file for analysis
         :param width: figure width
         :param height: figure height
         :param group_color: group color dict, {'group': 'color', ...},
@@ -83,6 +85,8 @@ class ClusterHeatMap(object):
         self.group_color = group_color
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
+        self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
+        self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -174,6 +178,10 @@ class ClusterHeatMap(object):
 
     def process_data(self):
         exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
+        if self.target_rows:
+            exp_pd = exp_pd.loc[self.target_rows, :]
+        if self.target_cols:
+            exp_pd = exp_pd.loc[:, self.target_cols]
         if self.transpose_data:
             exp_pd = exp_pd.transpose()
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
