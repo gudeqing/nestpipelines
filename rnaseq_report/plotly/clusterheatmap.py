@@ -25,7 +25,7 @@ class ClusterHeatMap(object):
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None,
                  width=1000, height=800, group_color=None, sort_cluster_by='distance',
-                 gene_label_size=6, sample_label_size=10, sample_label_angle=45,
+                 gene_label_size=6, sample_label_size=10, sample_label_angle=45, outlier_k=3,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
@@ -65,6 +65,7 @@ class ClusterHeatMap(object):
             or a file with two columns [group, color]
         :param sort_cluster_by: sort cluster by distance or count
         :param gene_label_size: int, gen label size, default 6
+        :param outlier_k: k value for determine outlier, max color value = q3+(q3-q1)*k
         :param color_scale: pallete for heat map, refer to plotly,
             ['Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
             'Greens', 'Greys', 'Hot', 'Jet', 'Picnic', 'Portland',
@@ -85,6 +86,7 @@ class ClusterHeatMap(object):
         self.group_color = group_color
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
+        self.outlier_k = outlier_k
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
         if isinstance(sample_group, str):
@@ -371,10 +373,10 @@ class ClusterHeatMap(object):
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
         # process heat data to make color be more even
         describe = pd.Series(heat_data.values.flatten()).describe()
-        upper_limit = describe["75%"] + (describe["75%"] - describe["25%"])*3
-        lower_limit = describe["25%"] - (describe["75%"] - describe["25%"])*3
-        heat_data = heat_data.applymap(lambda x: upper_limit if x > upper_limit else x)
-        heat_data = heat_data.applymap(lambda x: lower_limit if x < lower_limit else x)
+        upper_limit = describe["75%"] + (describe["75%"] - describe["25%"])*self.outlier_k
+        upper_limit = upper_limit if upper_limit < describe['max'] else describe['max']
+        lower_limit = describe["25%"] - (describe["75%"] - describe["25%"])*self.outlier_k
+        lower_limit = lower_limit if lower_limit > describe['min'] else describe['min']
         heat_map = go.Heatmap(
             x=list(heat_data.columns),
             y=list(heat_data.index),
@@ -383,6 +385,8 @@ class ClusterHeatMap(object):
             showlegend=False,
             xaxis='x',
             yaxis='y',
+            zmin=lower_limit,
+            zmax=upper_limit,
             name='',
             showscale=True,
             colorbar=dict(
