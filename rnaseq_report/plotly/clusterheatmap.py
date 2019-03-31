@@ -23,7 +23,7 @@ class ClusterHeatMap(object):
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, log_base=2, log_additive=1.0, zscore_before_cluster=False,
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
-                 row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None,
+                 row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width=1000, height=800, group_color=None, sort_cluster_by='distance',
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45, outlier_k=3.0,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
@@ -59,6 +59,7 @@ class ClusterHeatMap(object):
         :param cv_cutoff: genes with cv (=mean/std) higher than will be retained
         :param target_cols: target columns to extract from data file for analysis
         :param target_rows: target rows to extract from data file for analysis
+        :param gene_annot: gene annotation file, two columns, gene_id \t gene symbol
         :param width: figure width
         :param height: figure height
         :param group_color: group color dict, {'group': 'color', ...},
@@ -87,6 +88,7 @@ class ClusterHeatMap(object):
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
         self.outlier_k = outlier_k
+        self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
         if isinstance(sample_group, str):
@@ -368,9 +370,13 @@ class ClusterHeatMap(object):
             self.ordered_genes = range(self.data.shape[0])
         heat_data = self.data.iloc[self.ordered_genes, self.ordered_samples]
         out_name = os.path.join(self.outdir, 'cluster.heatmap.data')
-        heat_data.to_csv(out_name, header=True, index=True, sep='\t')
         # plotly plot data from bottom to top, thus we have to use [::-1], or it will not match dendrogram
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
+        # trans gene id to gene name
+        if self.gene_annot:
+            heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
+        # output data
+        heat_data.to_csv(out_name, header=True, index=True, sep='\t')
         # process heat data to make color be more even
         describe = pd.Series(heat_data.values.flatten()).describe()
         upper_limit = describe["75%"] + (describe["75%"] - describe["25%"])*self.outlier_k
