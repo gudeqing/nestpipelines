@@ -25,7 +25,7 @@ class ClusterHeatMap(object):
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None,
                  width=1000, height=800, group_color=None, sort_cluster_by='distance',
-                 gene_label_size=6, sample_label_size=10, sample_label_angle=45, outlier_k=3,
+                 gene_label_size=6, sample_label_size=10, sample_label_angle=45, outlier_k=3.0,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
