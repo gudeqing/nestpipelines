@@ -374,8 +374,8 @@ class ClusterHeatMap(object):
             colorbar=dict(
                 x=1+self.gene_label_size*(max(len(x) for x in heat_data.index))/self.width if self.label_gene else 1,
                 xanchor='left',
-                y=1,
-                yanchor='top',
+                y=0,
+                yanchor='bottom',
                 len=0.5,
                 title="log{}(X)".format(self.logbase) if self.logbase and self.logbase != 1 else ''
             )
@@ -404,23 +404,26 @@ class ClusterHeatMap(object):
 
         traces = list()
         ticks = range(5, self.data.shape[1]*10, 10)
+        existed_legend = set()
         for tick, each in zip(ticks, ordered_samples):
             if each == self.group_dict[each]:
                 trace_name = each
             else:
                 trace_name = '{sample}({group})'.format(sample=each, group=self.group_dict[each])
             bar = go.Bar(
-                name=trace_name,
+                name=self.group_dict[each],
+                text=trace_name,
                 x=[tick],
                 y=[2],
-                showlegend=False,
+                showlegend=True if sample_colors[each] not in existed_legend else False,
                 xaxis='x4',
                 yaxis='y4',
                 marker=dict(color=sample_colors[each]),
-                hoverinfo="name",
+                hoverinfo="text",
                 hoverlabel=dict(namelength=-1)
             )
             traces.append(bar)
+            existed_legend.add(sample_colors[each])
         return traces
 
     def top_dendrogram_traces(self):
