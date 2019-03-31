@@ -613,6 +613,7 @@ class ClusterHeatMap(object):
 
     @staticmethod
     def get_color_pool(n):
+        # https://plot.ly/ipython-notebooks/color-scales/
         import colorlover
         if n <= 12:
             return colorlover.scales['12']['qual']['Paired']
