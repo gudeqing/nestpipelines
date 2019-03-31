@@ -361,6 +361,12 @@ class ClusterHeatMap(object):
         heat_data.to_csv(out_name, header=True, index=True, sep='\t')
         # plotly plot data from bottom to top, thus we have to use [::-1], or it will not match dendrogram
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
+        # process heat data to make color be more even
+        describe = pd.Series(heat_data.values.flatten()).describe()
+        upper_limit = describe["75%"] + (describe["75%"] - describe["25%"])*3
+        lower_limit = describe["25%"] - (describe["75%"] - describe["25%"])*3
+        heat_data = heat_data.applymap(lambda x: upper_limit if x > upper_limit else x)
+        heat_data = heat_data.applymap(lambda x: lower_limit if x < lower_limit else x)
         heat_map = go.Heatmap(
             x=list(heat_data.columns),
             y=list(heat_data.index),
