@@ -24,7 +24,7 @@ class ClusterHeatMap(object):
                  sample_group=None, log_base=2, log_additive=1.0, zscore_before_cluster=False,
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0.,
-                 width=1000, height=800,
+                 width=1000, height=800, group_color=None,
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
@@ -59,6 +59,8 @@ class ClusterHeatMap(object):
         :param cv_cutoff: genes with cv (=mean/std) higher than will be retained
         :param width: figure width
         :param height: figure height
+        :param group_color: group color dict, {'group': 'color', ...},
+            or a file with two columns [group, color]
         :param gene_label_size: int, gen label size, default 6
         :param color_scale: pallete for heat map, refer to plotly,
             ['Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
@@ -77,12 +79,18 @@ class ClusterHeatMap(object):
         self.scn = sample_cluster_num
         self.gcn = gene_cluster_num
         self.group_dict = sample_group
+        self.group_color = group_color
         self.transpose_data = transpose_data
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
             with open(sample_group) as f:
                 self.group_dict = dict(line.strip().split('\t')[:2] for line in f)
+        if isinstance(group_color, str):
+            if not os.path.exists(group_color):
+                raise Exception('sample color file is not existed')
+            with open(group_color) as f:
+                self.group_color = dict(line.strip().split('\t')[:2] for line in f)
         self.gene_label_size = gene_label_size
         self.sample_label_size = sample_label_size
         self.sample_label_angle = sample_label_angle
@@ -383,6 +391,9 @@ class ClusterHeatMap(object):
         _ = [groups.append(x) for x in self.group_dict.values() if x not in groups]
         colors = self.get_color_pool(len(groups))
         group_colors = dict(zip(groups, colors))
+        if self.group_color:
+            for k, v in self.group_color.items():
+                group_colors[k] = v
 
         sample_colors = dict()
         for sample in ordered_samples:
