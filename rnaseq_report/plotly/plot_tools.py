@@ -798,7 +798,8 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
     out_log.close()
     # plot
     pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x]
-    pct_data = out_table.loc[pct_cols, :]
+    orders = ['ZERO_CVG_TARGETS_PCT'] + sorted(list(set(pct_cols)-{'ZERO_CVG_TARGETS_PCT'}))
+    pct_data = out_table.loc[pct_cols, :].sort_values(by=orders, axis=1)
     pct_data.to_csv(os.path.join(outdir, 'pct_metrics.xls'), index=True, header=True, sep='\t')
     traces = list()
     colors = get_color_pool(pct_data.shape[0])

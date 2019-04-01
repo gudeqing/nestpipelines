@@ -16,13 +16,13 @@ OFF_AMPLICON_BASES	The number of PF_BASES_ALIGNED that mapped neither on or near
 ON_AMPLICON_BASES	The number of PF_BASES_ALIGNED that mapped to an amplified region of the genome.	base	int	none	none
 ON_TARGET_BASES	The number of PF_BASES_ALIGNED that mapped to a targeted region of the genome.	base	int	none	none
 ON_TARGET_FROM_PAIR_BASES	The number of bases from PF_SELECTED_UNIQUE_PAIRS that mapped to a targeted region of the genome.	base	int	none	none
-PCT_AMPLIFIED_BASES	The fraction of PF_BASES_ALIGNED that mapped to or near an amplicon, (ON_AMPLICON_BASES + NEAR_AMPLICON_BASES)/PF_BASES_ALIGNED.	percent	float	none	none
+PCT_AMPLIFIED_BASES	The fraction of PF_BASES_ALIGNED that mapped to or near an amplicon, (ON_AMPLICON_BASES + NEAR_AMPLICON_BASES)/PF_BASES_ALIGNED.	percent	float	0.6	1
 PCT_CHIMERAS	The fraction of reads that map outside of a maximum insert size (usually 100kb) or that have the two ends mapping to different chromosomes.	percent	float	none	none
-PCT_CODING_BASES	Fraction of PF_ALIGNED_BASES that mapped to protein coding regions of genes, CODING_BASES/PF_ALIGNED_BASES	percent	float	0.5	1
+PCT_CODING_BASES	Fraction of PF_ALIGNED_BASES that mapped to protein coding regions of genes, CODING_BASES/PF_ALIGNED_BASES	percent	float	0.4	1
 PCT_INTERGENIC_BASES	Fraction of PF_ALIGNED_BASES that mapped to intergenic regions of genomic DNA, INTERGENIC_BASES/PF_ALIGNED_BASES	percent	float	none	none
 PCT_INTRONIC_BASES	Fraction of PF_ALIGNED_BASES that correspond to gene introns, INTRONIC_BASES/PF_ALIGNED_BASES	percent	float	none	none
 PCT_MRNA_BASES	Sum of bases mapped to regions corresponding to UTRs and coding regions of mRNA transcripts, PCT_UTR_BASES + PCT_CODING_BASES	percent	float	none	none
-PCT_OFF_AMPLICON	The fraction of PF_BASES_ALIGNED that mapped neither onto or near an amplicon, OFF_AMPLICON_BASES/PF_BASES_ALIGNED	percent	float	none	none
+PCT_OFF_AMPLICON	The fraction of PF_BASES_ALIGNED that mapped neither onto or near an amplicon, OFF_AMPLICON_BASES/PF_BASES_ALIGNED	percent	float	0	0.4
 PCT_PF_READS_IMPROPER_PAIRS	The fraction of (primary) reads that are *not* "properly" aligned in pairs (as per SAM flag 0x2). PF_READS_IMPROPER_PAIRS / PF_READS_ALIGNED	percent	float	0	0.05
 PCT_PF_UQ_READS	The fraction of TOTAL_READS that are unique, PF, and are not duplicates, PF_UNIQUE_READS/TOTAL_READS	percent	float	none	none
 PCT_PF_UQ_READS_ALIGNED	Fraction of PF_READS that are unique and align to the reference genome, PF_UQ_READS_ALIGNED/PF_READS	percent	float	none	none
@@ -31,12 +31,12 @@ PCT_R2_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model wher
 PCT_READS_ALIGNED_IN_PAIRS	The fraction of reads whose mate pair was also aligned to the reference. READS_ALIGNED_IN_PAIRS / PF_READS_ALIGNED	percent	float	0.8	1
 PCT_RIBOSOMAL_BASES	Fraction of PF_ALIGNED_BASES that mapped to regions encoding ribosomal RNA, RIBOSOMAL_BASES/PF_ALIGNED_BASES	percent	float	0	0.3
 PCT_TARGET_BASES_10X	The fraction of all target bases achieving 10X or greater coverage depth.	percent	float	none	none
-PCT_TARGET_BASES_1X	The fraction of all target bases achieving 1X or greater coverage.	percent	float	0.3	none
+PCT_TARGET_BASES_1X	The fraction of all target bases achieving 1X or greater coverage.	percent	float	0.1	1
 PCT_TARGET_BASES_20X	The fraction of all target bases achieving 20X or greater coverage depth.	percent	float	none	none
 PCT_TARGET_BASES_2X	The fraction of all target bases achieving 2X or greater coverage depth.	percent	float	none	none
 PCT_TARGET_BASES_30X	The fraction of all target bases achieving 30X or greater coverage depth.	percent	float	none	none
-PCT_USABLE_BASES	The fraction of bases mapping to mRNA divided by the total number of PF bases, (CODING_BASES + UTR_BASES)/PF_BASES.	percent	float	0.7	1
-PCT_UTR_BASES	Fraction of PF_ALIGNED_BASES that mapped to untranslated regions (UTR) of genes, UTR_BASES/PF_ALIGNED_BASES	percent	float	0	0.5
+PCT_USABLE_BASES	The fraction of bases mapping to mRNA divided by the total number of PF bases, (CODING_BASES + UTR_BASES)/PF_BASES.	percent	float	0.6	1
+PCT_UTR_BASES	Fraction of PF_ALIGNED_BASES that mapped to untranslated regions (UTR) of genes, UTR_BASES/PF_ALIGNED_BASES	percent	float	0	0.6
 PF_ALIGNED_BASES	The total number of aligned PF bases. Non-primary alignments are not counted. Bases in aligned reads that do not correspond to reference (e.g. soft clips, insertions) are not counted.	base	int	none	none
 PF_BASES	The total number of bases within the PF_READS of the SAM or BAM file to be examined	base	int	none	none
 PF_BASES_ALIGNED	The number of bases from PF_READS that align to the reference genome with mapping score > 0	base	int	none	none
@@ -57,4 +57,4 @@ READS_ALIGNED_IN_PAIRS	The number of aligned reads whose mate pair was also alig
 RIBOSOMAL_BASES	Number of bases in primary alignments that align to ribosomal sequence.	base	int	none	none
 STRAND_BALANCE	The number of PF reads aligned to the positive strand of the genome divided by the number of PF reads aligned to the genome.	percent	float	0.45	0.55
 UTR_BASES	Number of bases in primary alignments that align to a UTR base for some gene, and not a coding base.	base	int	none	none
-ZERO_CVG_TARGETS_PCT	The fraction of targets that did not reach coverage=1 over any base.	percent	float	0	0.6
+ZERO_CVG_TARGETS_PCT	The fraction of targets that did not reach coverage=1 over any base.	percent	float	0	0.7
