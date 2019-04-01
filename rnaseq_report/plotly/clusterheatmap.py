@@ -16,7 +16,7 @@ class ClusterHeatMap(object):
                  sample_cluster_method='single', sample_distance_metric="correlation",
                  gene_cluster_method='average', gene_distance_metric="euclidean",
                  cluster_gene=False, cluster_sample=False,
-                 show_gene_label=False, hide_sample_label=False,
+                 show_gene_label=False, hide_sample_label=False, show_legend=True,
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
                  do_correlation_cluster=False, corr_method='pearson',
@@ -91,6 +91,7 @@ class ClusterHeatMap(object):
         self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
+        self.show_legend = show_legend
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -695,7 +696,10 @@ class ClusterHeatMap(object):
             traces += self.group_bar_traces()
 
         traces += self.heatmap_trace()
-
+        if self.group_dict:
+            self.layout['legend'] = dict(x=traces[-1]['colorbar']['x'])
+        if not self.show_legend:
+            self.layout['showlegend'] = False
         fig = go.Figure(data=traces, layout=self.layout)
         plt(fig, filename=self.out_name, auto_open=False)
 
