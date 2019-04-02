@@ -184,9 +184,9 @@ class ClusterHeatMap(object):
     def process_data(self):
         exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
         if self.target_rows:
-            exp_pd = exp_pd.loc[self.target_rows, :]
+            exp_pd = exp_pd.loc[[x for x in self.target_rows if x in exp_pd.index], :]
         if self.target_cols:
-            exp_pd = exp_pd.loc[:, self.target_cols]
+            exp_pd = exp_pd.loc[:, [x for x in self.target_cols if x in exp_pd.columns]]
         if self.transpose_data:
             exp_pd = exp_pd.transpose()
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
