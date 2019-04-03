@@ -986,26 +986,36 @@ def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', fo
             draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, gene_annot=None,
+                              limit=5, height:int=None, width:int=None, scale=3):
+    gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
     for table in files:
         prefix = os.path.basename(table)[:-4]
         df = pd.read_table(table, index_col=0, header=0, nrows=top)
+        df = df.loc[df['Corrected P-Value']<=fdr_cutoff, :]
+        print('{} out of top {} are significant'.format(df.shape[0], top))
         gene_number = [int(x.split('/')[0]) for x in df['Ratio_in_study']]
         pval_color = -np.log10(df['Corrected P-Value'])
         pval_color_desc = pval_color.describe()
         pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
         score = [round(eval(x)/eval(y), 2) for x, y in zip(df['Ratio_in_study'], df['Ratio_in_pop'])]
         text_list = []
-        for x, y, h, k in zip(gene_number, df.ID, df['typeI'], df['typeII']):
+        for x, y, h, k, g in zip(gene_number, df.ID, df['typeI'], df['typeII'], df['Genes']):
             text = ''
-            text += 'gene_number: {} <br>'.format(x)
             text += 'path: {} <br>'.format(y)
             text += 'typeI: {} <br>'.format(h)
-            text += 'typeII: {}'.format(k)
+            text += 'typeII: {} <br>'.format(k)
+            genes = [x.split('|')[0] for x in g.split(';')]
+            genes = [gene_annot[x] if x in gene_annot else x for x in genes]
+            gene_regulate = [x.split('|')[1] for x in g.split(';')]
+            text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'), gene_regulate.count('down'))
+            text += 'genes: {}'.format('<br>'.join(textwrap.wrap(';'.join(genes))))
             text_list.append(text)
+        y_data = ['<br>'.join(textwrap.wrap(x, width=80)) for x in df.index]
+        x_data = score
         trace = go.Scatter(
-            y=['<br>'.join(textwrap.wrap(x, width=80)) for x in df.index],
-            x=score,
+            y=y_data,
+            x=x_data,
             mode='markers',
             text=text_list,
             hoverinfo='text+x+y',
@@ -1028,6 +1038,13 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
             xaxis=dict(title='Enrichment Ratio (ratio_in_study/ratio_in_pop)'),
             yaxis=dict(dtick=1, tickfont={'size': 9}),
         )
+        links = []
+        for x, y , link in zip(x_data, y_data, df['Hyperlink']):
+            links.append(dict(x=x, y=y,
+                              text="""<a href="{}">{}</a>""".format(link, "   "),
+                              showarrow=False,
+                              xanchor='center', yanchor='middle',))
+        layout['annotations'] = links
         fig = go.Figure(data=[trace], layout=layout)
         prefix = '{}.bubble'.format(prefix)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
