@@ -938,7 +938,9 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', formats=('html', ), gene_annot=None,
+                            color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
+    gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
     for table in files:
         df_big = pd.read_table(table, index_col=0, header=0)
         for each in ['BP', 'CC', 'MF']:
@@ -950,18 +952,25 @@ def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', fo
             pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
             score = [round(eval(x)/eval(y), 2) for x, y in zip(df['ratio_in_study'], df['ratio_in_pop'])]
             text_list = []
-            for x, y, h in zip(gene_number, df.index, df['NS']):
-                text = ''
-                text += 'gene_number: {} <br>'.format(x)
-                text += 'id: {} <br>'.format(y)
-                text += 'type: {}'.format(h)
+            for x, y, h, g, n, p in zip(gene_number, df.index, df['NS'], df['study_items'], df['name'], df['p_'+correct]):
+                text = '{}: {} <br>'.format(y, n)
+                text += 'type: {} <br>'.format(h)
+                text += 'pvalue: {} <br>'.format(p)
+                genes = [x.split('|')[0] for x in g.split(';')][:100]
+                genes = [gene_annot[x] if x in gene_annot else x for x in genes]
+                gene_regulate = [x.split('|')[1] for x in g.split(';')]
+                text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'),
+                                                                         gene_regulate.count('down'))
+                text += 'genes: {}'.format('<br>'.join(textwrap.wrap(';'.join(genes))))
                 text_list.append(text)
+            x_data = score
+            y_data = ['<br>'.join(textwrap.wrap(x, width=80)) for x in df['name']]
             trace = go.Scatter(
-                y=['<br>'.join(textwrap.wrap(x, width=80)) for x in df['name']],
+                y=y_data,
                 x=score,
                 mode='markers',
                 text=text_list,
-                hoverinfo='text+x+y',
+                hoverinfo='text+x',
                 marker=dict(
                     size=gene_number,
                     sizemode='area',
@@ -972,7 +981,7 @@ def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', fo
                     colorbar=dict(
                         title='-log10(P-value)',
                     ),
-                    colorscale='Rainbow'
+                    colorscale=color_scale
                 )
             )
             layout = dict(
@@ -981,13 +990,20 @@ def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', fo
                 xaxis=dict(title='Enrichment Ratio (ratio_in_study/ratio_in_pop)'),
                 yaxis=dict(dtick=1, tickfont={'size': 8}),
             )
+            links = []
+            for x, y, link in zip(x_data, y_data, df.index):
+                links.append(dict(x=x, y=y,
+                                  text="""<a href="http://amigo.geneontology.org/amigo/term/{}">{}</a>""".format(link, "   "),
+                                  showarrow=False,
+                                  xanchor='center', yanchor='middle', ))
+            layout['annotations'] = links
             fig = go.Figure(data=[trace], layout=layout)
             prefix = '{}.{}.bubble'.format(prefix, each)
             draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
 def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, gene_annot=None,
-                              limit=5, height:int=None, width:int=None, scale=3):
+                              color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
     for table in files:
         prefix = os.path.basename(table)[:-4]
@@ -1000,12 +1016,13 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
         pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
         score = [round(eval(x)/eval(y), 2) for x, y in zip(df['Ratio_in_study'], df['Ratio_in_pop'])]
         text_list = []
-        for x, y, h, k, g in zip(gene_number, df.ID, df['typeI'], df['typeII'], df['Genes']):
+        for x, y, h, k, g, p in zip(gene_number, df.ID, df['typeI'], df['typeII'], df['Genes'], df['Corrected P-Value']):
             text = ''
             text += 'path: {} <br>'.format(y)
+            text += 'pvalue: {} <br>'.format(p)
             text += 'typeI: {} <br>'.format(h)
             text += 'typeII: {} <br>'.format(k)
-            genes = [x.split('|')[0] for x in g.split(';')]
+            genes = [x.split('|')[0] for x in g.split(';')][:100]
             genes = [gene_annot[x] if x in gene_annot else x for x in genes]
             gene_regulate = [x.split('|')[1] for x in g.split(';')]
             text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'), gene_regulate.count('down'))
@@ -1029,7 +1046,7 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
                 colorbar=dict(
                     title='-log10(P-value)',
                 ),
-                colorscale='Rainbow'
+                colorscale=color_scale
             )
         )
         layout = dict(
@@ -1039,7 +1056,7 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
             yaxis=dict(dtick=1, tickfont={'size': 9}),
         )
         links = []
-        for x, y , link in zip(x_data, y_data, df['Hyperlink']):
+        for x, y, link in zip(x_data, y_data, df['Hyperlink']):
             links.append(dict(x=x, y=y,
                               text="""<a href="{}">{}</a>""".format(link, "   "),
                               showarrow=False,
