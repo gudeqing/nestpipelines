@@ -13,7 +13,7 @@ __author__ = 'gudeqing'
 
 class ClusterHeatMap(object):
     def __init__(self, data_file=None, out_name='clusterHeatMap.html',
-                 sample_cluster_method='single', sample_distance_metric="correlation",
+                 sample_cluster_method='complete', sample_distance_metric="correlation",
                  gene_cluster_method='average', gene_distance_metric="euclidean",
                  cluster_gene=False, cluster_sample=False,
                  show_gene_label=False, hide_sample_label=False, show_legend=True,
