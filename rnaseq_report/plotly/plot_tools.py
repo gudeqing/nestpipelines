@@ -821,7 +821,8 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
         if score > ref.shape[0]-failed_cutoff:
             passed_samples.append(sample)
     pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x]
-    pct_data = out_table.loc[pct_cols, passed_samples]
+    orders = ['ZERO_CVG_TARGETS_PCT'] + sorted(list(set(pct_cols) - {'ZERO_CVG_TARGETS_PCT'}))
+    pct_data = out_table.loc[pct_cols, passed_samples].sort_values(by=orders, axis=1)
     pct_data.to_csv(os.path.join(outdir, 'filtered.pct_metrics.xls'), index=True, header=True, sep='\t')
     traces = list()
     colors = get_color_pool(pct_data.shape[0])
