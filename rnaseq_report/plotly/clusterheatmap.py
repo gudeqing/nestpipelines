@@ -26,7 +26,7 @@ class ClusterHeatMap(object):
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width=1000, height=800, group_color=None, sort_cluster_by='distance',
-                 gene_label_size=6, sample_label_size=10, sample_label_angle=45, outlier_k=3.0,
+                 gene_label_size=6, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
@@ -88,7 +88,7 @@ class ClusterHeatMap(object):
         self.group_color = group_color
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
-        self.outlier_k = outlier_k
+        self.outlier_k = k_outlier
         self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
