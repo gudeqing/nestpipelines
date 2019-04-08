@@ -39,7 +39,6 @@ PCT_USABLE_BASES	The fraction of bases mapping to mRNA divided by the total numb
 PCT_UTR_BASES	Fraction of PF_ALIGNED_BASES that mapped to untranslated regions (UTR) of genes, UTR_BASES/PF_ALIGNED_BASES	percent	float	0	0.6
 PF_ALIGNED_BASES	The total number of aligned PF bases. Non-primary alignments are not counted. Bases in aligned reads that do not correspond to reference (e.g. soft clips, insertions) are not counted.	base	int	none	none
 PF_BASES	The total number of bases within the PF_READS of the SAM or BAM file to be examined	base	int	none	none
-PF_BASES_ALIGNED	The number of bases from PF_READS that align to the reference genome with mapping score > 0	base	int	none	none
 PF_HQ_ALIGNED_BASES	The number of bases aligned to the reference sequence in reads that were mapped at high quality. Will usually approximate PF_HQ_ALIGNED_READS * READ_LENGTH but may differ when either mixed read lengths are present or many reads are aligned with gaps.	base	int	none	none
 PF_HQ_ALIGNED_Q20_BASES	The subset of PF_HQ_ALIGNED_BASES where the base call quality was Q20 or higher.	base	int	none	none
 PF_HQ_ALIGNED_READS	The number of PF reads that were aligned to the reference sequence with a mapping quality of Q20 or higher signifying that the aligner estimates a 1/100 (or smaller) chance that the alignment is wrong.	read	int	none	none
