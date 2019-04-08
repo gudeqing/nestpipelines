@@ -38,6 +38,7 @@ def trimmomatic(**kwargs):
     cmd += 'TRAILING:{} '.format(kwargs['trailing'])
     cmd += 'SLIDINGWINDOW:{}:{} '.format(kwargs['sliding_window_size'], kwargs['sliding_window_quality'])
     cmd += 'MINLEN:{} '.format(kwargs['min_length'])
+    cmd += 'HEADCROP:{} '.format(kwargs['head_crop'])
     cmd += '-trimlog {} '.format(os.path.join(os.path.dirname(kwargs['trimmed_fq1']), 'trim.log'))
     return cmd
 
