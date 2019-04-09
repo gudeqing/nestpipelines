@@ -213,7 +213,7 @@ def read_distribution(files:list, outdir, formats=('html',), height:int=None, wi
         if sample in name_dict:
             sample = name_dict[sample]
         data = pd.read_table(each, index_col=0, skiprows=4, skipfooter=1, sep='\s+', engine='python')
-        data = data.loc[:, 'Tag_count']
+        data = data.loc[['CDS_Exons', "5'UTR_Exons", "3'UTR_Exons", "Introns", "TSS_up_10kb", "TES_down_10kb"], 'Tag_count']
         data.name = sample
         all_data.append(data)
         fig = go.Figure(layout=go.Layout(
