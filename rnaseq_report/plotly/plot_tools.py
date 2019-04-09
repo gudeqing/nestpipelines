@@ -376,15 +376,15 @@ def exp_pca(exp_table, row_sum_cutoff=0.1, exp_cutoff=0.1, cv_cutoff=0.01,
     if type(group_dict) == str:
         if os.path.exists(group_dict):
             with open(group_dict) as f:
-                group_dict = dict(x.strip().split()[:2] for x in f if x.strip())
+                group_dict = OrderedDict(x.strip().split()[:2] for x in f if x.strip())
         else:
             raise FileExistsError('group_dict file not existed!')
-
     if group_dict is None or not group_dict:
         group_dict = OrderedDict()
     for sample in result.index:
         if sample not in group_dict:
             group_dict[sample] = sample
+    group_dict = OrderedDict([(x, y) for x, y in group_dict.items() if x in result.index])
     groups = list()
     for group in group_dict.values():
         if group not in groups:
