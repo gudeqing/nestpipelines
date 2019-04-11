@@ -31,7 +31,7 @@ PCT_R2_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model wher
 PCT_READS_ALIGNED_IN_PAIRS	The fraction of reads whose mate pair was also aligned to the reference. READS_ALIGNED_IN_PAIRS / PF_READS_ALIGNED	percent	float	0.8	1
 PCT_RIBOSOMAL_BASES	Fraction of PF_ALIGNED_BASES that mapped to regions encoding ribosomal RNA, RIBOSOMAL_BASES/PF_ALIGNED_BASES	percent	float	0	0.3
 PCT_TARGET_BASES_10X	The fraction of all target bases achieving 10X or greater coverage depth.	percent	float	none	none
-PCT_TARGET_BASES_1X	The fraction of all target bases achieving 1X or greater coverage.	percent	float	0.1	1
+PCT_TARGET_BASES_1X	The fraction of all target bases achieving 1X or greater coverage.	percent	float	0.5	1
 PCT_TARGET_BASES_20X	The fraction of all target bases achieving 20X or greater coverage depth.	percent	float	none	none
 PCT_TARGET_BASES_2X	The fraction of all target bases achieving 2X or greater coverage depth.	percent	float	none	none
 PCT_TARGET_BASES_30X	The fraction of all target bases achieving 30X or greater coverage depth.	percent	float	none	none
@@ -56,4 +56,4 @@ READS_ALIGNED_IN_PAIRS	The number of aligned reads whose mate pair was also alig
 RIBOSOMAL_BASES	Number of bases in primary alignments that align to ribosomal sequence.	base	int	none	none
 STRAND_BALANCE	The number of PF reads aligned to the positive strand of the genome divided by the number of PF reads aligned to the genome.	percent	float	0.45	0.55
 UTR_BASES	Number of bases in primary alignments that align to a UTR base for some gene, and not a coding base.	base	int	none	none
-ZERO_CVG_TARGETS_PCT	The fraction of targets that did not reach coverage=1 over any base.	percent	float	0	0.7
+ZERO_CVG_TARGETS_PCT	The fraction of targets that did not reach coverage=1 over any base.	percent	float	0	0.3
