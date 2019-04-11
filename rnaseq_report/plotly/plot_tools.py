@@ -462,7 +462,8 @@ def exp_density(exp_table, outdir=os.getcwd(), row_sum_cutoff=0.1, exp_cutoff=0.
     data.columns = [name_dict[x] if x in name_dict else x for x in data.columns]
     if target_samples:
         data = data.loc[:, [x for x in target_samples if x in data.columns]]
-    data.to_csv(os.path.join(outdir, 'expression_matrix.xls'), header=True, index=True, sep='\t')
+    if target_samples or name_dict:
+        data.to_csv(os.path.join(outdir, 'expression_matrix.xls'), header=True, index=True, sep='\t')
     data = data[data.sum(axis=1) >= row_sum_cutoff]
     pass_state = data.apply(lambda x: sum(x > exp_cutoff), axis=1)
     data = data[pass_state >= int(data.shape[1]) / 3]
