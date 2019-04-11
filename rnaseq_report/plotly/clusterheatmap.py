@@ -139,7 +139,7 @@ class ClusterHeatMap(object):
             else:
                 self.data = self.process_data()
         else:
-            # 不断测试发现, index如果为纯数字, 当且仅当有基因聚类的时候将不能正常显示热图, 
+            # 不断测试发现, index如果为纯数字, 当且仅当有基因聚类的时候将不能正常显示热图,
             # 应该是plotly的bug, 推测热图自动调整绘图的过程中, 会用到数字索引, 奇怪的很！
             print('Using random data to do test !')
             self.data = pd.DataFrame(np.random.randint(0, 20, (100, 6)),
@@ -190,6 +190,9 @@ class ClusterHeatMap(object):
             exp_pd = exp_pd.loc[:, [x for x in self.target_cols if x in exp_pd.columns]]
         if self.transpose_data:
             exp_pd = exp_pd.transpose()
+        if self.target_cols or self.target_rows:
+            out_name = os.path.join(self.outdir, 'target_data_without_filtering')
+            exp_pd.to_csv(out_name, header=True, index=True, sep='\t')
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
