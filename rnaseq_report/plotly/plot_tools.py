@@ -849,7 +849,7 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
     out_table.to_csv(out_name, index=True, header=True, sep='\t')
 
 
-def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int=None, width:int=None, scale=3):
+def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, limit=5, height:int=None, width:int=None, scale=3):
     """
     :param files:
     :param outdir:
@@ -860,6 +860,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
     :param scale:
     :return:
     """
+    gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
     for table in files:
         ctrl, test = re.fullmatch(r'(.*)_vs_(.*?)\..*.xls', os.path.basename(table)).groups()
         df = pd.read_table(table, index_col=0, header=0)
@@ -902,7 +903,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
             x=tmp_df['log2fc'],
             y=tmp_df['padjust'],
             mode='markers',
-            text=tmp_df.index,
+            text=[gene_annot[x] if x in gene_annot else x for x in tmp_df.index],
             hoverinfo='text+x+y',
             marker=dict(
                 color='green',
@@ -917,7 +918,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), limit=5, height:int
             x=tmp_df['log2fc'],
             y=tmp_df['padjust'],
             mode='markers',
-            text=tmp_df.index,
+            text=[gene_annot[x] if x in gene_annot else x for x in tmp_df.index],
             hoverinfo='text+x+y',
             marker=dict(
                 color='red',
