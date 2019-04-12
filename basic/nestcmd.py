@@ -601,14 +601,6 @@ class RunCommands(CommandNetwork):
         self.parallel_run()
 
 
-# if __name__ == '__main__':
-#     workflow = RunCommands('sample.ini', timeout=10,
-#                            hostname='10.60.2.133', port=22, username='dqgu', password='xx')
-#     # workflow.single_run()
-#     workflow.parallel_run()
-#     # workflow.continue_run()
-#     # Command('sleep 5', 'hh').run(True)
-
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
