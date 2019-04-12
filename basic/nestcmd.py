@@ -14,7 +14,6 @@ import signal
 import paramiko
 import uuid
 import pygraphviz as pgv
-__author__ = 'gdq and dp'
 
 
 PROCESS_local = weakref.WeakKeyDictionary()
