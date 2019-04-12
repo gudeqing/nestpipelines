@@ -601,10 +601,30 @@ class RunCommands(CommandNetwork):
         self.parallel_run()
 
 
+# if __name__ == '__main__':
+#     workflow = RunCommands('sample.ini', timeout=10,
+#                            hostname='10.60.2.133', port=22, username='dqgu', password='xx')
+#     # workflow.single_run()
+#     workflow.parallel_run()
+#     # workflow.continue_run()
+#     # Command('sleep 5', 'hh').run(True)
+
 if __name__ == '__main__':
-    workflow = RunCommands('sample.ini', timeout=10,
-                           hostname='10.60.2.133', port=22, username='dqgu', password='xx')
-    # workflow.single_run()
-    workflow.parallel_run()
-    # workflow.continue_run()
-    # Command('sleep 5', 'hh').run(True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-cfg', required=True, help="pipeline configuration file")
+    parser.add_argument('-wt', required=False, default=10, help="time to wait for enough resource to initiate a task")
+    parser.add_argument('-hostname', required=False, help="another server address, default to only use local server")
+    parser.add_argument('-port', required=False, help="server port for login, default 22")
+    parser.add_argument('-username', required=False, help="user name for login")
+    parser.add_argument('-password', required=False, help="password for login")
+    parser.add_argument('--rerun', action='store_true', default=False,
+                        help="if set, restart the pipeline at the failed/broken points")
+    args = parser.parse_args()
+    workflow = RunCommands(args.cfg, timeout=args.wt, hostname=args.hostname, port=args.port,
+                           username=args.username, password=args.password)
+    if not args.rerun:
+        workflow.parallel_run()
+    else:
+        workflow.continue_run()
+
