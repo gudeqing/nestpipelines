@@ -604,6 +604,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-cfg', required=True, help="pipeline configuration file")
+    parser.add_argument('-outdir', required=False, default='.', help="output directory")
     parser.add_argument('-wt', required=False, default=10, help="time to wait for enough resource to initiate a task")
     parser.add_argument('-hostname', required=False, help="another server address, default to only use local server")
     parser.add_argument('-port', required=False, help="server port for login, default 22")
@@ -612,7 +613,7 @@ if __name__ == '__main__':
     parser.add_argument('--rerun', action='store_true', default=False,
                         help="if set, restart the pipeline at the failed/broken points")
     args = parser.parse_args()
-    workflow = RunCommands(args.cfg, timeout=args.wt, hostname=args.hostname, port=args.port,
+    workflow = RunCommands(args.cfg, timeout=args.wt, outdir=args.outdir, hostname=args.hostname, port=args.port,
                            username=args.username, password=args.password)
     if not args.rerun:
         workflow.parallel_run()
