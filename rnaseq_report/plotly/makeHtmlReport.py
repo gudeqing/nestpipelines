@@ -4,9 +4,11 @@ from os.path import join
 import yaml
 import shutil
 from jinja2 import Template
-from pprint import pprint
 from collections import OrderedDict as dict
-from glob import glob
+import pandas as pd
+import plotly.graph_objs as go
+from plotly.offline import plot as plt
+import textwrap
 
 
 def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png'), out='report.yml'):
@@ -105,6 +107,54 @@ def make_slider(images:list, image_ids:list=None, image_desc:list=None, template
     with open(out, 'w', encoding='utf-8') as f:
         f.write(content)
     return out
+
+
+def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=30, wrap_header=15, title=None, transpose=False):
+    for table in table_file:
+        data = pd.read_csv(table, header=0, index_col=0, sep='\t')
+        if transpose:
+            data = data.transpose()
+        use_cols = use_cols if use_cols is not None else data.columns
+        use_rows = use_rows if use_rows is not None else data.index
+        data = data.loc[use_rows, use_cols]
+        df = data.iloc[:top, :]
+        df.reset_index(inplace=True)
+
+        def proc(x):
+            if type(x) == float:
+                if x < 0.001:
+                    return format(x, '.2e')
+                else:
+                    return round(x, 3)
+            else:
+                return x
+
+        df = df.applymap(proc)
+        header_values = ['<b>' + '<br>'.join(textwrap.wrap(x, width=wrap_header)) + '</b>' for x in list(df.columns)]
+        col_width = [max(len(str(x)) for x in df[y]) for y in df.columns]
+        col_width = [12 if x < 12 else x for x in col_width]
+        col_width = [x/sum(col_width) for x in col_width]
+        trace = go.Table(
+            columnwidth=col_width,
+            header=dict(
+                values=header_values,
+                fill=dict(color='#C2D4FF'),
+                align=['left'] * df.shape[1]),
+            cells=dict(
+                values=[df[x] for x in df.columns],
+                fill=dict(color='#F5F8FF'),
+                align=['left'] * df.shape[1]
+            )
+        )
+        layout = dict(
+            title='{}'.format(path.basename(table).split('.')[0]) if title is None else title,
+            autosize=True,
+            margin=dict(t=25, l=12, r=12, b=12),
+            showlegend=False,
+        )
+        fig = go.Figure(data=[trace], layout=layout)
+        out_name = table.rsplit('.', 1)[0] + '.html'
+        plt(fig, filename=out_name, auto_open=False)
 
 
 def make_report(cfg_from, report_dir=None, link_images=False):
