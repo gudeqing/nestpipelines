@@ -1,0 +1,29 @@
+#
+QualityAssessment:
+  slider1:
+    name: QC
+    content:
+      image1:
+        name: before
+        path: ../QC_summary/qc_percent_metric.html
+        frmt: html
+        desc: description
+      image2:
+        name: after
+        path: ../QC_summary/filtered_qc_percent_metric.html
+        frmt: html
+        desc: description
+  slider2:
+    name: enrich
+    content:
+      image1:
+        name: goenrich
+        path: ../GOEnrich/NSRC_vs_SRC.deseq2.DE.list.goea.BP.bubble.html
+        frmt: html
+        desc: description
+      image2:
+        name: kegg_enrich
+        path: ../KeggEnrich/NSRC_vs_SRC.deseq2.DE.list.kegg_enrichment.bubble.html
+        frmt: html
+        desc: description
+
