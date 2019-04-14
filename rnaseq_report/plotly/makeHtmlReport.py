@@ -11,7 +11,7 @@ from plotly.offline import plot as plt
 import textwrap
 
 
-def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png'), out='report.yml'):
+def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls'), out='report.yml'):
     exclude_dirs = exclude_dirs if exclude_dirs else list()
     modules = os.listdir(result_dir)
     modules = [x for x in modules if x not in exclude_dirs and path.isdir(x)]
@@ -33,17 +33,35 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                 continue
             else:
                 cfg_dict[module]['slider_' + str(ind)] = {'name': slide}
+            images = [x for x in images if not x.endswith(('xls'))] + [x for x in images if x.endswith(('xls'))]
             cfg_dict[module]['slider_' + str(ind)]['content'] = dict()
             content = cfg_dict[module]['slider_' + str(ind)]['content']
             for ind, img in enumerate(images):
-                content['image_' + str(ind)] = dict()
+                content['image_' + str(ind+1)] = dict()
                 img_info = content['image_' + str(ind)]
-                img_info['path'] = join(slid_dir, slide, img)
-                img_info['name'] = img.split('.')[0]
                 desc_file = join(slid_dir, slide, img + '.describe.txt')
                 desc = open(desc_file).read().strip() if path.exists(desc_file) else ''
+                img_info['name'] = str(ind+1)+ ': ' + str(img.split('.')[0])
                 img_info['desc'] = desc.replace('\n', '<br>')
-                img_info['frmt'] = 'html' if img.endswith('.html') else img[-3:]
+                img_info['path'] = join(slid_dir, slide, img)
+                img_info['frmt'] = img.rsplit('.', 1)[1]
+                if img_info['frmt'] in ['xls']:
+                    use_cols = None
+                    if path.exists(img_info['path']+'.describe.txt'):
+                        with open(img_info['path']+'.describe.txt') as f:
+                            desc = f.readlines()
+                        if desc[0].startswith('display_columns'):
+                            use_cols = [x.strip() for x in desc[0].split('display_columns:', 1)[1].strip().split(';')]
+                            desc = desc[1:]
+                        img_info['desc'] = '<br>'.join(desc)
+                    table_img = table2html(
+                        [img_info['path']],
+                        use_cols=use_cols,
+                        title=path.relpath(path.abspath(img_info['path']), start=path.abspath(result_dir))
+                    )
+                    img_info['path'] = table_img[0]
+                    img_info['frmt'] = 'html'
+
     with open(out, 'w') as f:
         yaml.dump(cfg_dict, f)
     return out
@@ -110,6 +128,7 @@ def make_slider(images:list, image_ids:list=None, image_desc:list=None, template
 
 
 def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=30, wrap_header=15, title=None, transpose=False):
+    results = []
     for table in table_file:
         data = pd.read_csv(table, header=0, index_col=0, sep='\t')
         if transpose:
@@ -133,7 +152,9 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=3
         header_values = ['<b>' + '<br>'.join(textwrap.wrap(x, width=wrap_header)) + '</b>' for x in list(df.columns)]
         col_width = [max(len(str(x)) for x in df[y]) for y in df.columns]
         col_width = [12 if x < 12 else x for x in col_width]
+        col_width = [12*5 if x > 12*5 else x for x in col_width]
         col_width = [x/sum(col_width) for x in col_width]
+        col_width = [0.5 if x > 0.5 else x for x in col_width ]
         trace = go.Table(
             columnwidth=col_width,
             header=dict(
@@ -155,6 +176,8 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=3
         fig = go.Figure(data=[trace], layout=layout)
         out_name = table.rsplit('.', 1)[0] + '.html'
         plt(fig, filename=out_name, auto_open=False)
+        results.append(out_name)
+    return results
 
 
 def make_report(cfg_from, report_dir=None, link_images=False):
