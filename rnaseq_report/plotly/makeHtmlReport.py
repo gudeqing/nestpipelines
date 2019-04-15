@@ -11,12 +11,18 @@ from plotly.offline import plot as plt
 import textwrap
 
 
-def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls'), out='report.yml'):
+def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls', 'svg'), out='report.yml'):
     exclude_dirs = exclude_dirs if exclude_dirs else list()
     modules = os.listdir(result_dir)
-    modules = [x for x in modules if x not in exclude_dirs and path.isdir(x)]
+    modules = [x for x in modules if x not in exclude_dirs and path.isdir(x) and x != 'html.utils']
     if not modules:
         print('No directory found!')
+    try:
+        modules_order = [(x, int(x.split('.', 1)[0])) for x in modules]
+        modules_order.sort(key=lambda x: x[1])
+        modules = [x[0] for x in modules_order]
+    except:
+        print('warn: cannot determine report module order; If order needed, please add "number." before directory name')
     cfg_dict = dict()
     for module in modules:
         slid_dir = join(result_dir, module)
@@ -34,6 +40,11 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
             else:
                 cfg_dict[module]['slider_' + str(ind)] = {'name': slide}
             images = [x for x in images if not x.endswith(('xls'))] + [x for x in images if x.endswith(('xls'))]
+
+            # delete existed html for *xls
+            possible_html = [x[:-3]+'html' for x in images if x.endswith(('xls'))]
+            images = [x for x in images if x not in possible_html]
+
             cfg_dict[module]['slider_' + str(ind)]['content'] = dict()
             content = cfg_dict[module]['slider_' + str(ind)]['content']
             for ind, img in enumerate(images):
@@ -155,6 +166,7 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=3
         col_width = [12*5 if x > 12*5 else x for x in col_width]
         col_width = [x/sum(col_width) for x in col_width]
         col_width = [0.5 if x > 0.5 else x for x in col_width ]
+        col_width = [0.09 if x < 0.09 else x for x in col_width]
         trace = go.Table(
             columnwidth=col_width,
             header=dict(
@@ -224,7 +236,8 @@ def make_report(cfg_from, report_dir=None, link_images=False):
             tmp_path = path.abspath(report_dict[section][each])
             report_dict[section][each] = path.relpath(tmp_path, start=path.abspath(report_dir))
     # format html
-    shutil.copytree(join(html_utils_dir, 'html.utils'), join(report_dir, 'html.utils'))
+    if not path.exists(join(report_dir, 'html.utils')):
+        shutil.copytree(join(html_utils_dir, 'html.utils'), join(report_dir, 'html.utils'))
     template = Template(open(index_template).read())
     content = template.render(result=report_dict)
     with open(index_html_path, 'w', encoding='utf-8') as f:

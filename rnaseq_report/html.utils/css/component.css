@@ -59,14 +59,14 @@ body {
 }
 
 .slide__title {
-	font-size: 1.2em;
+	font-size: 1em;
 	font-weight: normal;
 	margin: 0 auto;
 	padding: 1em 0 0 0;
 }
 
 .slide__title span {
-	font-size: 55%;
+	font-size: 35%;
 	font-weight: bold;
 	display: block;
 	letter-spacing: 2px;
