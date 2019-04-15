@@ -242,10 +242,13 @@ if __name__ == '__main__':
             import inspect
             import json
             import time
+            import sys
             if isinstance(func, type):
                 description = func.__init__.__doc__
             else:
                 description = func.__doc__
+            if '-h' not in sys.argv or '--help' in sys.argv or '-help' in sys.argv:
+                description = None
             if description:
                 _ = [print(x.strip()) for x in description.split('\n') if x.strip()]
                 parser = argparse.ArgumentParser(add_help=False)
@@ -262,9 +265,9 @@ if __name__ == '__main__':
             arg_defaults = ['None']*(len(arg_names) - len(arg_defaults)) + list(arg_defaults)
             sig = inspect.signature(func)
             for arg, value in zip(arg_names, arg_defaults):
-                arg_type = sig.parameters[arg].annotation
                 if arg == 'self':
                     continue
+                arg_type = sig.parameters[arg].annotation
                 if value == 'None':
                     if arg_type in [list, tuple, set]:
                         parser.add_argument('-' + arg, nargs='+', required=True, metavar=arg)
@@ -332,4 +335,3 @@ if __name__ == '__main__':
     callable_dict = {x: y for x, y in locals().items() if callable(y)}
     _ = [callable_dict.pop(x) for x in {'Func2Command'} if x in callable_dict]
     Func2Command(callable_dict)
-
