@@ -59,14 +59,14 @@ body {
 }
 
 .slide__title {
-	font-size: 1em;
+	font-size: 0.8em;
 	font-weight: normal;
 	margin: 0 auto;
 	padding: 1em 0 0 0;
 }
 
 .slide__title span {
-	font-size: 35%;
+	font-size: 8%;
 	font-weight: bold;
 	display: block;
 	letter-spacing: 2px;
@@ -76,7 +76,7 @@ body {
 
 .slider__nav {
 	position: absolute;
-	bottom: 2em;
+	bottom: 3em;
 	width: 100%;
 	text-align: center;
 }
