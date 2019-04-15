@@ -38,7 +38,7 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
             content = cfg_dict[module]['slider_' + str(ind)]['content']
             for ind, img in enumerate(images):
                 content['image_' + str(ind+1)] = dict()
-                img_info = content['image_' + str(ind)]
+                img_info = content['image_' + str(ind+1)]
                 desc_file = join(slid_dir, slide, img + '.describe.txt')
                 desc = open(desc_file).read().strip() if path.exists(desc_file) else ''
                 img_info['name'] = str(ind+1)+ ': ' + str(img.split('.')[0])
