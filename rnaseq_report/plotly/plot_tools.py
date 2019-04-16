@@ -1028,8 +1028,9 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
             text += 'typeII: {} <br>'.format(k)
             genes = [x.split('|')[0] for x in g.split(';')][:100]
             genes = [gene_annot[x] if x in gene_annot else x for x in genes]
-            gene_regulate = [x.split('|')[1] for x in g.split(';')]
-            text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'), gene_regulate.count('down'))
+            gene_regulate = [x.split('|')[2].lower() for x in g.split(';')]
+            if gene_regulate.count('up') or gene_regulate.count('down'):
+                text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'), gene_regulate.count('down'))
             text += 'genes: {}'.format('<br>'.join(textwrap.wrap(';'.join(genes))))
             text_list.append(text)
         y_data = ['<br>'.join(textwrap.wrap(x, width=80)) for x in df.index]
