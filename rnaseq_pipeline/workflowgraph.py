@@ -73,14 +73,15 @@ class StateGraph(object):
 
 state = dict()
 fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
-value1 = ['去除低质量序列:Trimmomatic', 'running', '', '', '', '', '', '', '']
-value2 = ['对原始数据进行质量统计:FastQC', 'running', '', '', '', '', '', '', '']
-value3 = ['比对到基因组:STAR', 'running', '', '', '', '', '去除低质量序列:Trimmomatic', '']
-value4 = ['基于比对结果的质量统计:Picard/RseQC', 'running', '', '', '', '', '比对到基因组:STAR', '']
-value5 = ['表达定量:Salmon', 'running', '', '', '', '', '去除低质量序列:Trimmomatic', '']
-value6 = ['差异分析:DESeq2', 'running', '', '', '', '', '表达定量:Salmon', '']
-value7 = ['富集分析:GOAtools', 'running', '', '', '', '', '差异分析:DESeq2', '']
-for each in [value1, value2, value3, value4, value5, value6, value7]:
+value1 = ['去除低质量序列', 'running', '', '', '', '', '', '', '']
+value2 = ['对原始数据进行质量统计', 'running', '', '', '', '', '', '', '']
+value3 = ['比对到基因组', 'running', '', '', '', '', '去除低质量序列', '']
+value4 = ['基于比对结果的质量统计', 'running', '', '', '', '', '比对到基因组', '']
+value5 = ['表达定量', 'running', '', '', '', '', '去除低质量序列', '']
+value6 = ['差异基因分析', 'running', '', '', '', '', '表达定量', '']
+value7 = ['GO富集分析', 'running', '', '', '', '', '差异基因分析', '']
+value8 = ['KEGG富集分析', 'running', '', '', '', '', '差异基因分析', '']
+for each in [value1, value2, value3, value4, value5, value6, value7, value8]:
     state[each[0]] = dict(zip(fields[1:], each[1:]))
 # print(state)
 StateGraph(state).draw(img_file='workflow.svg')
