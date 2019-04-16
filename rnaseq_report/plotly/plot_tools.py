@@ -895,7 +895,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
                 opacity=0.8,
                 # symbol='circle',
             ),
-            name='no change: {}'.format(tmp_df.shape[0])
+            name='Not Significant: {}'.format(tmp_df.shape[0])
         )
         # draw green
         tmp_df = df[df['colors'] == 'green']
@@ -910,7 +910,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
                 opacity=0.8,
                 # symbol='circle',
             ),
-            name = 'Down regulate: {}'.format(tmp_df.shape[0])
+            name = 'Down-regulated: {}'.format(tmp_df.shape[0])
         )
         # draw red
         tmp_df = df[df['colors'] == 'red']
@@ -925,7 +925,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
                 opacity=0.8,
                 # symbol='circle',
             ),
-            name='Up regulate: {}'.format(tmp_df.shape[0])
+            name='Up-regulated: {}'.format(tmp_df.shape[0])
         )
 
         layout = dict(
