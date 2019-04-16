@@ -11,7 +11,8 @@ from plotly.offline import plot as plt
 import textwrap
 
 
-def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls', 'svg'), out='report.yml'):
+def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls', 'svg'),
+                    out='report.yml'):
     exclude_dirs = exclude_dirs if exclude_dirs else list()
     modules = os.listdir(result_dir)
     modules = [x for x in modules if x not in exclude_dirs and path.isdir(x) and x != 'html.utils']
@@ -22,13 +23,19 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
         modules_order.sort(key=lambda x: x[1])
         modules = [x[0] for x in modules_order]
     except:
-        print('warn: cannot determine report module order; If order needed, please add "number." before directory name')
+        print('warn: cannot determine report module order; If order needed, please add "order." before directory name')
     cfg_dict = dict()
     for module in modules:
         slid_dir = join(result_dir, module)
-        slides = [x for x in os.listdir(slid_dir) if x not in exclude_dirs and path.isdir(join(slid_dir, x))]
+        slides = [x for x in os.listdir(slid_dir) if path.isdir(join(slid_dir, x))]
+        try:
+            slide_order = [(x, int(x.split('.', 1)[0])) for x in slides]
+            slide_order.sort(key=lambda x: x[1])
+            slides = [x[0] for x in slide_order]
+        except:
+            pass
         if not slides:
-            print('{} has no sub-diretory and make no slider for this one'.format(module))
+            print('{} has no sub-diretory and make no slider for this module'.format(module))
             continue
         else:
             cfg_dict[module] = dict()
@@ -57,6 +64,9 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                 img_info['path'] = join(slid_dir, slide, img)
                 img_info['frmt'] = img.rsplit('.', 1)[1]
                 if img_info['frmt'] in ['xls']:
+                    img_info['name'] += "<object>(<a href='{}'>Download Source Table</a>)</object>".format(
+                        path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
+                    )
                     use_cols = None
                     if path.exists(img_info['path']+'.describe.txt'):
                         with open(img_info['path']+'.describe.txt') as f:
@@ -192,20 +202,24 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=3
     return results
 
 
-def make_report(cfg_from, report_dir=None, link_images=False):
+def make_report(cfg_from, report_dir=None, link_images=False, exclude_dirs:list=None,
+                image_formats:tuple=('html', 'png', 'xls', 'svg')):
     """
     make html slider
-    :param cfg_from: 结果目录或report configuration文件, 如果提供结果目录,则自动从结果目录生成report configuration文件
-    :param report_dir:
-    :param link_images:
+    :param cfg_from: 结果目录或生成报告的配置文件, 如果提供结果目录, 则自动从结果目录生成Report configuration文件
+    :param report_dir: 报告输出目录，默认为当前目录
+    :param link_images: 若设置，则把图片软链接到报告目录，默认不做软链接
+    :param exclude_dirs: 排除指定目录，使其不参与报告制作，当cfg_from为结果目录时，该参数有效
+    :param image_formats: 指定可以用于制作报告的图片格式，后续将根据文件后缀是否与之匹配决定提取的图片，当cfg_from为结果目录时，该参数有效
     :return:
     """
+    report_dir = os.getcwd() if report_dir is None else report_dir
     if path.isdir(cfg_from):
-        cfg_file = make_report_cfg(cfg_from)
+        cfg_file = make_report_cfg(cfg_from, image_formats=image_formats, exclude_dirs=exclude_dirs,
+                                   out=join(report_dir, 'report.yml'))
     else:
         cfg_file = cfg_from
     cfg_dict = parse_report_cfg(cfg_file)
-    report_dir = os.getcwd() if report_dir is None else report_dir
     index_html_path = join(report_dir, 'index.html')
     html_utils_dir = os.path.dirname(os.path.dirname(__file__))
     index_template = join(html_utils_dir, 'templates', 'index.jinja2')
@@ -317,11 +331,11 @@ if __name__ == '__main__':
             if func_args.varkw is not None:
                 print("warning: **keywords args is not supported, and will be neglected! ")
             args = parser.parse_args().__dict__
-            try:
-                with open("Argument_detail.json", 'w') as f:
-                    json.dump(args, f, indent=2, sort_keys=True)
-            except IOError:
-                print('Current Directory is not writable, thus argument log is not written !')
+            # try:
+            #     with open("Argument_detail.json", 'w') as f:
+            #         json.dump(args, f, indent=2, sort_keys=True)
+            # except IOError:
+            #     print('Current Directory is not writable, thus argument log is not written !')
             start = time.time()
             func(**args)
             print("total time: {}s".format(time.time() - start))
