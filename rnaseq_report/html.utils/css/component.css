@@ -59,10 +59,11 @@ body {
 }
 
 .slide__title {
-	font-size: 0.8em;
+	font-size: 0.9em;
 	font-weight: normal;
 	margin: 0 auto;
 	padding: 1em 0 0 0;
+	text-align: left;
 }
 
 .slide__title span {
@@ -128,7 +129,7 @@ body {
 	position: relative;
 	width: 100%;
 	height: 450px;
-	background-color: #5C5EDC;
+	background-color: white;
 }
 
 .flex-center {
