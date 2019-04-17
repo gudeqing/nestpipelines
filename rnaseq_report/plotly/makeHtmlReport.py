@@ -148,15 +148,20 @@ def make_slider(images:list, image_ids:list=None, image_desc:list=None, template
     return out
 
 
-def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=30, wrap_header=15, title=None, transpose=False):
+def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=30, header:list=None, index_col:list=None,
+               wrap_header=15, title=None, transpose=False, col_width:list=None):
     results = []
+    header = 0 if header is None else [int(x) for x in header]
+    index_col = 0 if index_col is None else [int(x) for x in index_col]
     for table in table_file:
-        data = pd.read_csv(table, header=0, index_col=0, sep='\t')
+        data = pd.read_csv(table, header=header, index_col=index_col, sep='\t')
         if transpose:
             data = data.transpose()
         use_cols = use_cols if use_cols is not None else data.columns
         use_rows = use_rows if use_rows is not None else data.index
         data = data.loc[use_rows, use_cols]
+        top = data.shape[0] if use_rows is None else top
+        top = top if data.shape[0] > 100 else data.shape[0]
         df = data.iloc[:top, :]
         df.reset_index(inplace=True)
 
@@ -171,12 +176,15 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=3
 
         df = df.applymap(proc)
         header_values = ['<b>' + '<br>'.join(textwrap.wrap(x, width=wrap_header)) + '</b>' for x in list(df.columns)]
-        col_width = [max(len(str(x)) for x in df[y]) for y in df.columns]
-        col_width = [12 if x < 12 else x for x in col_width]
-        col_width = [12*5 if x > 12*5 else x for x in col_width]
-        col_width = [x/sum(col_width) for x in col_width]
-        col_width = [0.5 if x > 0.5 else x for x in col_width ]
-        col_width = [0.09 if x < 0.09 else x for x in col_width]
+        if not col_width:
+            col_width = [max(len(str(x)) for x in df[y]) for y in df.columns]
+            head_len = [len(x)+1 for x in df.columns]
+            col_width = [max(x) for x in zip(col_width, head_len)]
+            # col_width = [12 if x < 12 else x for x in col_width]
+            # col_width = [12*5 if x > 12*5 else x for x in col_width]
+            col_width = [x/sum(col_width) for x in col_width]
+            col_width = [0.5 if x > 0.5 else x for x in col_width ]
+            col_width = [0.09 if x < 0.09 else x for x in col_width]
         trace = go.Table(
             columnwidth=col_width,
             header=dict(
