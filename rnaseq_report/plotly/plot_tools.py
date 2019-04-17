@@ -991,6 +991,7 @@ def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', fo
             layout = dict(
                 autosize=True,
                 margin=dict(l=350),
+                title='Top {} enriched {} GO term'.format(top, each),
                 xaxis=dict(title='Enrichment Ratio (ratio_in_study/ratio_in_pop)'),
                 yaxis=dict(dtick=1, tickfont={'size': 8}),
             )
@@ -1056,6 +1057,7 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
         )
         layout = dict(
             autosize=True,
+            title='Top {} enriched KEGG pathway'.format(top),
             margin=dict(l=350),
             xaxis=dict(title='Enrichment Ratio (ratio_in_study/ratio_in_pop)'),
             yaxis=dict(dtick=1, tickfont={'size': 9}),
