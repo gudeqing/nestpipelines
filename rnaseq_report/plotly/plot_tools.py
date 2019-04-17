@@ -792,7 +792,7 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
         reason = pass_state.index[pass_lower[sample] == False]
         reason2 = pass_state.index[pass_upper[sample] == False]
         all_reason = reason.append(reason2)
-        print(sample, 'failed for following reason:', file=out_log)
+        print(sample, 'failed for following reasons:', file=out_log)
         for metric in all_reason:
             metric_value = out_table.loc[metric, sample]
             limit = ref.loc[metric, ['lower_limit', 'upper_limit']]
@@ -842,7 +842,7 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
 
     # save result
     out_table.loc['Pass'] = 'Yes'
-    out_table.loc['Pass', pass_state.sum() < 59] = 'No'
+    out_table.loc['Pass', pass_state.sum() < ref.shape[0]-failed_cutoff+1] = 'No'
     out_table['describe'] = list(ref['Description']) + ['Pass QC filter']
     out_table.set_index('describe', inplace=True, append=True)
     out_name = os.path.join(outdir, 'qc_summary.xls')
