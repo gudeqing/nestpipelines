@@ -213,6 +213,7 @@ def table_head_div():
 
 def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=500, title='',
                            search_cols:list=None, header:list=None, index_col:list=None, transpose=False):
+    pd.set_option('display.max_colwidth', 200)
     results = []
     header = 0 if header is None else [int(x) for x in header]
     index_col = 0 if index_col is None else [int(x) for x in index_col]
