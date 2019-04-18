@@ -1,6 +1,8 @@
 import os
 import os.path as path
 from os.path import join
+import re
+import uuid
 import yaml
 import shutil
 from jinja2 import Template
@@ -208,6 +210,125 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=3
         plt(fig, filename=out_name, auto_open=False)
         results.append(out_name)
     return results
+
+
+def table_head_div():
+    return """
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+    <title>table</title>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+        #myInput {
+        background-image: url('https://static.runoob.com/images/mix/searchicon.png');
+        background-position: 10px 12px; /* 定位搜索按钮 */
+        background-repeat: no-repeat; /* 不重复图片 */
+        padding: 12px 12px 12px 40px;
+        border: 1px solid #ddd;
+        margin-bottom: 1px;
+        }
+
+        #myTable {
+            border-collapse: collapse;
+            width: 100%;
+            border: 1px solid #ddd;
+            font-size: 10px;
+        }
+
+        #myTable th, #myTable td {
+            text-align: left;
+            padding: 12px;
+        }
+
+        #myTable tr {
+            /* 表格添加边框 */
+            border-bottom: 1px solid #ddd;
+        }
+
+        #myTable tr.header, #myTable tr:hover {
+            /* 表头及鼠标移动过 tr 时添加背景 */
+            background-color: #f1f1f1;
+        }
+    </style>
+    <script type="text/javascript">
+        function onSearch(obj){//js函数开始
+          setTimeout(function(){//因为是即时查询，需要用setTimeout进行延迟，让值写入到input内，再读取
+            var storeId = document.getElementById('myTable');//获取table的id标识
+            var rowsLength = storeId.rows.length;//表格总共有多少行
+            var key = obj.value;//获取输入框的值
+            var searchCol = obj.name;//要搜索的哪一列
+            for(var i=1;i<rowsLength;i++){//按表的行数进行循环，本例第一行是标题，所以i=1，从第二行开始筛选（从0数起）
+              var searchText = storeId.rows[i].cells[searchCol].innerHTML;//取得table行，列的值
+              if(searchText.match(key)){//用match函数进行筛选，如果input的值，即变量 key的值为空，返回的是ture，
+                storeId.rows[i].style.display='';//显示行操作，
+              }else{
+                storeId.rows[i].style.display='none';//隐藏行操作
+              }
+            }
+          },200);//200为延时时间
+        }
+    </script>
+</head>
+    """
+
+
+def table2_searchable_html(table_file: list, use_cols: list=None, use_rows: list=None, top=500,
+                           search_cols:list=None, header:list=None, index_col:list=None, transpose=False):
+    results = []
+    header = 0 if header is None else [int(x) for x in header]
+    index_col = 0 if index_col is None else [int(x) for x in index_col]
+    for table in table_file:
+        data = pd.read_csv(table, header=header, index_col=index_col, sep='\t')
+        if transpose:
+            data = data.transpose()
+        use_cols = use_cols if use_cols is not None else data.columns
+        use_rows = use_rows if use_rows is not None else data.index
+        data = data.loc[use_rows, use_cols]
+        top = data.shape[0] if use_rows is None else top
+        df = data.iloc[:top, :]
+        link_dict = dict()
+        ind = 0
+
+        def proc(x):
+            nonlocal ind
+            ind += 1
+            if type(x) == float:
+                if x < 0.001:
+                    return format(x, '.2e')
+                else:
+                    return round(x, 3)
+            else:
+                if re.match(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', x):
+                    link_key = 'href_link_{}'.format(ind)
+                    link_dict[link_key] = x
+                    return link_key
+                else:
+                    return x
+
+        df = df.applymap(proc)
+        table_div = df.to_html(buf=None, header=True, index=True, na_rep='NaN',
+                               formatters=None, float_format=None, sparsify=None, index_names=False, justify=None,
+                               bold_rows=True, classes=None, escape=True, max_rows=None, max_cols=None,
+                               show_dimensions=True, notebook=False, decimal='.', border=None)
+
+        table_div = table_div.replace('table', 'table id="myTable"', 1)
+        for k, v in link_dict.items():
+            table_div = table_div.replace(k, '<a href="{}" target=_blank>link</a>'.format(v), 1)
+        final_html = table_head_div() + '\n<body>'
+        search_cols = [0] if search_cols is None else search_cols
+        for each in search_cols:
+            final_html += '\n<input name="{}" type="text" id="myInput" onkeydown="onSearch(this)" ' \
+                          'value="" placeholder="搜素第{}列"/>'.format(each, int(each)+1)
+        if top < data.shape[0]:
+            final_html += 'Only show the first {} rows'.format(top)
+        final_html += '\n'+ table_div + '\n</body>'
+        out_name = table.rsplit('.', 1)[0] + '.html'
+        with open(out_name, 'w', encoding='utf-8') as f:
+            f.write(final_html)
+        results.append(out_name)
 
 
 def make_report(cfg_from, report_dir=None, link_images=False, exclude_dirs:list=None,
