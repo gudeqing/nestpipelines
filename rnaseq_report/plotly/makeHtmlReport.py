@@ -238,10 +238,13 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=5
                 else:
                     return round(x, 3)
             else:
-                if re.match(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', x):
-                    link_key = 'href_link_{}'.format(ind)
-                    link_dict[link_key] = x
-                    return link_key
+                if type(x) == str or type(x) == bytes:
+                    if re.match(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', x):
+                        link_key = 'href_link_{}'.format(ind)
+                        link_dict[link_key] = x
+                        return link_key
+                    else:
+                        return x
                 else:
                     return x
 
