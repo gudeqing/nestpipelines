@@ -2,7 +2,6 @@ import os
 import os.path as path
 from os.path import join
 import re
-import uuid
 import yaml
 import shutil
 from jinja2 import Template
@@ -150,68 +149,6 @@ def make_slider(images:list, image_ids:list=None, image_desc:list=None, template
     return out
 
 
-def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=30, header:list=None, index_col:list=None,
-               wrap_header=15, title=None, transpose=False, col_width:list=None):
-    results = []
-    header = 0 if header is None else [int(x) for x in header]
-    index_col = 0 if index_col is None else [int(x) for x in index_col]
-    for table in table_file:
-        data = pd.read_csv(table, header=header, index_col=index_col, sep='\t')
-        if transpose:
-            data = data.transpose()
-        use_cols = use_cols if use_cols is not None else data.columns
-        use_rows = use_rows if use_rows is not None else data.index
-        data = data.loc[use_rows, use_cols]
-        top = data.shape[0] if use_rows is None else top
-        top = top if data.shape[0] > 100 else data.shape[0]
-        df = data.iloc[:top, :]
-        df.reset_index(inplace=True)
-
-        def proc(x):
-            if type(x) == float:
-                if x < 0.001:
-                    return format(x, '.2e')
-                else:
-                    return round(x, 3)
-            else:
-                return x
-
-        df = df.applymap(proc)
-        header_values = ['<b>' + '<br>'.join(textwrap.wrap(x, width=wrap_header)) + '</b>' for x in list(df.columns)]
-        if not col_width:
-            col_width = [max(len(str(x)) for x in df[y]) for y in df.columns]
-            head_len = [len(x)+1 for x in df.columns]
-            col_width = [max(x) for x in zip(col_width, head_len)]
-            # col_width = [12 if x < 12 else x for x in col_width]
-            # col_width = [12*5 if x > 12*5 else x for x in col_width]
-            col_width = [x/sum(col_width) for x in col_width]
-            col_width = [0.5 if x > 0.5 else x for x in col_width ]
-            col_width = [0.09 if x < 0.09 else x for x in col_width]
-        trace = go.Table(
-            columnwidth=col_width,
-            header=dict(
-                values=header_values,
-                fill=dict(color='#C2D4FF'),
-                align=['left'] * df.shape[1]),
-            cells=dict(
-                values=[df[x] for x in df.columns],
-                fill=dict(color='#F5F8FF'),
-                align=['left'] * df.shape[1]
-            )
-        )
-        layout = dict(
-            title='{}'.format(path.basename(table).split('.')[0]) if title is None else title,
-            autosize=True,
-            margin=dict(t=25, l=12, r=12, b=12),
-            showlegend=False,
-        )
-        fig = go.Figure(data=[trace], layout=layout)
-        out_name = table.rsplit('.', 1)[0] + '.html'
-        plt(fig, filename=out_name, auto_open=False)
-        results.append(out_name)
-    return results
-
-
 def table_head_div():
     return """
 <!DOCTYPE html>
@@ -275,7 +212,7 @@ def table_head_div():
     """
 
 
-def table2_searchable_html(table_file: list, use_cols: list=None, use_rows: list=None, top=500,
+def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=500, title='',
                            search_cols:list=None, header:list=None, index_col:list=None, transpose=False):
     results = []
     header = 0 if header is None else [int(x) for x in header]
@@ -323,12 +260,15 @@ def table2_searchable_html(table_file: list, use_cols: list=None, use_rows: list
             final_html += '\n<input name="{}" type="text" id="myInput" onkeydown="onSearch(this)" ' \
                           'value="" placeholder="搜素第{}列"/>'.format(each, int(each)+1)
         if top < data.shape[0]:
-            final_html += 'Only show the first {} rows'.format(top)
+            final_html += '&nbsp;Only show the first {} rows'.format(top)
+        if title:
+            final_html += '&nbsp;<a href="{}" target=_blank>{}</a>'.format(title, path.basename(title))
         final_html += '\n'+ table_div + '\n</body>'
         out_name = table.rsplit('.', 1)[0] + '.html'
         with open(out_name, 'w', encoding='utf-8') as f:
             f.write(final_html)
         results.append(out_name)
+    return results
 
 
 def make_report(cfg_from, report_dir=None, link_images=False, exclude_dirs:list=None,
