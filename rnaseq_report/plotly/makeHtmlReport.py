@@ -62,9 +62,9 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                 img_info['path'] = join(slid_dir, slide, img)
                 img_info['frmt'] = img.rsplit('.', 1)[1]
                 if img_info['frmt'] in ['xls']:
-                    img_info['name'] += "<object>(<a href='{}'>Download Source Table</a>)</object>".format(
-                        path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
-                    )
+                    # img_info['name'] += "<object>(<a href='{}'>Download Source Table</a>)</object>".format(
+                    #     path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
+                    # )
                     use_cols = None
                     if path.exists(img_info['path']+'.describe.txt'):
                         with open(img_info['path']+'.describe.txt') as f:
