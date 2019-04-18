@@ -157,6 +157,7 @@ def table_head_div():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style type="text/css">
         body{background:white}
+        a{text-decoration:none;}
         #myInput {
         background-image: url('https://static.runoob.com/images/mix/searchicon.png');
         background-position: 10px 12px; /* 定位搜索按钮 */
