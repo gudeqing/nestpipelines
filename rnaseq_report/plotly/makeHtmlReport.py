@@ -7,9 +7,6 @@ import shutil
 from jinja2 import Template
 from collections import OrderedDict as dict
 import pandas as pd
-import plotly.graph_objs as go
-from plotly.offline import plot as plt
-import textwrap
 
 
 def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls', 'svg'),
@@ -79,7 +76,7 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                     table_img = table2html(
                         [img_info['path']],
                         use_cols=use_cols,
-                        title=path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
+                        title=path.basename(img_info['path'])
                     )
                     img_info['path'] = table_img[0]
                     img_info['frmt'] = 'html'
@@ -432,6 +429,6 @@ if __name__ == '__main__':
             elif len(callable_dict) == 1:
                 self.introduce_command(callable_dict.pop(list(callable_dict.keys())[0]))
 
-    callable_dict = {x: y for x, y in locals().items() if callable(y)}
+    callable_dict = {x: y for x, y in locals().items() if callable(y) and len(x)>8}
     _ = [callable_dict.pop(x) for x in {'Func2Command'} if x in callable_dict]
     Func2Command(callable_dict)
