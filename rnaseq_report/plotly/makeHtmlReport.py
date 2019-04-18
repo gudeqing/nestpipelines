@@ -79,7 +79,7 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                     table_img = table2html(
                         [img_info['path']],
                         use_cols=use_cols,
-                        title=path.relpath(path.abspath(img_info['path']), start=path.abspath(result_dir))
+                        title=path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
                     )
                     img_info['path'] = table_img[0]
                     img_info['frmt'] = 'html'
@@ -159,6 +159,7 @@ def table_head_div():
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style type="text/css">
+        body{background:white}
         #myInput {
         background-image: url('https://static.runoob.com/images/mix/searchicon.png');
         background-position: 10px 12px; /* 定位搜索按钮 */
