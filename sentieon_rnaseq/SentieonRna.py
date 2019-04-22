@@ -12,8 +12,11 @@ from sentieon_rnaseq.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
 parser = basic_arg_parser()
-parser.add_argument('-b', nargs='+', help="bam文件路径, 空格分隔", required=False)
+parser.add_argument('-b', nargs='+', help="bam文件路径, 空格分隔; 也可以是一个存储bam路径的文件", required=False)
 args = parser.parse_args()
+if args.b:
+    if len(args.b) == 1 and os.path.exists(args.b[0]):
+        args.b = [x.strip() for x in open(args.b[0])]
 args.script_path = os.path.abspath(__file__)
 
 nc = NestedCmd(args)

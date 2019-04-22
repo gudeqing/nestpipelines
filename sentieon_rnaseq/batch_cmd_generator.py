@@ -46,7 +46,7 @@ class NestedCmd(Basic):
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
                 cpu=3,
-                mem=1024**3*10,
+                mem=1024**3*1,
                 score_txt=args['score_txt'],
                 bam=args['bam'],
                 sample=sample,
@@ -70,7 +70,7 @@ class NestedCmd(Basic):
             cmd = cmdx.dedup(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                mem=1024 ** 3 * 10,
+                mem=1024 ** 3 * 1,
                 cpu=5,
                 depend=step,
                 sample=sample,
@@ -93,7 +93,7 @@ class NestedCmd(Basic):
             cmd = cmdx.split(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                mem=1024 ** 3 * 10,
+                mem=1024 ** 3 * 2,
                 cpu=5,
                 depend=step,
                 sample=sample,
@@ -116,7 +116,7 @@ class NestedCmd(Basic):
             cmd = cmdx.realign(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                mem=1024 ** 3 * 10,
+                mem=1024 ** 3 * 2,
                 cpu=5,
                 depend=step,
                 sample=sample,
@@ -139,7 +139,7 @@ class NestedCmd(Basic):
             cmd = cmdx.recalibrate(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                mem=1024 ** 3 * 10,
+                mem=1024 ** 3 * 2,
                 cpu=5,
                 depend=step,
                 sample=sample,
@@ -164,7 +164,7 @@ class NestedCmd(Basic):
             cmd = cmdx.calling(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                mem=1024 ** 3 * 12,
+                mem=1024 ** 3 * 2,
                 cpu=6,
                 depend=step,
                 sample=sample,
