@@ -278,11 +278,13 @@ class Basic(object):
 
 def basic_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-arg_cfg', required=False, help="config file containing all parameters info")
+    parser.add_argument('-arg_cfg', required=False, help="参数配置文件, 包含流程所有软件的需要的参数, "
+                                                         "默认使用该脚本当前目录的argument.ini")
     parser.add_argument('-o', default=os.path.join(os.getcwd(), 'Result'), help='分析目录或结果目录')
     parser.add_argument('-skip', default=list(), nargs='+',
                         help='指定要跳过的步骤名, 空格分隔,程序会自动跳过依赖他们的步骤, --only_show_steps可查看步骤名; '
-                             '注意: 如果跳过trim步骤, 则用原始数据; 如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
+                             '注意: 对于rnaseq_pipeline, 如果跳过trim步骤, 则用原始数据进行后续分析; '
+                             '如果跳过assembl或mergeTranscript, 则仅对参考基因定量')
     parser.add_argument('--only_show_steps', default=False, action="store_true",
                         help="仅仅显示当前流程包含的主步骤, 且已经排除指定跳过的步骤; "
                              "你还可以通过--list_cmd_names查看当前流程包含哪些命令行")
@@ -290,7 +292,7 @@ def basic_arg_parser():
                         help="仅仅显示当前流程包含的详细步骤, 且已经排除指定跳过的步骤")
     parser.add_argument('--only_write_pipeline', default=False, action='store_true',
                         help="仅仅生成流程pipeline.ini")
-    parser.add_argument('-threads', default=5, type=int, help="允许并行的步骤数")
+    parser.add_argument('-threads', default=5, type=int, help="允许的最大并行的cmd数目, 默认5")
     parser.add_argument('-retry', default=1, type=int,
                         help='某步骤运行失败后再尝试运行的次数, 默认1次. 如需对某一步设置不同的值, 可在运行流程前修改pipeline.ini')
     parser.add_argument('--continue_run', default=False, action='store_true',
@@ -299,7 +301,8 @@ def basic_arg_parser():
     parser.add_argument('-rerun_steps', default=list(), nargs='+',
                         help="使用--continue_run有效, 通过该参数指定重跑已经成功的步骤, 空格分隔, 这样做的可能原因可以是: 你重新设置了参数")
     parser.add_argument('-pipeline_cfg', default=None,
-                        help="已有的pipeline.ini, 续跑时必须需提供; 如提供该参数, 则此时无视 arg_cfg,fastq_info,group,cmp,skip 等参数")
+                        help="已有的pipeline.ini, 续跑时必须需提供; "
+                             "如提供该参数, 则此时无视 arg_cfg,fastq_info,group,cmp,skip 等用于生成项目流程的参数")
     parser.add_argument('--list_cmd_names', default=False, action='store_true', help="仅输出参数配置文件里的包含的cmd名称")
     parser.add_argument('-show_cmd_example', help="提供一个cmd名称,输出该cmd的样例")
     parser.add_argument('--no_monitor_resource', default=False, action='store_true',
@@ -315,5 +318,5 @@ def basic_arg_parser():
     parser.add_argument('-hostname', default='10.60.2.133', help='其他服务器地址,默认 10.60.2.133')
     parser.add_argument('-port', default=22, type=int, help='服务器端口号, 默认 22')
     parser.add_argument('-username', default=None, help='登录其他服务器的用户名')
-    parser.add_argument('-password', default=None, help='登录密码')
+    parser.add_argument('-password', default=None, help='登录密码, 使用前请确定两个服务器具备共享文件的能力')
     return parser
