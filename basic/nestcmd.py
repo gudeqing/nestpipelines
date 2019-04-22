@@ -319,23 +319,25 @@ class StateGraph(object):
     def __init__(self, state):
         self.state = state
         self.graph = pgv.AGraph(directed=True, rankdir='LR')
+        self.used_colors = dict()
+        self.color_dict = dict(
+            success='#7FFF00',
+            failed='#FFD700',
+            running='#9F79EE',
+            queueing='#87CEFF',
+            killed='red',
+            outdoor='#A8A8A8',
+        )
 
     def _add_nodes(self):
         for node, cmd_info in self.state.items():
             status = cmd_info['state']
             node_detail = node.split('_', 1)
-            if status == 'success':
-                color = '#7FFF00'
-            elif status == 'failed':
-                color = '#FFD700'
-            elif status == 'running':
-                color = '#9F79EE'
-            elif status == 'queueing':
-                color = '#87CEFF'
-            elif status == 'killed':
-                color = 'red'
+            if status in self.color_dict:
+                color = self.color_dict[status]
             else:
                 color = '#A8A8A8'
+            self.used_colors[status] = color
             used_time = cmd_info['used_time']
             if isinstance(used_time, str):
                 if used_time == 'unknown':
@@ -377,9 +379,28 @@ class StateGraph(object):
             else:
                 self.graph.add_edge('Input', target, color='green')
 
+    def _add_legend(self):
+        subgraph = self.graph.add_subgraph(name='cluster_sub', label='Color Legend')
+        subgraph.graph_attr['color'] = 'lightgrey'
+        subgraph.graph_attr['style'] = 'filled'
+        subgraph.graph_attr['ratio'] = 'compress'
+        for node, color in self.used_colors.items():
+            subgraph.add_node(
+                node,
+                shape="note",
+                style="filled",
+                fillcolor=color,
+                color="mediumseagreen",
+            )
+        nodes = list(self.used_colors.keys())
+        for ind in range(len(nodes)):
+            if ind <= len(nodes) - 2:
+                subgraph.add_edge(nodes[ind], nodes[ind+1], style='invis')
+
     def draw(self, img_file='state.svg'):
         self._add_nodes()
         self._add_edges()
+        self._add_legend()
         img_fmt = os.path.splitext(img_file)[1][1:]
         self.graph.draw(path=img_file, format=img_fmt, prog='dot')
 
