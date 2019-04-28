@@ -1038,7 +1038,7 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
             if gene_regulate.count('up') or gene_regulate.count('down'):
                 text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'), gene_regulate.count('down'))
             else:
-                text += "{} genes included <br>".format(len(genes))
+                text += "gene number: {} <br>".format(len(genes))
             text += 'genes: {}'.format('<br>'.join(textwrap.wrap(';'.join(genes))))
             text_list.append(text)
         y_data = ['<br>'.join(textwrap.wrap(x, width=80)) for x in df.index]
