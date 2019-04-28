@@ -1007,14 +1007,19 @@ def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', fo
             draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, gene_annot=None,
-                              color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
+def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, use_pval=False,
+                              gene_annot=None, color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
+    p_type = 'P-Value' if use_pval else 'Corrected P-Value'
     for table in files:
         prefix = os.path.basename(table)[:-4]
-        df = pd.read_table(table, index_col=0, header=0, nrows=top)
-        df = df.loc[df['Corrected P-Value']<=fdr_cutoff, :]
-        print('{} out of top {} are significant'.format(df.shape[0], top))
+        df0 = pd.read_table(table, index_col=0, header=0, nrows=top)
+        df = df0.loc[df0[p_type]<=fdr_cutoff, :]
+        if df.shape[0] >= 1:
+            print('{} out of top {} are significant'.format(df.shape[0], top))
+        else:
+            print("No significant term found in {}, still we plot the top {} for you".format(table, top))
+            df = df0
         gene_number = [int(x.split('/')[0]) for x in df['Ratio_in_study']]
         pval_color = -np.log10(df['Corrected P-Value'])
         pval_color_desc = pval_color.describe()
@@ -1032,6 +1037,8 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
             gene_regulate = [x.split('|')[2].lower() for x in g.split(';')]
             if gene_regulate.count('up') or gene_regulate.count('down'):
                 text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'), gene_regulate.count('down'))
+            else:
+                text += "{} genes included <br>".format(len(genes))
             text += 'genes: {}'.format('<br>'.join(textwrap.wrap(';'.join(genes))))
             text_list.append(text)
         y_data = ['<br>'.join(textwrap.wrap(x, width=80)) for x in df.index]
