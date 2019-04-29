@@ -942,29 +942,33 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
-def go_enriched_term_bubble(files: list, top=20, correct='fdr_bh', outdir='', formats=('html', ), gene_annot=None,
+def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), gene_annot=None, use_pval=False,
                             color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
+    p_type = 'p_uncorrected' if use_pval else 'p_corrected'
     for table in files:
         df_big = pd.read_table(table, index_col=0, header=0)
         for each in ['BP', 'CC', 'MF']:
             prefix = os.path.basename(table)[:-4]
-            df = df_big[df_big['NS']==each].head(top)
+            df = df_big[df_big['NS']==each].sort_values(by=[p_type]).head(top)
             gene_number = [int(x.split('/')[0]) for x in df['ratio_in_study']]
-            pval_color = -np.log10(df['p_'+correct])
+            pval_color = -np.log10(df[p_type])
             pval_color_desc = pval_color.describe()
-            pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
+            pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*limit
             score = [round(eval(x)/eval(y), 2) for x, y in zip(df['ratio_in_study'], df['ratio_in_pop'])]
             text_list = []
-            for x, y, h, g, n, p in zip(gene_number, df.index, df['NS'], df['study_items'], df['name'], df['p_'+correct]):
+            for x, y, h, g, n, p in zip(gene_number, df.index, df['NS'], df['study_items'], df['name'], df[p_type]):
                 text = '{}: {} <br>'.format(y, n)
                 text += 'type: {} <br>'.format(h)
-                text += 'pvalue: {} <br>'.format(p)
+                text += '{}: {} <br>'.format(p_type, format(p, '.3e') if p < 0.001 else round(p, 4))
                 genes = [x.split('|')[0] for x in g.split(';')][:100]
                 genes = [gene_annot[x] if x in gene_annot else x for x in genes]
                 gene_regulate = [x.split('|')[1] for x in g.split(';')]
-                text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'),
-                                                                         gene_regulate.count('down'))
+                if gene_regulate.count('up') or gene_regulate.count('down'):
+                    text += 'gene regulate: {} up while {} down <br>'.format(gene_regulate.count('up'),
+                                                                             gene_regulate.count('down'))
+                else:
+                    text += 'gene_number: {} <br>'.format(len(genes))
                 text += 'genes: {}'.format('<br>'.join(textwrap.wrap(';'.join(genes))))
                 text_list.append(text)
             x_data = score
@@ -1025,13 +1029,13 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
         gene_number = [int(x.split('/')[0]) for x in df['Ratio_in_study']]
         pval_color = -np.log10(df[p_type])
         pval_color_desc = pval_color.describe()
-        pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
+        pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*limit
         score = [round(eval(x)/eval(y), 2) for x, y in zip(df['Ratio_in_study'], df['Ratio_in_pop'])]
         text_list = []
         for x, y, h, k, g, p in zip(gene_number, df.ID, df['typeI'], df['typeII'], df['Genes'], df[p_type]):
             text = ''
             text += 'path: {} <br>'.format(y)
-            text += '{}: {} <br>'.format(p_type, p)
+            text += '{}: {} <br>'.format(p_type, format(p, '.3e') if p < 0.001 else round(p,4))
             text += 'typeI: {} <br>'.format(h)
             text += 'typeII: {} <br>'.format(k)
             genes = [x.split('|')[0] for x in g.split(';')][:100]
