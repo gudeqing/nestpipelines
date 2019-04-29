@@ -1013,7 +1013,9 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
     p_type = 'P-Value' if use_pval else 'Corrected P-Value'
     for table in files:
         prefix = os.path.basename(table)[:-4]
-        df0 = pd.read_table(table, index_col=0, header=0, nrows=top)
+        # df0 = pd.read_table(table, index_col=0, header=0, nrows=top)
+        df = pd.read_table(table, index_col=0, header=0)
+        df0 = df.sort_values(by=[p_type]).iloc[:top, :]
         df = df0.loc[df0[p_type]<=fdr_cutoff, :]
         if df.shape[0] >= 1:
             print('{} out of top {} are significant'.format(df.shape[0], top))
@@ -1021,15 +1023,15 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
             print("No significant term found in {}, still we plot the top {} for you".format(table, top))
             df = df0
         gene_number = [int(x.split('/')[0]) for x in df['Ratio_in_study']]
-        pval_color = -np.log10(df['Corrected P-Value'])
+        pval_color = -np.log10(df[p_type])
         pval_color_desc = pval_color.describe()
         pval_color[pval_color > pval_color_desc['75%']*limit] = pval_color_desc['75%']*5
         score = [round(eval(x)/eval(y), 2) for x, y in zip(df['Ratio_in_study'], df['Ratio_in_pop'])]
         text_list = []
-        for x, y, h, k, g, p in zip(gene_number, df.ID, df['typeI'], df['typeII'], df['Genes'], df['Corrected P-Value']):
+        for x, y, h, k, g, p in zip(gene_number, df.ID, df['typeI'], df['typeII'], df['Genes'], df[p_type]):
             text = ''
             text += 'path: {} <br>'.format(y)
-            text += 'pvalue: {} <br>'.format(p)
+            text += '{}: {} <br>'.format(p_type, p)
             text += 'typeI: {} <br>'.format(h)
             text += 'typeII: {} <br>'.format(k)
             genes = [x.split('|')[0] for x in g.split(';')][:100]
