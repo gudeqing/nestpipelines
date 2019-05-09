@@ -86,6 +86,18 @@ def star_align(**kwargs):
     cmd += '--outFilterMatchNminOverLread {} '.format(kwargs['outFilterMatchNminOverLread'])
     cmd += '--limitOutSAMoneReadBytes {} '.format(kwargs['limitOutSAMoneReadBytes'])
     cmd += '--outSAMattrIHstart {} '.format(kwargs['outSAMattrIHstart'])
+    cmd += '--alignMatesGapMax {} '.format(kwargs['alignMatesGapMax'])
+    cmd += '--alignIntronMax {} '.format(kwargs['alignIntronMax'])
+    cmd += '--alignSJstitchMismatchNmax {} '.format(kwargs['alignSJstitchMismatchNmax'])
+    cmd += '--chimSegmentMin {} '.format(kwargs['chimSegmentMin'])
+    cmd += '--chimJunctionOverhangMin {} '.format(kwargs['chimJunctionOverhangMin'])
+    cmd += '--chimMultimapScoreRange {} '.format(kwargs['chimMultimapScoreRange'])
+    cmd += '--chimSegmentReadGapMax {} '.format(kwargs['chimSegmentReadGapMax'])
+    cmd += '--chimMultimapNmax {} '.format(kwargs['chimMultimapNmax'])
+    cmd += '--chimNonchimScoreDropMin {} '.format(kwargs['chimNonchimScoreDropMin'])
+    cmd += '--chimOutJunctionFormat {} '.format(kwargs['chimOutJunctionFormat'])
+    cmd += '--peOverlapNbasesMin {} '.format(kwargs['peOverlapNbasesMin'])
+    cmd += '--peOverlapMMp {} '.format(kwargs['peOverlapMMp'])
     return cmd
 
 
@@ -223,7 +235,11 @@ def kegg_enrich(**kwargs):
 def star_fusion(**kwargs):
     cmd = '{} '.format(kwargs['star_fusion'])
     cmd += '--genome_lib_dir {} '.format(kwargs['genome_lib_dir'])
-    cmd += '-J {} '.format(kwargs['Chimeric_out_junction'])
+    cmd += '--chimeric_junction {} '.format(kwargs['Chimeric_out_junction'])
+    cmd += '--CPU {} '.format(kwargs['CPU'])
+    cmd += '--FusionInspector {} '.format(kwargs['FusionInspector'])
+    if kwargs['examine_coding_effect'].strip().lower() == 'yes':
+        cmd += '--examine_coding_effect '
     cmd += '--output_dir {} '.format(kwargs['outdir'])
     return cmd
 

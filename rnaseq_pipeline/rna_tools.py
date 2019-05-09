@@ -156,6 +156,7 @@ class NestedCmd(Basic):
                 cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
                 monitor_time_step=5, depend=','.join(depend_steps),
                 sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
+                Chimeric_out_junction='{}Chimeric.out.junction'.format(prefix),
                 sample_name=sample,
                 result_dir=result_dir
             )
@@ -186,6 +187,7 @@ class NestedCmd(Basic):
                 cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
                 monitor_time_step=5, depend=','.join(depend_steps),
                 sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
+                Chimeric_out_junction='{}Chimeric.out.junction'.format(prefix),
                 sample_name=sample,
                 result_dir=result_dir
             )
@@ -204,6 +206,27 @@ class NestedCmd(Basic):
                 depend=step,
                 sample_name=sample,
                 sorted_bam=args['bam']
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def star_fusion_cmds(self, align_cmds, step_name='Fusion'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        for step, cmd_info in align_cmds.items():
+            sample = cmd_info['sample_name']
+            result_dir = os.path.join(outdir, sample)
+            self.mkdir(result_dir)
+            args = dict(self.arg_pool['star_fusion'])
+            args['outdir'] = result_dir
+            args['Chimeric_out_junction'] = cmd_info['Chimeric_out_junction']
+            cmd = cmdx.star_fusion(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd, mem=1024 ** 3 * 2, cpu=5, monitor_time_step=5,
+                depend=step,
+                sample_name=sample,
+                outdir=args['outdir']
             )
         self.workflow.update(commands)
         return commands

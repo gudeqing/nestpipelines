@@ -2,6 +2,8 @@
 # coding=utf-8
 import os
 import sys
+import time
+
 
 script_path = os.path.abspath(__file__)
 if os.path.islink(script_path):
@@ -32,6 +34,12 @@ nc = NestedCmd(args)
 if (args.pipeline_cfg is None) and (not args.fastq_info):
     raise Exception('-fastq_info or -pipeline_cfg is needed! Use -h for help')
 
+with open("cmd." + str(time.time()) + ".txt", 'w') as f:
+    f.write(' '.join(sys.argv) + '\n')
+    f.write('Detail: \n')
+    for k, v in args.__dict__.items():
+        f.write('{}: {}\n'.format(k, v))
+
 
 def pipeline():
     """
@@ -52,6 +60,7 @@ def pipeline():
         align_cmds = nc.star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align')
     
     bam_indexing_cmds = nc.bam_index_cmds(align_cmds, step_name='IndexBam')
+    fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='Fusion')
 
     # run some RseQC cmds
     gbc_cmds = nc.gene_body_coverage_cmds(bam_indexing_cmds, step_name='GeneBodyCoverage')
