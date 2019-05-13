@@ -27,7 +27,7 @@ class ClusterHeatMap(object):
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width=800, height=600, group_color=None, sort_cluster_by='distance',
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
-                 color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
+                 color_scale='RdYlGn', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
         cluster / correlation cluster for gene expression;
@@ -74,6 +74,7 @@ class ClusterHeatMap(object):
             ['Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
             'Greens', 'Greys', 'Hot', 'Jet', 'Picnic', 'Portland',
             'Rainbow', 'RdBu', 'Reds', 'Viridis', 'YlGnBu', 'YlOrRd']
+            or one of colorlover scales ['RdYlBu', 'Spectral', 'RdYlGn', 'PiYG', 'PuOr', 'PRGn', 'RdGy']
         :param preprocess_data_func: function provided for data filtering and transformation. Default None
         :param transpose_data: transpose raw data before future analysis
         :param left_dendrogram_width: left/sample dendrogram width, default 0.15, range(0, 1)
@@ -118,7 +119,11 @@ class ClusterHeatMap(object):
         self.label_sample = not hide_sample_label
         self.height = height
         self.width = width
-        self.colorscale = color_scale
+        cs_pool = colorlover.scales['11']['div']
+        ratio = [x / 100 for x in range(1, 100, int(100 / 11))]
+        ratio[0] = 0
+        ratio[-1] = 1
+        self.colorscale = list(zip(ratio, cs_pool[color_scale])) if color_scale in cs_pool else color_scale
         self.logbase = log_base
         self.log_additive = log_additive
         self.lower_exp_cutoff = lower_exp_cutoff
