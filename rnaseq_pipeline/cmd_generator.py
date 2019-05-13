@@ -89,7 +89,6 @@ def star_align(**kwargs):
     cmd += '--alignMatesGapMax {} '.format(kwargs['alignMatesGapMax'])
     cmd += '--alignIntronMax {} '.format(kwargs['alignIntronMax'])
     cmd += '--alignSJstitchMismatchNmax {} '.format(kwargs['alignSJstitchMismatchNmax'])
-    cmd += '--chimSegmentMin {} '.format(kwargs['chimSegmentMin'])
     cmd += '--chimJunctionOverhangMin {} '.format(kwargs['chimJunctionOverhangMin'])
     cmd += '--chimMultimapScoreRange {} '.format(kwargs['chimMultimapScoreRange'])
     cmd += '--chimSegmentReadGapMax {} '.format(kwargs['chimSegmentReadGapMax'])
@@ -238,8 +237,12 @@ def star_fusion(**kwargs):
     cmd += '--chimeric_junction {} '.format(kwargs['Chimeric_out_junction'])
     cmd += '--CPU {} '.format(kwargs['CPU'])
     cmd += '--FusionInspector {} '.format(kwargs['FusionInspector'])
+    cmd += '--left_fq {} '.format(kwargs['left_fq'])
+    cmd += '--right_fq {} '.format(kwargs['right_fq'])
     if kwargs['examine_coding_effect'].strip().lower() == 'yes':
         cmd += '--examine_coding_effect '
+    if kwargs['extract_fusion_reads'].strip().lower() == 'yes':
+        cmd += '--extract_fusion_reads '
     cmd += '--output_dir {} '.format(kwargs['outdir'])
     return cmd
 

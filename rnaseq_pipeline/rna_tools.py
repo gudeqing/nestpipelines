@@ -158,7 +158,8 @@ class NestedCmd(Basic):
                 sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
                 Chimeric_out_junction='{}Chimeric.out.junction'.format(prefix),
                 sample_name=sample,
-                result_dir=result_dir
+                result_dir=result_dir,
+                readFilesIn=args['readFilesIn']
             )
         self.workflow.update(commands)
         return commands
@@ -189,7 +190,8 @@ class NestedCmd(Basic):
                 sorted_bam='{}Aligned.sortedByCoord.out.bam'.format(prefix),
                 Chimeric_out_junction='{}Chimeric.out.junction'.format(prefix),
                 sample_name=sample,
-                result_dir=result_dir
+                result_dir=result_dir,
+                readFilesIn=args['readFilesIn']
             )
         self.workflow.update(commands)
         return commands
@@ -221,6 +223,9 @@ class NestedCmd(Basic):
             args = dict(self.arg_pool['star_fusion'])
             args['outdir'] = result_dir
             args['Chimeric_out_junction'] = cmd_info['Chimeric_out_junction']
+            args['left_fq'] = cmd_info['readFilesIn'].strip().split()[0]
+            if len(cmd_info['readFilesIn'].strip().split()) >= 2:
+                args['right_fq'] = cmd_info['readFilesIn'].strip().split()[1]
             cmd = cmdx.star_fusion(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd, mem=1024 ** 3 * 2, cpu=5, monitor_time_step=5,
