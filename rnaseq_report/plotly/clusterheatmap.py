@@ -27,7 +27,7 @@ class ClusterHeatMap(object):
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width=800, height=600, group_color=None, sort_cluster_by='distance',
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
-                 color_scale='RdYlGn', preprocess_data_func=None, transpose_data=False,
+                 color_scale='RdYlGn', preprocess_data_func=None, transpose_data=False, reverse_scale=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
         cluster / correlation cluster for gene expression;
@@ -124,6 +124,7 @@ class ClusterHeatMap(object):
         ratio[0] = 0
         ratio[-1] = 1
         self.colorscale = list(zip(ratio, cs_pool[color_scale])) if color_scale in cs_pool else color_scale
+        self.reverse_scale = reverse_scale
         self.logbase = log_base
         self.log_additive = log_additive
         self.lower_exp_cutoff = lower_exp_cutoff
@@ -409,6 +410,7 @@ class ClusterHeatMap(object):
             y=list(heat_data.index),
             z=heat_data.values,
             colorscale=self.colorscale,
+            reversescale=self.reverse_scale,
             showlegend=False,
             xaxis='x',
             yaxis='y',
