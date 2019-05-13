@@ -30,7 +30,8 @@ class ClusterHeatMap(object):
                  color_scale='YlGnBu', preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
-        cluster / correlation cluster for gene expression
+        cluster / correlation cluster for gene expression;
+        note: gene name should not be pure integer
         For cluster method and metric option, please refer scipy.cluster.hierarchy.linkage
         :param data_file: data file path
         :param out_name: figure file name, path info can be included
@@ -48,8 +49,9 @@ class ClusterHeatMap(object):
         :param corr_method: correlation method, could be {'pearson', 'kendall', 'spearman'}, they are from pandas.corr
         :param sample_cluster_num: number of sample cluster to output
         :param gene_cluster_num: number of gene cluster to output
-        :param sample_group: sample group dict, {'sample_name': 'group_name', ...},
-            or a file with two columns [sample_name, group_name]
+        :param sample_group: a file with at least two columns, first column is sample name,
+            fist row is group scheme name, data among this matrix are group names.
+            or sample group dict, {'scheme: {'sample_name': 'group_name', ...}, ...},
         :param log_base: transform data using log, value could be one of {2, 10, 1, None}, 1 means no log transformation
         :param log_additive: a small value added before doing log transformation for data
         :param zscore_before_cluster: bool indicates if to do zscore normalization, default: False.
@@ -96,8 +98,7 @@ class ClusterHeatMap(object):
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
-            with open(sample_group) as f:
-                self.group_dict = dict(line.strip().split('\t')[:2] for line in f)
+            self.group_dict = pd.read_csv(sample_group, sep='\t', header=0, index_col=0)
         if isinstance(group_color, str):
             if not os.path.exists(group_color):
                 raise Exception('sample color file is not existed')
@@ -142,6 +143,16 @@ class ClusterHeatMap(object):
             # 不断测试发现, index如果为纯数字, 当且仅当有基因聚类的时候将不能正常显示热图,
             # 应该是plotly的bug, 推测热图自动调整绘图的过程中, 会用到数字索引, 奇怪的很！
             print('Using random data to do test !')
+            self.group_dict = pd.DataFrame(dict(
+                a=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
+                b=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
+                c=['gg4', 'gg4', 'gg5', 'gg5', 'gg6', 'gg6'],
+            ),
+                index=list('abcdef')
+            )
+            self.cluster_gene = True
+            self.cluster_sample = True
+            self.label_gene = True
             self.data = pd.DataFrame(np.random.randint(0, 20, (100, 6)),
                                      columns=list('abcdef'),
                                      index=['x'+str(x) for x in range(100)])
@@ -169,8 +180,8 @@ class ClusterHeatMap(object):
             self.left_dendrogram_width = 1
             self.top_dendrogram_height = 0
 
-        if sample_group:
-            self.group_bar_height = 0.025
+        if self.group_dict is not None:
+            self.group_bar_height = 0.02*self.group_dict.shape[1]
             if self.top_dendrogram_height > 0:
                 self.top_dendrogram_height = self.top_dendrogram_height - self.group_bar_height
         else:
@@ -183,7 +194,7 @@ class ClusterHeatMap(object):
             self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
 
     def process_data(self):
-        exp_pd = pd.read_table(self.data_file, header=0, index_col=0)
+        exp_pd = pd.read_csv(self.data_file, header=0, index_col=0, sep='\t')
         if self.target_rows:
             exp_pd = exp_pd.loc[[x for x in self.target_rows if x in exp_pd.index], :]
         if self.target_cols:
@@ -415,44 +426,51 @@ class ClusterHeatMap(object):
         if not self.ordered_samples:
             self.ordered_samples = range(self.data.shape[1])
         ordered_samples = self.data.columns[self.ordered_samples]
-        for sample in ordered_samples:
-            if sample not in self.group_dict:
-                self.group_dict[sample] = sample
+        group_df = self.group_dict.loc[ordered_samples, :]
+        all_group_dict = group_df.transpose().to_dict('index')
+
+        # generate distinct group color
         groups = list()
-        _ = [groups.append(x) for x in self.group_dict.values() if x not in groups]
+        _ = [groups.append(x) for x in group_df.values.flatten() if x not in groups]
         colors = self.get_color_pool(len(groups))
         group_colors = dict(zip(groups, colors))
         if self.group_color:
+            # user defined color overrides random generated one
             for k, v in self.group_color.items():
                 group_colors[k] = v
 
-        sample_colors = dict()
-        for sample in ordered_samples:
-            group = self.group_dict[sample]
-            sample_colors[sample] = group_colors[group]
-
+        # plot
         traces = list()
-        ticks = range(5, self.data.shape[1]*10, 10)
         existed_legend = set()
-        for tick, each in zip(ticks, ordered_samples):
-            if each == self.group_dict[each]:
-                trace_name = each
-            else:
-                trace_name = '{sample}({group})'.format(sample=each, group=self.group_dict[each])
-            bar = go.Bar(
-                name=self.group_dict[each],
-                text=trace_name,
-                x=[tick],
-                y=[2],
-                showlegend=True if sample_colors[each] not in existed_legend else False,
-                xaxis='x4',
-                yaxis='y4',
-                marker=dict(color=sample_colors[each]),
-                hoverinfo="text",
-                hoverlabel=dict(namelength=-1)
-            )
-            traces.append(bar)
-            existed_legend.add(sample_colors[each])
+        base = -1.01
+        for category, group_dict in all_group_dict.items():
+            base += 1
+            sample_colors = dict()
+            for sample in ordered_samples:
+                sample_colors[sample] = group_colors[group_dict[sample]]
+            ticks = range(5, self.data.shape[1]*10, 10)
+            for tick, each in zip(ticks, ordered_samples):
+                if each == group_dict[each]:
+                    trace_name = each
+                else:
+                    trace_name = '{sample}|{group}'.format(sample=each, group=group_dict[each])
+                bar = go.Bar(
+                    name=group_dict[each],
+                    text=trace_name,
+                    x=[tick],
+                    y=[1],
+                    base=base,
+                    width=9.9,
+                    showlegend=True if sample_colors[each] not in existed_legend else False,
+                    xaxis='x4',
+                    yaxis='y4',
+                    marker=dict(color=sample_colors[each]),
+                    hoverinfo="text",
+                    hoverlabel=dict(namelength=-1)
+                )
+                traces.append(bar)
+                existed_legend.add(sample_colors[each])
+            # break
         return traces
 
     def top_dendrogram_traces(self):
@@ -653,15 +671,15 @@ class ClusterHeatMap(object):
 
     @staticmethod
     def set_link_color_palette():
-        colors = colorlover.scales['12']['qual']['Paired']
+        colors = colorlover.scales['7']['qual']['Set1']
         sch.set_link_color_palette(colors)
 
     @staticmethod
     def get_color_pool(n):
         # https://plot.ly/ipython-notebooks/color-scales/
         import colorlover
-        if n <= 12:
-            return colorlover.scales['12']['qual']['Paired']
+        if n <= 7:
+            return colorlover.scales['7']['qual']['Set1']
 
         from colorsys import hls_to_rgb
         color_pool = []
@@ -678,7 +696,7 @@ class ClusterHeatMap(object):
         traces = list()
         if self.only_sample_dendrogram:
             traces += self.top_dendrogram_traces()
-            if self.group_dict:
+            if self.group_dict is not None:
                 traces += self.group_bar_traces()
             fig = go.Figure(data=traces, layout=self.layout)
             plt(fig, filename=self.out_name, auto_open=False)
@@ -696,11 +714,12 @@ class ClusterHeatMap(object):
         if self.cluster_gene:
             traces += self.left_dendrogram_traces()
 
-        if self.group_dict:
+        if self.group_dict is not None:
             traces += self.group_bar_traces()
 
         traces += self.heatmap_trace()
-        if self.group_dict:
+        if self.group_dict is not None:
+            self.layout['barmode'] = 'stack'
             self.layout['legend'] = dict(x=traces[-1]['colorbar']['x'])
         if not self.show_legend:
             self.layout['showlegend'] = False
@@ -709,42 +728,6 @@ class ClusterHeatMap(object):
 
 
 if __name__ == '__main__':
-    def introduce_command(func):
-        import argparse
-        import inspect
-        import json
-        import time
-        if isinstance(func, type):
-            description = func.__init__.__doc__
-        else:
-            description = func.__doc__
-        parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
-        func_args = inspect.getfullargspec(func)
-        arg_names = func_args.args
-        arg_defaults = func_args.defaults
-        arg_defaults = ['None']*(len(arg_names) - len(arg_defaults)) + list(arg_defaults)
-        for arg, value in zip(arg_names, arg_defaults):
-            if arg == 'self':
-                continue
-            if value == 'None':
-                parser.add_argument('-'+arg, required=True, metavar=arg)
-            elif value is True:
-                parser.add_argument('--'+arg, action="store_false", help='bool, default: True')
-            elif value is False:
-                parser.add_argument('--'+arg, action="store_true", help='bool, default: False')
-            elif value is None:
-                parser.add_argument('-' + arg, default=value, metavar='Default:' + str(value), )
-            else:
-                parser.add_argument('-' + arg, default=value, type=type(value), metavar='Default:' + str(value), )
-        if func_args.varargs is not None:
-            print("warning: *varargs is not supported, and will be neglected! ")
-        if func_args.varkw is not None:
-            print("warning: **keywords args is not supported, and will be neglected! ")
-        args = parser.parse_args().__dict__
-        with open("Argument_detail.json", 'w') as f:
-            json.dump(args, f, indent=2, sort_keys=True)
-        start = time.time()
-        func(**args)
-        print("total time: {}s".format(time.time() - start))
+    from xcmds import xcmds
+    xcmds.xcmds(locals(), include=['ClusterHeatMap'])
 
-    introduce_command(ClusterHeatMap)
