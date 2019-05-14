@@ -397,8 +397,11 @@ class ClusterHeatMap(object):
         # plotly plot data from bottom to top, thus we have to use [::-1], or it will not match dendrogram
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
         # trans gene id to gene name
-        if self.gene_annot:
+        if self.gene_annot and self.label_gene:
             heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
+            href = "https://www.genecards.org/cgi-bin/carddisp.pl?gene="
+            heat_data.index = ["""<a href="{}{}">{}</a>""".format(href, x, x) for x in self.heat_data.index]
+        self.heat_data = heat_data
         # output data
         heat_data.to_csv(out_name, header=True, index=True, sep='\t')
         # process heat data to make color be more even
