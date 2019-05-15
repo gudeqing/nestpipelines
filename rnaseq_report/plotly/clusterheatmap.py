@@ -26,6 +26,7 @@ class ClusterHeatMap(object):
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=2, log_additive=1.0, zscore_before_cluster=False,
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
+                 no_gene_link=False, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width=800, height=600,  sort_cluster_by='distance',
@@ -44,7 +45,7 @@ class ClusterHeatMap(object):
         :param gene_distance_metric: default "euclidean"
         :param cluster_gene: bool value indicates if to cluster gene
         :param cluster_sample: bool value indicates if to cluster sample
-        :param label_gene: bool value indicates if to display gene name
+        :param show_gene_label: bool value indicates if to display gene name
         :param only_sample_dendrogram: bool value indicates if to only draw sample cluster dendrogram
         :param only_gene_dendrogram: bool value indicates if to only draw gene cluster dendrogram
         :param do_correlation_cluster: bool value indicates if to cluster sample using "corr_method" and
@@ -66,6 +67,8 @@ class ClusterHeatMap(object):
         :param gene_group_color: a file with two columns [group, color], or group color dict, {'group': 'color', ...}
         :param gene_group_is_comm: if the group file will be used in other heatmap, this value should be True,
             and this will ensure different heatmap's legend color be common. Default: False
+        :param no_gene_link: bool to indicate if to cancel make gene link
+        :param link_source: default to link to "https://www.genecards.org/cgi-bin/carddisp.pl?gene="
         :param lower_exp_cutoff: gene expression lower cutoff, combined with pass_lower_exp_num
         :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered
         :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default 1
@@ -104,6 +107,8 @@ class ClusterHeatMap(object):
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
         self.outlier_k = k_outlier
+        self.link_gene = not no_gene_link
+        self.link_source = link_source
         self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
@@ -467,8 +472,8 @@ class ClusterHeatMap(object):
         # trans gene id to gene name
         if self.gene_annot and self.label_gene:
             heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
-            href = "https://www.genecards.org/cgi-bin/carddisp.pl?gene="
-            heat_data.index = ["""<a href="{}{}">{}</a>""".format(href, x, x) for x in self.heat_data.index]
+        if self.link_gene:
+            heat_data.index = ["""<a href="{}{}"> {}</a>""".format(self.link_source, x, x) for x in heat_data.index]
         self.heat_data = heat_data
         # output data
         heat_data.to_csv(out_name, header=True, index=True, sep='\t')
@@ -492,7 +497,7 @@ class ClusterHeatMap(object):
             name='',
             showscale=True,
             colorbar=dict(
-                x=1+self.gene_label_size*(max(len(x) for x in heat_data.index))/self.width if self.label_gene else 1,
+                x=1+self.gene_label_size*(max(len(x) for x in self.data.index)+2)/self.width if self.label_gene else 1,
                 xanchor='left',
                 y=0,
                 yanchor='bottom',
@@ -908,20 +913,6 @@ class ClusterHeatMap(object):
         if not self.show_legend:
             self.layout['showlegend'] = False
 
-        # if self.label_gene:
-        #     links = []
-        #     x_num = self.heat_data.shape[0]
-        #     for label in self.heat_data.index:
-        #         links.append(dict(
-        #             x=x_num+1,
-        #             y=label,
-        #             xref='x',
-        #             yref='y',
-        #             text=label,
-        #             showarrow=False,
-        #             xanchor='center',
-        #             yanchor='middle', ))
-        #     self.layout['annotations'] = links
         fig = go.Figure(data=traces, layout=self.layout)
         plt(fig, filename=self.out_name, auto_open=False)
 
