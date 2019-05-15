@@ -23,9 +23,9 @@ class ClusterHeatMap(object):
                  only_gene_dendrogram=False,
                  do_correlation_cluster=False, corr_method='pearson',
                  sample_cluster_num=1, gene_cluster_num=1,
-                 sample_group=None, sample_group_color=None,
+                 sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=2, log_additive=1.0, zscore_before_cluster=False,
-                 gene_group=None, gene_group_color=None,
+                 gene_group=None, gene_group_color=None, gene_group_is_comm=False,
                  lower_exp_cutoff=0.5, pass_lower_exp_num=None,
                  row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width=800, height=600,  sort_cluster_by='distance',
@@ -38,7 +38,7 @@ class ClusterHeatMap(object):
         For cluster method and metric option, please refer scipy.cluster.hierarchy.linkage
         :param data_file: data file path
         :param out_name: figure file name, path info can be included
-        :param sample_cluster_method: default "single"
+        :param sample_cluster_method: default "complete"
         :param sample_distance_metric: default "correlation", correlation actually refer to pearson corr
         :param gene_cluster_method: default "average"
         :param gene_distance_metric: default "euclidean"
@@ -54,8 +54,9 @@ class ClusterHeatMap(object):
         :param gene_cluster_num: number of gene cluster to output
         :param sample_group: a file with at least two columns, first column is sample name,
             fist row is group scheme name, data among this matrix are group names. Or a pandas data frame object.
-            or sample group dict, {'scheme: {'sample_name': 'group_name', ...}, ...},
         :param sample_group_color: a file with two columns [group, color], or group color dict, {'group': 'color', ...}
+        :param sample_group_is_comm: if the group file will be used in other heatmap, this value should be True,
+            and this will ensure different heatmap's legend color be common. Default: True
         :param log_base: transform data using log, value could be one of {2, 10, 1, None}, 1 means no log transformation
         :param log_additive: a small value added before doing log transformation for data
         :param zscore_before_cluster: bool indicates if to do zscore normalization, default: False.
@@ -63,10 +64,12 @@ class ClusterHeatMap(object):
         :param gene_group: a file with at least two column, first column is gene name and fist row is group scheme,
             data in matrix are group names. or a pandas data frame object.
         :param gene_group_color: a file with two columns [group, color], or group color dict, {'group': 'color', ...}
+        :param gene_group_is_comm: if the group file will be used in other heatmap, this value should be True,
+            and this will ensure different heatmap's legend color be common. Default: False
         :param lower_exp_cutoff: gene expression lower cutoff, combined with pass_lower_exp_num
         :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered
         :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default 1
-        :param cv_cutoff: genes with cv (=mean/std) higher than will be retained
+        :param cv_cutoff: genes with cv (=std/mean) higher than will be retained
         :param target_cols: target columns to extract from data file for analysis
         :param target_rows: target rows to extract from data file for analysis
         :param gene_annot: gene annotation file, two columns, gene_id \t gene symbol
@@ -94,8 +97,10 @@ class ClusterHeatMap(object):
         self.gcn = gene_cluster_num
         self.group_sample = sample_group
         self.sample_group_color = sample_group_color
+        self.sample_group_is_comm = sample_group_is_comm
         self.group_gene = gene_group
         self.gene_group_color = gene_group_color
+        self.gene_group_is_comm = gene_group_is_comm
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
         self.outlier_k = k_outlier
@@ -507,9 +512,21 @@ class ClusterHeatMap(object):
         group_df = self.group_sample.loc[ordered_samples, :]
         all_group_dict = group_df.transpose().to_dict('index')
 
-        # generate distinct group color
-        groups = sorted(set(group_df.values.flatten()))
-        gene_group_num = len(set(self.group_gene.values.flatten())) if self.group_gene is not None else 0
+        if not self.sample_group_is_comm:
+            groups = sorted(set(group_df.values.flatten()))
+        else:
+            groups = sorted(set(self.group_sample.values.flatten()))
+
+        gene_group_num = 0
+        if self.group_gene is not None:
+            if sum(1 for x in self.ordered_genes if x not in self.group_gene.index) > 0:
+                gene_group_num += 1
+            if self.gene_group_is_comm:
+                gene_group_num += len(set(self.group_gene.values.flatten()))
+            else:
+                target_genes = set(self.group_gene.index) & set(self.ordered_genes)
+                gene_group_num += len(set(self.group_gene.loc[list(target_genes), :].values.flatten()))
+
         colors = self.get_color_pool(len(groups)+gene_group_num)
         group_colors = dict(zip(groups, colors))
         if self.sample_group_color:
@@ -565,9 +582,21 @@ class ClusterHeatMap(object):
         group_df = self.group_gene.loc[ordered_genes, :]
         all_group_dict = group_df.transpose().to_dict('index')
 
-        # generate distinct group color
-        groups = sorted(set(group_df.values.flatten()))
-        sample_group_num = len(set(self.group_sample.values.flatten())) if self.group_sample is not None else 0
+        if not self.gene_group_is_comm:
+            groups = sorted(set(group_df.values.flatten()))
+        else:
+            groups = sorted(set(self.group_gene.values.flatten()))
+
+        sample_group_num = 0
+        if self.group_gene is not None:
+            if sum(1 for x in self.ordered_samples if x not in self.group_sample.index) > 0:
+                sample_group_num += 1
+            if self.sample_group_is_comm:
+                sample_group_num += len(set(self.group_sample.values.flatten()))
+            else:
+                target_samples = set(self.group_sample.index) & set(self.ordered_samples)
+                sample_group_num += len(set(self.group_gene.loc[list(target_samples), :].values.flatten()))
+
         colors = self.get_color_pool(len(groups)+sample_group_num)
         colors = colors[-len(groups):]
         group_colors = dict(zip(groups, colors))
@@ -873,6 +902,7 @@ class ClusterHeatMap(object):
             self.layout['barmode'] = 'stack'
             self.layout['legend'] = dict(
                 x=traces[-1]['colorbar']['x'],
+                tracegroupgap=2
             )
 
         if not self.show_legend:
