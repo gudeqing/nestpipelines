@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.0.0'
+__version_ = '3.1.0'
 
 
 class ClusterHeatMap(object):
@@ -501,6 +501,9 @@ class ClusterHeatMap(object):
         if not self.ordered_samples:
             self.ordered_samples = range(self.data.shape[1])
         ordered_samples = self.data.columns[self.ordered_samples]
+        not_grouped = [x for x in ordered_samples if x not in self.group_sample.index]
+        for each in not_grouped:
+            self.group_sample.loc[each, :] = 'notGroupedX'
         group_df = self.group_sample.loc[ordered_samples, :]
         all_group_dict = group_df.transpose().to_dict('index')
 
@@ -531,6 +534,7 @@ class ClusterHeatMap(object):
                     trace_name = '{sample}|{group}'.format(sample=each, group=group_dict[each])
                 bar = go.Bar(
                     name=group_dict[each],
+                    legendgroup=group_dict[each],
                     text=trace_name,
                     x=[tick],
                     y=[1],
@@ -546,12 +550,18 @@ class ClusterHeatMap(object):
                 traces.append(bar)
                 existed_legend.add(sample_colors[each])
             # break
+        sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
+        sort_traces = [x[1] for x in sort_traces]
+        traces = sort_traces + [x for x in traces if x not in sort_traces]
         return traces
 
     def gene_bar_traces(self):
         if not self.ordered_genes:
             self.ordered_genes = range(self.data.shape[0])
         ordered_genes = self.data.index[self.ordered_genes[::-1]]
+        not_grouped = [x for x in ordered_genes if x not in self.group_gene.index]
+        for each in not_grouped:
+            self.group_gene.loc[each, :] = 'notGroupedY'
         group_df = self.group_gene.loc[ordered_genes, :]
         all_group_dict = group_df.transpose().to_dict('index')
 
@@ -583,6 +593,7 @@ class ClusterHeatMap(object):
                 bar = go.Bar(
                     orientation='h',
                     name=group_dict[each],
+                    legendgroup=group_dict[each],
                     text=trace_name,
                     x=[1],
                     y=[each],
@@ -598,6 +609,9 @@ class ClusterHeatMap(object):
                 traces.append(bar)
                 existed_legend.add(sample_colors[each])
             # break
+        sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
+        sort_traces = [x[1] for x in sort_traces]
+        traces = sort_traces + [x for x in traces if x not in sort_traces]
         return traces
 
     def top_dendrogram_traces(self):
@@ -847,16 +861,19 @@ class ClusterHeatMap(object):
         if self.cluster_gene:
             traces += self.left_dendrogram_traces()
 
+        if self.group_sample is not None:
+            traces += self.group_bar_traces()
+
         if self.group_gene is not None:
             traces += self.gene_bar_traces()
 
-        if self.group_sample is not None:
-            traces += self.group_bar_traces()
 
         traces += self.heatmap_trace()
         if self.group_sample is not None:
             self.layout['barmode'] = 'stack'
-            self.layout['legend'] = dict(x=traces[-1]['colorbar']['x'])
+            self.layout['legend'] = dict(
+                x=traces[-1]['colorbar']['x'],
+            )
 
         if not self.show_legend:
             self.layout['showlegend'] = False
