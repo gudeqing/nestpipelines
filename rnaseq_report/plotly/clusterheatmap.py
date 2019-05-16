@@ -183,15 +183,15 @@ class ClusterHeatMap(object):
             print('Using random data to do test !')
             gene_names = ['xyzbacef' + str(x) for x in range(100)]
             self.group_sample = pd.DataFrame(dict(
-                group=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
-                group2=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
-                group3=['gg4', 'gg4', 'gg1', 'gg1', 'gg1', 'gg1'],
+                status=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
+                gender=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
+                age=['gg4', 'gg4', 'gg1', 'gg1', 'gg1', 'gg1'],
             ),
                 index=list('abcdef')
             )
             self.group_gene = pd.DataFrame(dict(
-                gene_group1=['gene_group1' if x < 50 else 'gene_group2' for x in range(100)],
-                gene_group2=['gene_group3' if x < 70 else 'gene_group1' for x in range(100)],
+                kegg=['gene_group1' if x < 50 else 'gene_group2' for x in range(100)],
+                GO=['gene_group3' if x < 70 else 'gene_group1' for x in range(100)],
             ),
                 index=gene_names
             )
