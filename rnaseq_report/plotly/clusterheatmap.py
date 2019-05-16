@@ -183,15 +183,15 @@ class ClusterHeatMap(object):
             print('Using random data to do test !')
             gene_names = ['xyzbacef' + str(x) for x in range(100)]
             self.group_sample = pd.DataFrame(dict(
-                a=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
-                b=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
-                c=['gg4', 'gg4', 'gg1', 'gg1', 'gg1', 'gg1'],
+                group=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
+                group2=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
+                group3=['gg4', 'gg4', 'gg1', 'gg1', 'gg1', 'gg1'],
             ),
                 index=list('abcdef')
             )
             self.group_gene = pd.DataFrame(dict(
-                a=['gene_group1' if x < 50 else 'gene_group2' for x in range(100)],
-                b=['gene_group3' if x < 70 else 'gene_group1' for x in range(100)],
+                gene_group1=['gene_group1' if x < 50 else 'gene_group2' for x in range(100)],
+                gene_group2=['gene_group3' if x < 70 else 'gene_group1' for x in range(100)],
             ),
                 index=gene_names
             )
@@ -393,9 +393,10 @@ class ClusterHeatMap(object):
             'showgrid': False,
             'showline': False,
             'zeroline': False,
-            'showticklabels': False,
+            'showticklabels': True,
             'ticks': "",
-            'anchor': 'x4'
+            'anchor': 'x4',
+            'side': 'right',
         }
 
     def gene_bar_xaxis(self):
@@ -405,9 +406,11 @@ class ClusterHeatMap(object):
             'showgrid': False,
             'showline': False,
             'zeroline': False,
-            'showticklabels': False,
+            'showticklabels': True,
             'ticks': "",
             'anchor': 'y5',
+            'side': 'top',
+            'tickangle': 90
         }
 
     def gene_bar_yaxis(self):
@@ -588,6 +591,8 @@ class ClusterHeatMap(object):
                 traces.append(bar)
                 existed_legend.add(sample_colors[each])
             # break
+        self.layout['yaxis4']['tickvals'] = [x+0.5 for x in range(len(all_group_dict))]
+        self.layout['yaxis4']['ticktext'] = list(all_group_dict.keys())
         sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
         sort_traces = [x[1] for x in sort_traces]
         traces = sort_traces + [x for x in traces if x not in sort_traces]
@@ -685,6 +690,8 @@ class ClusterHeatMap(object):
                 traces.append(bar)
                 existed_legend.add(sample_colors[each])
             # break
+        self.layout['xaxis5']['tickvals'] = [x + 0.5 for x in range(len(all_group_dict))]
+        self.layout['xaxis5']['ticktext'] = list(all_group_dict.keys())
         sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
         sort_traces = [x[1] for x in sort_traces]
         traces = sort_traces + [x for x in traces if x not in sort_traces]
