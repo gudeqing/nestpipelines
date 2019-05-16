@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.2.0'
+__version_ = '3.2.5'
 
 
 class ClusterHeatMap(object):
@@ -30,7 +30,7 @@ class ClusterHeatMap(object):
                  lower_exp_cutoff=0, pass_lower_exp_num=None,
                  row_sum_cutoff=0, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width:int=None, height:int=None, paper_bgcolor=None, sort_cluster_by='distance',
-                 gene_label_size=6, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
+                 gene_label_size=7, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
         """
@@ -181,7 +181,7 @@ class ClusterHeatMap(object):
             # 不断测试发现, index如果为纯数字, 当且仅当有基因聚类的时候将不能正常显示热图,
             # 应该是plotly的bug, 推测热图自动调整绘图的过程中, 会用到数字索引, 奇怪的很！
             print('Using random data to do test !')
-            gene_names = ['x' + str(x) for x in range(100)]
+            gene_names = ['xyzbacef' + str(x) for x in range(100)]
             self.group_sample = pd.DataFrame(dict(
                 a=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
                 b=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
@@ -420,12 +420,13 @@ class ClusterHeatMap(object):
             'showticklabels': False,
             'ticks': "",
             'anchor': 'x5',
-            'side': 'left'
+            'side': 'left',
+            'tickfont': dict(size=self.gene_label_size),
         }
 
     def all_layout(self):
-        if self.height is None and self.label_gene:
-            self.height = self.data.shape[0]*(self.gene_label_size+3)
+        if self.height is None and self.label_gene and self.only_sample_dendrogram is False:
+            self.height = self.data.shape[0]*(self.gene_label_size+3.5)
 
         layout = go.Layout(
             # plot_bgcolor='#c7c7c7',
@@ -536,7 +537,7 @@ class ClusterHeatMap(object):
             groups = sorted(set(self.group_sample.values.flatten()))
 
         gene_group_num = 0
-        if self.group_gene is not None:
+        if self.group_gene is not None and self.ordered_genes:
             if sum(1 for x in self.ordered_genes if x not in self.group_gene.index) > 0:
                 gene_group_num += 1
             if self.gene_group_is_comm:
@@ -588,6 +589,11 @@ class ClusterHeatMap(object):
         sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
         sort_traces = [x[1] for x in sort_traces]
         traces = sort_traces + [x for x in traces if x not in sort_traces]
+        if self.only_sample_dendrogram and self.group_sample is not None:
+            self.layout['xaxis4']['showticklabels'] = True
+            self.layout['xaxis4']['side'] = 'bottom'
+            self.layout['xaxis4']['tickvals'] = list(range(5, self.data.shape[1]*10, 10))
+            self.layout['xaxis4']['ticktext'] = ordered_samples
         return traces
 
     def gene_bar_traces(self):
@@ -606,7 +612,7 @@ class ClusterHeatMap(object):
             groups = sorted(set(self.group_gene.values.flatten()))
 
         sample_group_num = 0
-        if self.group_gene is not None:
+        if self.group_gene is not None and self.ordered_samples:
             if sum(1 for x in self.ordered_samples if x not in self.group_sample.index) > 0:
                 sample_group_num += 1
             if self.sample_group_is_comm:
@@ -622,7 +628,26 @@ class ClusterHeatMap(object):
             # user defined color overrides random generated one
             for k, v in self.gene_group_color.items():
                 group_colors[k] = v
-
+        # insert link
+        if self.only_gene_dendrogram:
+            self.layout['yaxis5']['showticklabels'] = True
+            self.layout['yaxis5']['side'] = 'right'
+            self.layout['yaxis5']['dtick'] = 1
+            labels = [x for x in ordered_genes]
+            if self.gene_annot:
+                new_labels = []
+                for x in labels:
+                    if x in self.gene_annot:
+                        new_labels.append(
+                            """<a href="{}{}">{}</a>""".format(self.link_source, x, self.gene_annot[x])
+                        )
+                    else:
+                        new_labels.append(
+                            """<a href="{}{}">{}</a>""".format(self.link_source, x, x)
+                        )
+                labels = new_labels
+            elif self.link_gene:
+                labels = ["""<a href="{}{}">{}</a>""".format(self.link_source, x, x) for x in labels]
         # plot
         traces = list()
         existed_legend = set()
@@ -632,7 +657,7 @@ class ClusterHeatMap(object):
             sample_colors = dict()
             for sample in ordered_genes:
                 sample_colors[sample] = group_colors[group_dict[sample]]
-            for each in ordered_genes:
+            for ind, each in enumerate(ordered_genes):
                 if each == group_dict[each]:
                     trace_name = each
                 else:
@@ -643,7 +668,7 @@ class ClusterHeatMap(object):
                     legendgroup=group_dict[each],
                     text=trace_name,
                     x=[1],
-                    y=[each],
+                    y=[each if not self.only_gene_dendrogram else labels[ind]],
                     base=base,
                     width=1,
                     showlegend=True if sample_colors[each] not in existed_legend else False,
@@ -702,10 +727,11 @@ class ClusterHeatMap(object):
             trace_list.append(trace)
         #
         if self.only_sample_dendrogram:
-            self.layout['xaxis3']['showticklabels'] = True
-            tick_values = list(range(5, exp_pd.shape[0]*10, 10))
-            self.layout['xaxis3']['tickvals'] = tick_values
-            self.layout['xaxis3']['ticktext'] = exp_pd.iloc[self.ordered_samples].index
+            if self.group_sample is None:
+                self.layout['xaxis3']['showticklabels'] = True
+                tick_values = list(range(5, exp_pd.shape[0]*10, 10))
+                self.layout['xaxis3']['tickvals'] = tick_values
+                self.layout['xaxis3']['ticktext'] = exp_pd.iloc[self.ordered_samples].index
 
         return trace_list
 
@@ -750,11 +776,27 @@ class ClusterHeatMap(object):
             trace_list.append(trace)
 
         if self.only_gene_dendrogram:
-            self.layout['yaxis2']['showticklabels'] = True
-            tick_values = list(range(5, (exp_pd.shape[0]+1)*10, 10))
-            self.layout['yaxis2']['tickvals'] = [-1*x for x in tick_values]
-            self.layout['yaxis2']['side'] = 'right'
-            self.layout['yaxis2']['ticktext'] = exp_pd.iloc[self.ordered_genes].index
+            if self.group_gene is None:
+                self.layout['yaxis2']['showticklabels'] = True
+                tick_values = list(range(5, (exp_pd.shape[0]+1)*10, 10))
+                self.layout['yaxis2']['tickvals'] = [-1*x for x in tick_values]
+                self.layout['yaxis2']['side'] = 'right'
+                labels = exp_pd.iloc[self.ordered_genes].index
+                if self.gene_annot:
+                    new_labels = []
+                    for x in labels:
+                        if x in self.gene_annot:
+                            new_labels.append(
+                                """<a href="{}{}"> {}</a>""".format(self.link_source, x, self.gene_annot[x])
+                            )
+                        else:
+                            new_labels.append(
+                                """<a href="{}{}"> {}</a>""".format(self.link_source, x, x)
+                            )
+                    labels = new_labels
+                elif self.link_gene:
+                    labels = ["""<a href="{}{}"> {}</a>""".format(self.link_source, x, x) for x in labels]
+                self.layout['yaxis2']['ticktext'] = labels
 
         return trace_list
 
@@ -885,6 +927,17 @@ class ClusterHeatMap(object):
         return colorlover.to_rgb(color_pool)
 
     def draw(self):
+        if self.group_sample is not None or self.group_gene is not None:
+            self.layout['barmode'] = 'stack'
+        if self.show_legend:
+            self.layout['legend'] = dict(tracegroupgap=2)
+        if self.only_gene_dendrogram:
+            self.layout['legend'].update(
+                x=self.left_dendrogram_width,
+                y=1.05,
+                bgcolor='rgba(0,0,0,0)',
+                orientation="h"
+            )
         traces = list()
         if self.only_sample_dendrogram:
             traces += self.top_dendrogram_traces()
@@ -914,17 +967,10 @@ class ClusterHeatMap(object):
         if self.group_gene is not None:
             traces += self.gene_bar_traces()
 
-
         traces += self.heatmap_trace()
-        if self.group_sample is not None:
-            self.layout['barmode'] = 'stack'
-            self.layout['legend'] = dict(
-                x=traces[-1]['colorbar']['x'],
-                tracegroupgap=2
-            )
-
-        if not self.show_legend:
-            self.layout['showlegend'] = False
+        self.layout['legend'].update(
+            x=traces[-1]['colorbar']['x'],
+        )
 
         fig = go.Figure(data=traces, layout=self.layout)
         plt(fig, filename=self.out_name, auto_open=False)
