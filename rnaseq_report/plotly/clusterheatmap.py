@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.1.0'
+__version_ = '3.2.0'
 
 
 class ClusterHeatMap(object):
@@ -18,18 +18,18 @@ class ClusterHeatMap(object):
                  sample_cluster_method='complete', sample_distance_metric="correlation",
                  gene_cluster_method='average', gene_distance_metric="euclidean",
                  cluster_gene=False, cluster_sample=False,
-                 show_gene_label=False, hide_sample_label=False, show_legend=True,
+                 show_gene_label=False, hide_sample_label=False, hide_legend=False,
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
                  do_correlation_cluster=False, corr_method='pearson',
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
-                 log_base=2, log_additive=1.0, zscore_before_cluster=False,
+                 log_base=0, log_additive=1.0, zscore_before_cluster=False,
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
                  no_gene_link=False, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
-                 lower_exp_cutoff=0.5, pass_lower_exp_num=None,
-                 row_sum_cutoff=1, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
-                 width=800, height=600,  sort_cluster_by='distance',
+                 lower_exp_cutoff=0, pass_lower_exp_num=None,
+                 row_sum_cutoff=0, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
+                 width:int=None, height:int=None, paper_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size=6, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
@@ -46,6 +46,8 @@ class ClusterHeatMap(object):
         :param cluster_gene: bool value indicates if to cluster gene
         :param cluster_sample: bool value indicates if to cluster sample
         :param show_gene_label: bool value indicates if to display gene name
+        :param hide_sample_label: bool value indicate if to display sample name
+        :param hide_legend: bool value indicate if to display group legends of gene and sample
         :param only_sample_dendrogram: bool value indicates if to only draw sample cluster dendrogram
         :param only_gene_dendrogram: bool value indicates if to only draw gene cluster dendrogram
         :param do_correlation_cluster: bool value indicates if to cluster sample using "corr_method" and
@@ -58,7 +60,8 @@ class ClusterHeatMap(object):
         :param sample_group_color: a file with two columns [group, color], or group color dict, {'group': 'color', ...}
         :param sample_group_is_comm: if the group file will be used in other heatmap, this value should be True,
             and this will ensure different heatmap's legend color be common. Default: True
-        :param log_base: transform data using log, value could be one of {2, 10, 1, None}, 1 means no log transformation
+        :param log_base: transform data using log, value could be one of {2, 10, 1, 0,None},
+            1 or 0 means do no log transformation
         :param log_additive: a small value added before doing log transformation for data
         :param zscore_before_cluster: bool indicates if to do zscore normalization, default: False.
             No effect if "do_correlation_cluster" is True
@@ -70,14 +73,16 @@ class ClusterHeatMap(object):
         :param no_gene_link: bool to indicate if to cancel make gene link
         :param link_source: default to link to "https://www.genecards.org/cgi-bin/carddisp.pl?gene="
         :param lower_exp_cutoff: gene expression lower cutoff, combined with pass_lower_exp_num
-        :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered
+        :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered，
+            default: int(1/3*sample—number)
         :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default 1
         :param cv_cutoff: genes with cv (=std/mean) higher than will be retained
         :param target_cols: target columns to extract from data file for analysis
         :param target_rows: target rows to extract from data file for analysis
         :param gene_annot: gene annotation file, two columns, gene_id \t gene symbol
-        :param width: figure width
-        :param height: figure height
+        :param width: figure width, default to auto
+        :param height: figure height, default to auto
+        :param paper_bgcolor: figure background color, such as 'black'
         :param sort_cluster_by: sort cluster by distance or count
         :param gene_label_size: int, gen label size, default 6
         :param outlier_k: k value for determine outlier, max color value = q3+(q3-q1)*k
@@ -112,7 +117,7 @@ class ClusterHeatMap(object):
         self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
-        self.show_legend = show_legend
+        self.show_legend = not hide_legend
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -145,6 +150,7 @@ class ClusterHeatMap(object):
         self.label_sample = not hide_sample_label
         self.height = height
         self.width = width
+        self.paper_bgcolor = paper_bgcolor
         cs_pool = colorlover.scales['11']['div']
         ratio = [x / 100 for x in range(1, 100, int(100 / 11))]
         ratio[0] = 0
@@ -220,14 +226,14 @@ class ClusterHeatMap(object):
             self.top_dendrogram_height = 0
 
         if self.group_sample is not None:
-            self.sample_bar_height = 0.02 * self.group_sample.shape[1]
+            self.sample_bar_height = self.top_dendrogram_height*0.02/0.15 * self.group_sample.shape[1]
             if self.top_dendrogram_height > 0:
                 self.top_dendrogram_height = self.top_dendrogram_height - self.sample_bar_height
         else:
             self.sample_bar_height = 0
 
         if self.group_gene is not None:
-            self.gene_bar_width = 0.02 * self.group_gene.shape[1]
+            self.gene_bar_width = self.left_dendrogram_width*0.02/0.15 * self.group_gene.shape[1]
             if self.left_dendrogram_width > 0:
                 self.left_dendrogram_width = self.left_dendrogram_width - self.gene_bar_width
         else:
@@ -418,36 +424,37 @@ class ClusterHeatMap(object):
         }
 
     def all_layout(self):
+        if self.height is None and self.label_gene:
+            self.height = self.data.shape[0]*(self.gene_label_size+3)
+
+        layout = go.Layout(
+            # plot_bgcolor='#c7c7c7',
+            paper_bgcolor=self.paper_bgcolor,
+            width=self.width,
+            height=self.height,
+            autosize=True,
+            showlegend=self.show_legend,
+            hovermode='closest',
+        )
         if self.only_sample_dendrogram:
-            return go.Layout(
-                width=self.width,
-                height=self.height,
-                autosize=True,
-                showlegend=False,
-                hovermode='closest',
+            layout.update(
                 xaxis3=self.top_dendrogram_xaxis(),
                 yaxis3=self.top_dendrogram_yaxis(),
                 xaxis4=self.group_bar_xaxis(),
                 yaxis4=self.group_bar_yaxis(),
             )
+            return layout
 
         if self.only_gene_dendrogram:
-            return go.Layout(
-                width=self.width,
-                height=self.height,
-                showlegend=False,
-                hovermode='closest',
+            layout.update(
                 xaxis2=self.left_dendrogam_xaxis(),
                 yaxis2=self.left_dendrogam_yaxis(),
                 xaxis5=self.gene_bar_xaxis(),
                 yaxis5=self.gene_bar_yaxis()
             )
+            return layout
 
-        return go.Layout(
-            width=self.width,
-            height=self.height,
-            showlegend=True,
-            hovermode='closest',
+        layout.update(
             xaxis=self.heatmap_xaxis(),
             yaxis=self.heatmap_yaxis(),
             xaxis2=self.left_dendrogam_xaxis(),
@@ -459,6 +466,7 @@ class ClusterHeatMap(object):
             xaxis5=self.gene_bar_xaxis(),
             yaxis5=self.gene_bar_yaxis()
         )
+        return layout
 
     def heatmap_trace(self):
         if not self.ordered_samples:
@@ -472,17 +480,22 @@ class ClusterHeatMap(object):
         # trans gene id to gene name
         if self.gene_annot and self.label_gene:
             heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
+        # output data
+        heat_data.to_csv(out_name, header=True, index=True, sep='\t')
         if self.link_gene:
             heat_data.index = ["""<a href="{}{}"> {}</a>""".format(self.link_source, x, x) for x in heat_data.index]
         self.heat_data = heat_data
-        # output data
-        heat_data.to_csv(out_name, header=True, index=True, sep='\t')
         # process heat data to make color be more even
         describe = pd.Series(heat_data.values.flatten()).describe()
         upper_limit = describe["75%"] + (describe["75%"] - describe["25%"])*self.outlier_k
         upper_limit = upper_limit if upper_limit < describe['max'] else describe['max']
         lower_limit = describe["25%"] - (describe["75%"] - describe["25%"])*self.outlier_k
         lower_limit = lower_limit if lower_limit > describe['min'] else describe['min']
+        max_label_len = max(len(x) for x in self.data.index) + 2
+        if self.width is None:
+            colorbar_x = 1 + self.gene_label_size*max_label_len/1000 if self.label_gene else 1
+        else:
+            colorbar_x = 1 + self.gene_label_size*max_label_len/self.width if self.label_gene else 1
         heat_map = go.Heatmap(
             x=list(heat_data.columns),
             y=list(heat_data.index),
@@ -497,7 +510,7 @@ class ClusterHeatMap(object):
             name='',
             showscale=True,
             colorbar=dict(
-                x=1+self.gene_label_size*(max(len(x) for x in self.data.index)+2)/self.width if self.label_gene else 1,
+                x=colorbar_x,
                 xanchor='left',
                 y=0,
                 yanchor='bottom',
