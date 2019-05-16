@@ -548,6 +548,8 @@ class ClusterHeatMap(object):
 
         colors = self.get_color_pool(len(groups)+gene_group_num)
         group_colors = dict(zip(groups, colors))
+        if 'notGroupedX' in group_colors:
+            group_colors['notGroupedX'] = 'darkgrey'
         if self.sample_group_color:
             # user defined color overrides random generated one
             for k, v in self.sample_group_color.items():
@@ -624,6 +626,8 @@ class ClusterHeatMap(object):
         colors = self.get_color_pool(len(groups)+sample_group_num)
         colors = colors[-len(groups):]
         group_colors = dict(zip(groups, colors))
+        if 'notGroupedY' in group_colors:
+            group_colors['notGroupedY'] = 'darkgrey'
         if self.gene_group_color:
             # user defined color overrides random generated one
             for k, v in self.gene_group_color.items():
