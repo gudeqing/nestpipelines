@@ -16,19 +16,44 @@ plt = partial(plt, auto_open=False)
 
 
 def get_color_pool(n):
+    # https://plot.ly/ipython-notebooks/color-scales/
     import colorlover
+    if n <= 8:
+        if n <= 3:
+            n = 3
+        return colorlover.scales[str(n)]['qual']['Set2']
     if n <= 12:
-        return colorlover.scales['12']['qual']['Paired']
+        return colorlover.scales[str(n)]['qual']['Set3']
 
-    from colorsys import hls_to_rgb
+    import random
+    random.seed(666)
+
+    def get_random_color(pastel_factor=0.5):
+        return [(x + pastel_factor) / (1.0 + pastel_factor) for x in [random.uniform(0, 1.0) for i in [1, 2, 3]]]
+
+    def color_distance(c1, c2):
+        return sum([abs(x[0] - x[1]) for x in zip(c1, c2)])
+
+    def generate_new_color(existing_colors, pastel_factor=0.5):
+        max_distance = None
+        best_color = None
+        for i in range(0, 100):
+            color = get_random_color(pastel_factor=pastel_factor)
+            # exclude some colors
+            if np.absolute(np.array(color) - np.array([1, 1, 1])).sum() < 0.08:
+                continue
+            if not existing_colors:
+                return color
+            best_distance = min([color_distance(color, c) for c in existing_colors])
+            if not max_distance or best_distance > max_distance:
+                max_distance = best_distance
+                best_color = color
+        return best_color
+
     color_pool = []
-    for i in np.arange(0., 360., 360. / n):
-        hue = i / 300.
-        rand_num = np.random.random_sample()
-        lightness = (50 + rand_num * 10) / 100.
-        saturation = (90 + rand_num * 10) / 100.
-        rgb = hls_to_rgb(hue, lightness, saturation)
-        color_pool.append(tuple([int(x * 255) for x in rgb]))
+    for i in range(0, n):
+        color_pool.append(generate_new_color(color_pool, pastel_factor=0.9))
+    color_pool = [(int(x * 255), int(y * 255), int(z * 255)) for x, y, z in color_pool]
     return colorlover.to_rgb(color_pool)
 
 
