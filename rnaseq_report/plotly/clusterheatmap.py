@@ -29,7 +29,7 @@ class ClusterHeatMap(object):
                  no_gene_link=False, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
                  lower_exp_cutoff=0, pass_lower_exp_num=None,
                  row_sum_cutoff=0, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
-                 width:int=None, height:int=None, paper_bgcolor=None, sort_cluster_by='distance',
+                 width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size=7, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15):
@@ -151,6 +151,7 @@ class ClusterHeatMap(object):
         self.height = height
         self.width = width
         self.paper_bgcolor = paper_bgcolor
+        self.plot_bgcolor = plot_bgcolor
         cs_pool = colorlover.scales['11']['div']
         ratio = [x / 100 for x in range(1, 100, int(100 / 11))]
         ratio[0] = 0
@@ -429,7 +430,7 @@ class ClusterHeatMap(object):
             self.height = self.data.shape[0]*(self.gene_label_size+3.5)
 
         layout = go.Layout(
-            # plot_bgcolor='#c7c7c7',
+            plot_bgcolor=self.plot_bgcolor,
             paper_bgcolor=self.paper_bgcolor,
             width=self.width,
             height=self.height,
