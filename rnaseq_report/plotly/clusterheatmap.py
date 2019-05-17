@@ -527,7 +527,7 @@ class ClusterHeatMap(object):
         ordered_samples = self.data.columns[self.ordered_samples]
         not_grouped = [x for x in ordered_samples if x not in self.group_sample.index]
         for each in not_grouped:
-            self.group_sample.loc[each, :] = 'notGroupedX'
+            self.group_sample.loc[each, :] = 'Unknown'
         group_df = self.group_sample.loc[ordered_samples, :]
         all_group_dict = group_df.transpose().to_dict('index')
 
@@ -548,8 +548,8 @@ class ClusterHeatMap(object):
 
         colors = self.get_color_pool(len(groups)+gene_group_num)
         group_colors = dict(zip(groups, colors))
-        if 'notGroupedX' in group_colors:
-            group_colors['notGroupedX'] = 'darkgrey'
+        if 'Unknown' in group_colors:
+            group_colors['Unknown'] = 'darkgrey'
         if self.sample_group_color:
             # user defined color overrides random generated one
             for k, v in self.sample_group_color.items():
@@ -608,7 +608,7 @@ class ClusterHeatMap(object):
         ordered_genes = self.data.index[self.ordered_genes[::-1]]
         not_grouped = [x for x in ordered_genes if x not in self.group_gene.index]
         for each in not_grouped:
-            self.group_gene.loc[each, :] = 'notGroupedY'
+            self.group_gene.loc[each, :] = 'Unknown'
         group_df = self.group_gene.loc[ordered_genes, :]
         all_group_dict = group_df.transpose().to_dict('index')
 
@@ -630,8 +630,8 @@ class ClusterHeatMap(object):
         colors = self.get_color_pool(len(groups)+sample_group_num)
         colors = colors[-len(groups):]
         group_colors = dict(zip(groups, colors))
-        if 'notGroupedY' in group_colors:
-            group_colors['notGroupedY'] = 'darkgrey'
+        if 'Unknown' in group_colors:
+            group_colors['Unknown'] = 'darkgrey'
         if self.gene_group_color:
             # user defined color overrides random generated one
             for k, v in self.gene_group_color.items():
