@@ -121,11 +121,11 @@ class ClusterHeatMap(object):
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
-            self.group_sample = pd.read_csv(sample_group, sep=None, header=0, index_col=0, engine='python').fillna('unknown')
+            self.group_sample = pd.read_csv(sample_group, sep=None, header=0, index_col=0, engine='python').fillna('Unknown')
         if isinstance(gene_group, str):
             if not os.path.exists(gene_group):
                 raise Exception('sample group file is not existed')
-            self.group_gene = pd.read_csv(gene_group, sep=None, header=0, index_col=0, engine='python').fillna('unknown')
+            self.group_gene = pd.read_csv(gene_group, sep=None, header=0, index_col=0, engine='python').fillna('Unknown')
         if isinstance(sample_group_color, str):
             if not os.path.exists(sample_group_color):
                 raise Exception('sample color file is not existed')
@@ -313,11 +313,6 @@ class ClusterHeatMap(object):
             'layer': 'above traces'
         }
 
-    # def gene_label_xaxis(self):
-    #     return {
-    #         'domain':[1, 1 - self.top_dendrogram_height - self.sample_bar_height]
-    #     }
-
     def left_dendrogam_xaxis(self):
         return {
             'domain': [0, self.left_dendrogram_width],
@@ -382,7 +377,9 @@ class ClusterHeatMap(object):
             'ticks': "",
             'anchor': 'y4',
             'scaleanchor': 'x',
-            'side': 'top'
+            'side': 'top',
+            'tickangle': self.sample_label_angle,
+            'tickfont': {'size': self.sample_label_size},
         }
 
     def group_bar_yaxis(self):
@@ -396,7 +393,7 @@ class ClusterHeatMap(object):
             'showticklabels': True,
             'ticks': "",
             'anchor': 'x4',
-            'side': 'right',
+            'side': 'right' if not self.only_sample_dendrogram else 'left',
         }
 
     def gene_bar_xaxis(self):
@@ -593,10 +590,12 @@ class ClusterHeatMap(object):
             # break
         self.layout['yaxis4']['tickvals'] = [x+0.5 for x in range(len(all_group_dict))]
         self.layout['yaxis4']['ticktext'] = list(all_group_dict.keys())
+        self.layout['yaxis4']['tickfont'] = dict(size=self.sample_label_size)
         sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
         sort_traces = [x[1] for x in sort_traces]
         traces = sort_traces + [x for x in traces if x not in sort_traces]
         if self.only_sample_dendrogram and self.group_sample is not None:
+            self.layout['margin'] = dict(l=max(len(x) for x in self.group_sample.columns)*self.sample_label_size)
             self.layout['xaxis4']['showticklabels'] = True
             self.layout['xaxis4']['side'] = 'bottom'
             self.layout['xaxis4']['tickvals'] = list(range(5, self.data.shape[1]*10, 10))
