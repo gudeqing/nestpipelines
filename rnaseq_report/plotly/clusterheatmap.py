@@ -407,7 +407,7 @@ class ClusterHeatMap(object):
             'showticklabels': True,
             'ticks': "",
             'anchor': 'y5',
-            'side': 'top',
+            'side': 'top' if not self.only_gene_dendrogram else 'bottom',
             'tickangle': 90
         }
 
@@ -648,7 +648,7 @@ class ClusterHeatMap(object):
                 for x in labels:
                     if x in self.gene_annot:
                         new_labels.append(
-                            """<a href="{}{}">{}</a>""".format(self.link_source, x, self.gene_annot[x])
+                            """<a href="{}{}">{}</a>""".format(self.link_source, self.gene_annot[x], self.gene_annot[x])
                         )
                     else:
                         new_labels.append(
@@ -798,7 +798,7 @@ class ClusterHeatMap(object):
                     for x in labels:
                         if x in self.gene_annot:
                             new_labels.append(
-                                """<a href="{}{}"> {}</a>""".format(self.link_source, x, self.gene_annot[x])
+                                """<a href="{}{}"> {}</a>""".format(self.link_source, self.gene_annot[x], self.gene_annot[x])
                             )
                         else:
                             new_labels.append(
