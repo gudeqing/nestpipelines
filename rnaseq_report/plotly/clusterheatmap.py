@@ -32,7 +32,8 @@ class ClusterHeatMap(object):
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size=7, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
-                 left_dendrogram_width=0.15, top_dendrogram_height=0.15):
+                 left_dendrogram_width=0.15, top_dendrogram_height=0.15,
+                 colorbar_x:float=None, legend_x:float=None):
         """
         cluster / correlation cluster for gene expression;
         note: gene name should not be pure integer
@@ -95,6 +96,8 @@ class ClusterHeatMap(object):
         :param transpose_data: transpose raw data before future analysis
         :param left_dendrogram_width: left/sample dendrogram width, default 0.15, range(0, 1)
         :param top_dendrogram_height: top/gene dendrogram height, default 0.15, range(0, 1)
+        :param colorbar_x: colorbar x coordinate, default to self-determined
+        :param legend_x: bar legend x coordinate, default to self-determined
         """
 
         self.scm = sample_cluster_method
@@ -118,6 +121,8 @@ class ClusterHeatMap(object):
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
         self.show_legend = not hide_legend
+        self.colorbar_x = colorbar_x
+        self.legend_x = legend_x
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -428,6 +433,10 @@ class ClusterHeatMap(object):
     def all_layout(self):
         if self.height is None and self.label_gene and self.only_sample_dendrogram is False:
             self.height = self.data.shape[0]*(self.gene_label_size+3.5)
+            if self.height < 600:
+                self.height = 600
+        if self.do_correlation_cluster and self.height is None:
+            self.height = self.width
 
         layout = go.Layout(
             plot_bgcolor=self.plot_bgcolor,
@@ -498,6 +507,8 @@ class ClusterHeatMap(object):
             colorbar_x = 1 + self.gene_label_size*max_label_len/1000 if self.label_gene else 1
         else:
             colorbar_x = 1 + self.gene_label_size*max_label_len/self.width if self.label_gene else 1
+        if self.colorbar_x is not None:
+            colorbar_x = self.colorbar_x
         heat_map = go.Heatmap(
             x=list(heat_data.columns),
             y=list(heat_data.index),
@@ -516,7 +527,8 @@ class ClusterHeatMap(object):
                 xanchor='left',
                 y=0,
                 yanchor='bottom',
-                len=0.5,
+                len=0.4,
+                thickness=25,
                 title="log{}(X)".format(self.logbase) if self.logbase and self.logbase != 1 else ''
             )
         )
@@ -546,8 +558,8 @@ class ClusterHeatMap(object):
             else:
                 target_genes = set(self.group_gene.index) & set(self.ordered_genes)
                 gene_group_num += len(set(self.group_gene.loc[list(target_genes), :].values.flatten()))
-
-        colors = self.get_color_pool(len(groups)+gene_group_num)
+        self.total_group_num = len(groups) + gene_group_num
+        colors = self.get_color_pool(self.total_group_num)
         group_colors = dict(zip(groups, colors))
         # if 'Unknown' in group_colors:
         #     group_colors['Unknown'] = 'darkgrey'
@@ -627,8 +639,8 @@ class ClusterHeatMap(object):
             else:
                 target_samples = set(self.group_sample.index) & set(self.ordered_samples)
                 sample_group_num += len(set(self.group_gene.loc[list(target_samples), :].values.flatten()))
-
-        colors = self.get_color_pool(len(groups)+sample_group_num)
+        self.total_group_num = len(groups)+sample_group_num
+        colors = self.get_color_pool(self.total_group_num)
         colors = colors[-len(groups):]
         group_colors = dict(zip(groups, colors))
         # if 'Unknown' in group_colors:
@@ -999,9 +1011,14 @@ class ClusterHeatMap(object):
             traces += self.gene_bar_traces()
 
         traces += self.heatmap_trace()
-        self.layout['legend'].update(
-            x=traces[-1]['colorbar']['x'],
-        )
+        if self.show_legend:
+            if self.total_group_num > 0.6*self.heat_data.shape[0]:
+                legend_x = traces[-1]['colorbar'] ['x'] + 0.07
+            else:
+                legend_x = traces[-1]['colorbar']['x']
+            self.layout['legend'].update(
+                x= legend_x if self.legend_x is None else self.legend_x,
+            )
 
         fig = go.Figure(data=traces, layout=self.layout)
         plt(fig, filename=self.out_name, auto_open=False)
