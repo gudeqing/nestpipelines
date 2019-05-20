@@ -15,8 +15,8 @@ __version_ = '3.2.5'
 
 class ClusterHeatMap(object):
     def __init__(self, data_file=None, out_name='clusterHeatMap.html',
-                 sample_cluster_method='complete', sample_distance_metric="correlation",
-                 gene_cluster_method='average', gene_distance_metric="euclidean",
+                 sample_cluster_method='complete', sample_distance_metric="euclidean",
+                 gene_cluster_method='complete', gene_distance_metric="euclidean",
                  cluster_gene=False, cluster_sample=False,
                  show_gene_label=False, hide_sample_label=False, hide_legend=False,
                  only_sample_dendrogram=False,
@@ -436,7 +436,7 @@ class ClusterHeatMap(object):
         if self.height is None and self.label_gene and self.only_sample_dendrogram is False:
             self.height = self.data.shape[0]*(self.gene_label_size+3.5)
             if self.height < 200:
-                self.height = 300
+                self.height = 450
             elif self.height < 600:
                 self.height = 600
         if self.do_correlation_cluster and self.height is None:
