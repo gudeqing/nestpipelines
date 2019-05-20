@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.2.5'
+__version_ = '3.3.0'
 
 
 class ClusterHeatMap(object):
@@ -1016,7 +1016,9 @@ class ClusterHeatMap(object):
 
         traces += self.heatmap_trace()
         if self.show_legend:
-            if self.total_group_num > 0.6*self.heat_data.shape[0]:
+            height = self.height or 600
+            if self.total_group_num > 0.6*self.heat_data.shape[0] or \
+                    (height < 601 and self.total_group_num > 9):
                 legend_x = traces[-1]['colorbar'] ['x'] + 0.07
             else:
                 legend_x = traces[-1]['colorbar']['x']
