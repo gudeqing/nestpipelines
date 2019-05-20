@@ -26,7 +26,7 @@ class ClusterHeatMap(object):
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=0, log_additive=1.0, zscore_before_cluster=False,
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
-                 no_gene_link=False, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
+                 no_gene_link:bool=None, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
                  lower_exp_cutoff=0, pass_lower_exp_num=None,
                  row_sum_cutoff=0, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
@@ -115,7 +115,7 @@ class ClusterHeatMap(object):
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
         self.outlier_k = k_outlier
-        self.link_gene = not no_gene_link
+        self.link_gene = True if no_gene_link is None else not no_gene_link
         self.link_source = link_source
         self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
@@ -210,6 +210,7 @@ class ClusterHeatMap(object):
 
         if self.do_correlation_cluster:
             self.data = self.data.corr(method=corr_method)
+            self.link_gene = False if no_gene_link is None else not no_gene_link
             # we choose not use the following codes to enable more freedom of users
             # self.cluster_gene = True
             # self.cluster_sample = True
@@ -433,7 +434,9 @@ class ClusterHeatMap(object):
     def all_layout(self):
         if self.height is None and self.label_gene and self.only_sample_dendrogram is False:
             self.height = self.data.shape[0]*(self.gene_label_size+3.5)
-            if self.height < 600:
+            if self.height < 300:
+                self.height = 300
+            elif self.height < 600:
                 self.height = 600
         if self.do_correlation_cluster and self.height is None:
             self.height = self.width
