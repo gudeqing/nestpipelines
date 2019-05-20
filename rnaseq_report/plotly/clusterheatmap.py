@@ -30,7 +30,7 @@ class ClusterHeatMap(object):
                  lower_exp_cutoff=0, pass_lower_exp_num=None,
                  row_sum_cutoff=0, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
-                 gene_label_size=7, sample_label_size=10, sample_label_angle=45, k_outlier=3.0,
+                 gene_label_size:int=None, sample_label_size=9, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15,
                  colorbar_x:float=None, legend_x:float=None):
@@ -85,7 +85,7 @@ class ClusterHeatMap(object):
         :param height: figure height, default to auto
         :param paper_bgcolor: figure background color, such as 'black'
         :param sort_cluster_by: sort cluster by distance or count
-        :param gene_label_size: int, gen label size, default 6
+        :param gene_label_size: int, gen label size, default 7 or 10(for sample correlation)
         :param outlier_k: k value for determine outlier, max color value = q3+(q3-q1)*k
         :param color_scale: pallete for heat map, refer to plotly,
             ['Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
@@ -141,7 +141,7 @@ class ClusterHeatMap(object):
                 raise Exception('sample color file is not existed')
             with open(gene_group_color) as f:
                 self.gene_group_color = dict(line.strip().split('\t')[:2] for line in f)
-        self.gene_label_size = gene_label_size
+        self.gene_label_size = 7 if gene_label_size is None else gene_label_size
         self.sample_label_size = sample_label_size
         self.sample_label_angle = sample_label_angle
         self.do_correlation_cluster = do_correlation_cluster
@@ -211,6 +211,7 @@ class ClusterHeatMap(object):
         if self.do_correlation_cluster:
             self.data = self.data.corr(method=corr_method)
             self.link_gene = False if no_gene_link is None else not no_gene_link
+            self.gene_label_size = 9 if gene_label_size is None else gene_label_size
             # we choose not use the following codes to enable more freedom of users
             # self.cluster_gene = True
             # self.cluster_sample = True
@@ -434,7 +435,7 @@ class ClusterHeatMap(object):
     def all_layout(self):
         if self.height is None and self.label_gene and self.only_sample_dendrogram is False:
             self.height = self.data.shape[0]*(self.gene_label_size+3.5)
-            if self.height < 300:
+            if self.height < 200:
                 self.height = 300
             elif self.height < 600:
                 self.height = 600
