@@ -44,6 +44,14 @@ class ClusterHeatMap(object):
         (2) complete + pearson (not for deseq2 rlog data as data of gene is not comparable within sample.)
         For deseq2 rlog data:
             I recommend: average + euclidean
+        methods for calculating the distance between the newly formed clusters.
+            Choices: ['average', 'weighted', 'centroid', 'complete', 'median', 'ward', 'single']
+        The distance metric to use.
+            Choices: ['braycurtis', 'canberra', 'chebyshev', 'cityblock',
+                    'correlation', 'pearson', 'spearman', 'kendall',
+                    'cosine', 'dice', 'euclidean', 'hamming', 'jaccard', 'kulsinski',
+                    'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto', 'russellrao',
+                    'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule', ]
         :param data_file: data file path
         :param out_name: figure file name, path info can be included
         :param sample_cluster_method: default "average"
