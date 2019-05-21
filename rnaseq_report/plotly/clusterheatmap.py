@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.5.0'
+__version_ = '3.6.0'
 
 
 class ClusterHeatMap(object):
@@ -637,9 +637,6 @@ class ClusterHeatMap(object):
         self.layout['yaxis4']['tickvals'] = [x+0.5 for x in range(len(all_group_dict))]
         self.layout['yaxis4']['ticktext'] = list(all_group_dict.keys())
         self.layout['yaxis4']['tickfont'] = dict(size=self.sample_label_size)
-        sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
-        sort_traces = [x[1] for x in sort_traces]
-        traces = sort_traces + [x for x in traces if x not in sort_traces]
         if self.only_sample_dendrogram and self.group_sample is not None:
             self.layout['margin'] = dict(l=max(len(x) for x in self.group_sample.columns)*self.sample_label_size)
             self.layout['xaxis4']['showticklabels'] = True
@@ -737,9 +734,6 @@ class ClusterHeatMap(object):
             # break
         self.layout['xaxis5']['tickvals'] = [x + 0.5 for x in range(len(all_group_dict))]
         self.layout['xaxis5']['ticktext'] = list(all_group_dict.keys())
-        sort_traces = sorted([(x['name'], x) for x in traces if x['showlegend'] is True], key=lambda x: x[0])
-        sort_traces = [x[1] for x in sort_traces]
-        traces = sort_traces + [x for x in traces if x not in sort_traces]
         return traces
 
     def top_dendrogram_traces(self):
@@ -1012,7 +1006,10 @@ class ClusterHeatMap(object):
         if self.group_sample is not None or self.group_gene is not None:
             self.layout['barmode'] = 'stack'
         if self.show_legend:
-            self.layout['legend'] = dict(tracegroupgap=2)
+            self.layout['legend'] = dict(
+                tracegroupgap=2,
+                traceorder='grouped',
+            )
         if self.only_gene_dendrogram:
             self.layout['legend'].update(
                 x=self.left_dendrogram_width,
@@ -1058,7 +1055,7 @@ class ClusterHeatMap(object):
             else:
                 legend_x = traces[-1]['colorbar']['x']
             self.layout['legend'].update(
-                x= legend_x if self.legend_x is None else self.legend_x,
+                x=legend_x if self.legend_x is None else self.legend_x,
             )
 
         fig = go.Figure(data=traces, layout=self.layout)
