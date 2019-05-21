@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.6.0'
+__version_ = '3.6.5'
 
 
 class ClusterHeatMap(object):
@@ -393,7 +393,7 @@ class ClusterHeatMap(object):
 
     def top_dendrogram_yaxis(self):
         return {
-            'domain': [1 - self.top_dendrogram_height - self.sample_bar_height, 1],
+            'domain': [1 - self.top_dendrogram_height, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
@@ -894,6 +894,7 @@ class ClusterHeatMap(object):
                 if metric.lower() == 'pearson':
                     metric = 'correlation'
                 if metric in ['spearman', 'kendall']:
+                    metric = 'correlation'
                     exp_pd = exp_pd.corr(method=metric)
                     exp_pd = squareform(1 - exp_pd)
                 z = hclust.linkage(exp_pd, method=method, metric=metric)
@@ -915,6 +916,12 @@ class ClusterHeatMap(object):
                     z = sch.linkage(exp_pd, method=method, metric=metric)
             except:
                 print("fastcluster failed, we will try scipy.cluster.hierarchy")
+                if metric.lower() == 'pearson':
+                    metric = 'correlation'
+                if metric in ['spearman', 'kendall']:
+                    metric = 'correlation'
+                    exp_pd = exp_pd.corr(method=metric)
+                    exp_pd = squareform(1 - exp_pd)
                 z = sch.linkage(exp_pd, method=method, metric=metric)
         if n_clusters <= 1:
             return z, None
