@@ -113,6 +113,7 @@ class ClusterHeatMap(object):
         self.gdm = gene_distance_metric
         self.scn = sample_cluster_num
         self.gcn = gene_cluster_num
+        self.total_group_num = 0
         self.group_sample = sample_group
         self.sample_group_color = sample_group_color
         self.sample_group_is_comm = sample_group_is_comm
@@ -210,6 +211,7 @@ class ClusterHeatMap(object):
             )
             self.cluster_gene = True
             self.cluster_sample = True
+            self.scd = 'spearman'
             self.label_gene = True
             self.data = pd.DataFrame(np.random.randint(0, 20, (100, 6)),
                                      columns=list('abcdef'),
@@ -844,10 +846,11 @@ class ClusterHeatMap(object):
         :param method: methods for calculating the distance between the newly formed clusters.
             Choices: ['single', 'average', 'weighted', 'centroid', 'complete', 'median', 'ward']
         :param metric: The distance metric to use.
-            Choices: ['braycurtis', 'canberra', 'chebyshev', 'cityblock', 'correlation',
-            'cosine', 'dice', 'euclidean', 'hamming', 'jaccard', 'kulsinski',
-            'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto', 'russellrao',
-            'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule', ]
+            Choices: ['braycurtis', 'canberra', 'chebyshev', 'cityblock',
+                    'correlation', 'pearson', 'spearman', 'kendall',
+                    'cosine', 'dice', 'euclidean', 'hamming', 'jaccard', 'kulsinski',
+                    'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto', 'russellrao',
+                    'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule', ]
         :param output: output directory of subcluster information
         :param prefix: outfile prefix letters
         :return: tree -> tuple(tree_str, tree_list),
@@ -870,6 +873,11 @@ class ClusterHeatMap(object):
                 from sklearn import preprocessing
                 exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
             try:
+                if metric.lower() == 'pearson':
+                    metric = 'correlation'
+                if metric in ['spearman', 'kendall']:
+                    exp_pd = exp_pd.corr(method=metric)
+                    exp_pd = squareform(1 - exp_pd)
                 z = hclust.linkage(exp_pd, method=method, metric=metric)
             except FloatingPointError as e:
                 print("fastcluster failed as : {}".format(e))
