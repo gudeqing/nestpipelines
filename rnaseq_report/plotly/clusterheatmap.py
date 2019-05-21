@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.3.0'
+__version_ = '3.5.0'
 
 
 class ClusterHeatMap(object):
