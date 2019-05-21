@@ -32,7 +32,7 @@ class ClusterHeatMap(object):
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size:int=None, sample_label_size=9, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
-                 left_dendrogram_width=0.15, top_dendrogram_height=0.15,
+                 left_dendrogram_width=0.15, top_dendrogram_height=0.15, group_bar_thickness=0.02,
                  colorbar_x:float=None, legend_x:float=None):
         """
         cluster / correlation cluster for gene expression;
@@ -241,16 +241,12 @@ class ClusterHeatMap(object):
             self.top_dendrogram_height = 0
 
         if self.group_sample is not None:
-            self.sample_bar_height = self.top_dendrogram_height*0.02/0.15 * self.group_sample.shape[1]
-            if self.top_dendrogram_height > 0:
-                self.top_dendrogram_height = self.top_dendrogram_height - self.sample_bar_height
+            self.sample_bar_height = group_bar_thickness* self.group_sample.shape[1]
         else:
             self.sample_bar_height = 0
 
         if self.group_gene is not None:
-            self.gene_bar_width = self.left_dendrogram_width*0.02/0.15 * self.group_gene.shape[1]
-            if self.left_dendrogram_width > 0:
-                self.left_dendrogram_width = self.left_dendrogram_width - self.gene_bar_width
+            self.gene_bar_width = group_bar_thickness * self.group_gene.shape[1]
         else:
             self.gene_bar_width = 0
 
@@ -371,7 +367,7 @@ class ClusterHeatMap(object):
 
     def top_dendrogram_yaxis(self):
         return {
-            'domain': [1 - self.top_dendrogram_height, 1],
+            'domain': [1 - self.top_dendrogram_height - self.sample_bar_height, 1],
             'mirror': False,
             'showgrid': False,
             'showline': False,
