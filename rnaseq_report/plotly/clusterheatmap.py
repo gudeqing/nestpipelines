@@ -15,20 +15,20 @@ __version_ = '3.3.0'
 
 class ClusterHeatMap(object):
     def __init__(self, data_file=None, out_name='clusterHeatMap.html',
-                 sample_cluster_method='complete', sample_distance_metric="euclidean",
-                 gene_cluster_method='complete', gene_distance_metric="euclidean",
+                 sample_cluster_method='average', sample_distance_metric="euclidean",
+                 gene_cluster_method='average', gene_distance_metric="euclidean",
                  cluster_gene=False, cluster_sample=False,
                  show_gene_label=False, hide_sample_label=False, hide_legend=False,
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
-                 do_correlation_cluster=False, corr_method='pearson',
+                 do_correlation_cluster=False, corr_method='kendall',
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=0, log_additive=1.0, zscore_before_cluster=False,
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
                  no_gene_link:bool=None, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
-                 lower_exp_cutoff=0, pass_lower_exp_num=None,
-                 row_sum_cutoff=0, cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
+                 lower_exp_cutoff=0., pass_lower_exp_num=None,
+                 row_sum_cutoff=0., cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size:int=None, sample_label_size=9, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
@@ -38,10 +38,16 @@ class ClusterHeatMap(object):
         cluster / correlation cluster for gene expression;
         note: gene name should not be pure integer
         For cluster method and metric option, please refer scipy.cluster.hierarchy.linkage
+        For RnaSeq TPM data to cluster samples, best practices:
+        refer  http://dx.doi.org/10.1016/j.ymeth.2017.07.023
+        (1) average + kendall/spearman (not for deseq2 rlog data as data of gene is not comparable within sample.)
+        (2) complete + pearson (not for deseq2 rlog data as data of gene is not comparable within sample.)
+        For deseq2 rlog data:
+            I recommend: average + euclidean
         :param data_file: data file path
         :param out_name: figure file name, path info can be included
-        :param sample_cluster_method: default "complete"
-        :param sample_distance_metric: default "correlation", correlation actually refer to pearson corr
+        :param sample_cluster_method: default "average"
+        :param sample_distance_metric: default "euclidean", correlation actually refer to pearson corr
         :param gene_cluster_method: default "average"
         :param gene_distance_metric: default "euclidean"
         :param cluster_gene: bool value indicates if to cluster gene
@@ -53,7 +59,8 @@ class ClusterHeatMap(object):
         :param only_gene_dendrogram: bool value indicates if to only draw gene cluster dendrogram
         :param do_correlation_cluster: bool value indicates if to cluster sample using "corr_method" and
             display correlation heat map
-        :param corr_method: correlation method, could be {'pearson', 'kendall', 'spearman'}, they are from pandas.corr
+        :param corr_method: correlation method, could be {'pearson', 'kendall'(default), 'spearman'},
+            they are from pandas.corr
         :param sample_cluster_num: number of sample cluster to output
         :param gene_cluster_num: number of gene cluster to output
         :param sample_group: a file with at least two columns, first column is sample name,
@@ -861,7 +868,7 @@ class ClusterHeatMap(object):
         if self.do_correlation_cluster:
             self.logbase = None
             condensed_distance = squareform(1 - exp_pd)
-            z = hclust.linkage(condensed_distance)
+            z = hclust.linkage(condensed_distance, method=self.scm)
         else:
             if self.zscore_before_cluster:
                 from sklearn import preprocessing
