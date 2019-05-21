@@ -208,7 +208,8 @@ class ClusterHeatMap(object):
             # 不断测试发现, index如果为纯数字, 当且仅当有基因聚类的时候将不能正常显示热图,
             # 应该是plotly的bug, 推测热图自动调整绘图的过程中, 会用到数字索引, 奇怪的很！
             print('Using random data to do test !')
-            gene_names = ['xyzbacef' + str(x) for x in range(100)]
+            gene_num = 80
+            gene_names = ['xyzbacef' + str(x) for x in range(gene_num)]
             self.group_sample = pd.DataFrame(dict(
                 status=['gg1', 'gg1', 'gg1', 'gg2', 'gg2', 'gg2'],
                 gender=['gg1', 'gg3', 'gg1', 'gg3', 'gg2', 'gg2'],
@@ -217,8 +218,8 @@ class ClusterHeatMap(object):
                 index=list('abcdef')
             )
             self.group_gene = pd.DataFrame(dict(
-                kegg=['gene_group1' if x < 50 else 'gene_group2' for x in range(100)],
-                GO=['gene_group3' if x < 70 else 'gene_group1' for x in range(100)],
+                kegg=['gene_group1' if x < 50 else 'gene_group2' for x in range(gene_num)],
+                GO=['gene_group3' if x < 70 else 'gene_group1' for x in range(gene_num)],
             ),
                 index=gene_names
             )
@@ -226,7 +227,7 @@ class ClusterHeatMap(object):
             self.cluster_sample = True
             self.scd = 'spearman'
             self.label_gene = True
-            self.data = pd.DataFrame(np.random.randint(0, 20, (100, 6)),
+            self.data = pd.DataFrame(np.random.randint(0, 20, (gene_num, 6)),
                                      columns=list('abcdef'),
                                      index=gene_names)
 
@@ -386,6 +387,7 @@ class ClusterHeatMap(object):
             'ticks': "",
             'anchor': 'y3',
             'scaleanchor': 'x',
+            'side': 'top',
             'range': (0, self.data.shape[1]*10)
         }
 
