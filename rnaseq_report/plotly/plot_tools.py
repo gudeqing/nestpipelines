@@ -359,16 +359,19 @@ def exp_saturation(files:list, outdir=os.getcwd(), outlier_limit=5, exp_lower=0.
 
 def exp_pca(exp_table, row_sum_cutoff=0.1, exp_cutoff=0.1, cv_cutoff=0.01,
             explained_ratio=0.95, outdir=os.getcwd(), group_dict=None,
+            log_transform=True, do_scale=True, prefix='',
             formats=('html',), height:int=None, width:int=None, scale=3):
     from sklearn import decomposition, preprocessing
-    data = pd.read_table(exp_table, header=0, index_col=0)
+    data = pd.read_csv(exp_table, header=0, index_col=0, sep=None, engine='python')
     data = data[data.sum(axis=1) >= row_sum_cutoff]
     pass_state = data.apply(lambda x: sum(x > exp_cutoff), axis=1)
     data = data[pass_state >= int(data.shape[1])/3]
     data = data[data.std(axis=1)/data.mean(axis=1) > cv_cutoff]
-    data.to_csv(os.path.join(outdir, 'pca.filtered.data.txt'), header=True, index=True, sep='\t')
-    data = np.log(data+1)
-    data = data.apply(preprocessing.scale, axis=0)
+    data.to_csv(os.path.join(outdir, '{}pca.filtered.data.txt'.format(prefix)), header=True, index=True, sep='\t')
+    if log_transform:
+        data = np.log(data+1)
+    if do_scale:
+        data = data.apply(preprocessing.scale, axis=0)
     data = data.transpose()
     pca = decomposition.PCA()
     pca.fit(data)
@@ -389,7 +392,7 @@ def exp_pca(exp_table, row_sum_cutoff=0.1, exp_cutoff=0.1, cv_cutoff=0.01,
     result.columns = ['PC'+str(n) for n in range(1, result.shape[1] + 1)]
     if not os.path.exists(outdir):
         os.mkdir(outdir)
-    out_dir = os.path.join(outdir, 'PCA.xls')
+    out_dir = os.path.join(outdir, '{}PCA.xls'.format(prefix))
     result.to_csv(out_dir, sep='\t', header=True, index=True)
     pc_ratio = {'PC' + str(n): r for n, r in _ratio}
     out_dir2 = os.path.join(outdir, 'Explained_variance_ratio.xls')
@@ -448,7 +451,7 @@ def exp_pca(exp_table, row_sum_cutoff=0.1, exp_cutoff=0.1, cv_cutoff=0.01,
         yaxis=dict(title='PC2({:.2%})'.format(pc_ratio['PC2']))
     )
     fig = go.Figure(traces, layout=layout)
-    prefix = "PC1_PC2"
+    prefix = "{}PC1_PC2".format(prefix)
     draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
 
 
