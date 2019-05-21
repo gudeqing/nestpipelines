@@ -32,7 +32,7 @@ class ClusterHeatMap(object):
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size:int=None, sample_label_size:int=None, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
-                 left_dendrogram_width=0.15, top_dendrogram_height=0.15, group_bar_thickness=0.02,
+                 left_dendrogram_width=0.13, top_dendrogram_height=0.13, group_bar_thickness=0.02,
                  colorbar_x:float=None, legend_x:float=None):
         """
         cluster / correlation cluster for gene expression;
