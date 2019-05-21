@@ -21,7 +21,7 @@ class ClusterHeatMap(object):
                  show_gene_label=False, hide_sample_label=False, hide_legend=False,
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
-                 do_correlation_cluster=False, corr_method='kendall',
+                 sample_corr_as_heatmap=False, gene_corr_as_heatmap=False, corr_method='kendall',
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=0, log_additive=1.0, zscore_before_cluster=False,
@@ -30,7 +30,7 @@ class ClusterHeatMap(object):
                  lower_exp_cutoff=0., pass_lower_exp_num=None,
                  row_sum_cutoff=0., cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
-                 gene_label_size:int=None, sample_label_size=9, sample_label_angle=45, k_outlier=3.0,
+                 gene_label_size:int=None, sample_label_size:int=None, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.15, top_dendrogram_height=0.15, group_bar_thickness=0.02,
                  colorbar_x:float=None, legend_x:float=None):
@@ -57,7 +57,9 @@ class ClusterHeatMap(object):
         :param hide_legend: bool value indicate if to display group legends of gene and sample
         :param only_sample_dendrogram: bool value indicates if to only draw sample cluster dendrogram
         :param only_gene_dendrogram: bool value indicates if to only draw gene cluster dendrogram
-        :param do_correlation_cluster: bool value indicates if to cluster sample using "corr_method" and
+        :param sample_corr_as_heatmap: bool value indicates if to cluster sample using "corr_method" and
+            display correlation heat map
+        :param gene_corr_as_heatmap: bool value indicates if to cluster gene using "corr_method" and
             display correlation heat map
         :param corr_method: correlation method, could be {'pearson', 'kendall'(default), 'spearman'},
             they are from pandas.corr
@@ -72,7 +74,7 @@ class ClusterHeatMap(object):
             1 or 0 means do no log transformation
         :param log_additive: a small value added before doing log transformation for data
         :param zscore_before_cluster: bool indicates if to do zscore normalization, default: False.
-            No effect if "do_correlation_cluster" is True
+            No effect if "sample/gene_corr_as_heatmap" is True
         :param gene_group: a file with at least two column, first column is gene name and fist row is group scheme,
             data in matrix are group names. or a pandas data frame object.
         :param gene_group_color: a file with two columns [group, color], or group color dict, {'group': 'color', ...}
@@ -150,9 +152,12 @@ class ClusterHeatMap(object):
             with open(gene_group_color) as f:
                 self.gene_group_color = dict(line.strip().split('\t')[:2] for line in f)
         self.gene_label_size = 7 if gene_label_size is None else gene_label_size
-        self.sample_label_size = sample_label_size
+        self.sample_label_size = 9 if sample_label_size is None else sample_label_size
         self.sample_label_angle = sample_label_angle
-        self.do_correlation_cluster = do_correlation_cluster
+        if sample_corr_as_heatmap and gene_corr_as_heatmap:
+            raise Exception('sample_corr_as_heatmap and gene_corr_as_heatmap cannot be both True')
+        self.sample_corr_as_heatmap = sample_corr_as_heatmap
+        self.gene_corr_as_heatmap = gene_corr_as_heatmap
         self.ordered_genes = None
         self.ordered_samples = None
         self.cluster_gene = cluster_gene
@@ -217,7 +222,8 @@ class ClusterHeatMap(object):
                                      columns=list('abcdef'),
                                      index=gene_names)
 
-        if self.do_correlation_cluster:
+        if self.sample_corr_as_heatmap:
+            print('calculate sample correlation')
             self.data = self.data.corr(method=corr_method)
             self.link_gene = False if no_gene_link is None else not no_gene_link
             self.gene_label_size = 9 if gene_label_size is None else gene_label_size
@@ -225,6 +231,11 @@ class ClusterHeatMap(object):
             # self.cluster_gene = True
             # self.cluster_sample = True
             # self.label_gene = True
+        if self.gene_corr_as_heatmap:
+            print('calculate gene correlation')
+            self.data = self.data.transpose().corr(method=corr_method)
+            self.link_gene = True if no_gene_link is None else not no_gene_link
+            self.sample_label_size = 7 if sample_label_size is None else sample_label_size
 
         if self.cluster_gene:
             self.left_dendrogram_width = left_dendrogram_width
@@ -254,8 +265,11 @@ class ClusterHeatMap(object):
 
         self.layout = self.all_layout()
         self.draw()
-        if self.do_correlation_cluster:
-            out_corr_file = os.path.join(outdir, 'corr.matrix.txt')
+        if self.sample_corr_as_heatmap:
+            out_corr_file = os.path.join(outdir, 'sample.corr.matrix.txt')
+            self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
+        if self.gene_corr_as_heatmap:
+            out_corr_file = os.path.join(outdir, 'gene.corr.matrix.txt')
             self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
 
     def process_data(self):
@@ -444,7 +458,7 @@ class ClusterHeatMap(object):
                 self.height = 450
             elif self.height < 600:
                 self.height = 600
-        if self.do_correlation_cluster and self.height is None:
+        if (self.sample_corr_as_heatmap or self.gene_corr_as_heatmap) and self.height is None:
             self.height = self.width
 
         layout = go.Layout(
@@ -864,7 +878,7 @@ class ClusterHeatMap(object):
                   "it will be forced to be sample number !")
             n_clusters = exp_pd.shape[0]
 
-        if self.do_correlation_cluster:
+        if self.sample_corr_as_heatmap or self.gene_corr_as_heatmap:
             self.logbase = None
             condensed_distance = squareform(1 - exp_pd)
             z = hclust.linkage(condensed_distance, method=self.scm)
