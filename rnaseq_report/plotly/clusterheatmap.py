@@ -35,23 +35,24 @@ class ClusterHeatMap(object):
                  left_dendrogram_width=0.13, top_dendrogram_height=0.13, group_bar_thickness=0.02,
                  colorbar_x:float=None, legend_x:float=None):
         """
-        cluster / correlation cluster for gene expression;
-        note: gene name should not be pure integer
-        For cluster method and metric option, please refer scipy.cluster.hierarchy.linkage
+        A cluster/heatmap tool designed for gene expression matrix
+        * note: gene name should not be pure integer
+
         For RnaSeq TPM data to cluster samples, best practices:
         refer  http://dx.doi.org/10.1016/j.ymeth.2017.07.023
         (1) average + kendall/spearman (not for deseq2 rlog data as data of gene is not comparable within sample.)
         (2) complete + pearson (not for deseq2 rlog data as data of gene is not comparable within sample.)
-        For deseq2 rlog data:
-            I recommend: average + euclidean
-        methods for calculating the distance between the newly formed clusters.
-            Choices: ['average', 'weighted', 'centroid', 'complete', 'median', 'ward', 'single']
-        The distance metric to use.
-            Choices: ['braycurtis', 'canberra', 'chebyshev', 'cityblock',
-                    'correlation', 'pearson', 'spearman', 'kendall',
-                    'cosine', 'dice', 'euclidean', 'hamming', 'jaccard', 'kulsinski',
-                    'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto', 'russellrao',
-                    'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule', ]
+        (3) For deseq2 rlog data: I recommend: average + euclidean
+
+        Cluster algorithm choices:
+        (1) linkage mathod: ['average', 'weighted', 'centroid', 'complete', 'median', 'ward', 'single']
+        (2) distance metric choices:
+            ['braycurtis', 'canberra', 'chebyshev', 'cityblock',
+            'correlation', 'pearson', 'spearman', 'kendall', (this are correlation metrics)
+            'cosine', 'dice', 'euclidean', 'hamming', 'jaccard', 'kulsinski',
+            'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto', 'russellrao',
+            'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule', ]
+        For more cluster method and metric option detail, please refer scipy.cluster.hierarchy.linkage
         :param data_file: data file path
         :param out_name: figure file name, path info can be included
         :param sample_cluster_method: default "average"
