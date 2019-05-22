@@ -266,14 +266,14 @@ class ClusterHeatMap(object):
         if self.group_sample is not None:
             self.sample_bar_height = group_bar_thickness* self.group_sample.shape[1]
             if self.only_sample_dendrogram:
-                self.top_dendrogram_height = 1 - self.sample_bar_height
+                self.top_dendrogram_height = 1 - self.sample_bar_height - 0.01
         else:
             self.sample_bar_height = 0
 
         if self.group_gene is not None:
             self.gene_bar_width = group_bar_thickness * self.group_gene.shape[1]
             if self.only_gene_dendrogram:
-                self.left_dendrogram_width = 1 - self.gene_bar_width
+                self.left_dendrogram_width = 1 - self.gene_bar_width - 0.01
         else:
             self.gene_bar_width = 0
 

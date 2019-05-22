@@ -54,6 +54,7 @@ def get_color_pool(n):
     for i in range(0, n):
         color_pool.append(generate_new_color(color_pool, pastel_factor=0.9))
     color_pool = [(int(x * 255), int(y * 255), int(z * 255)) for x, y, z in color_pool]
+    color_pool = sorted(color_pool, key=lambda x: (x[0], x[1], x[2]))
     return colorlover.to_rgb(color_pool)
 
 
