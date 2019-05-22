@@ -21,7 +21,7 @@ class ClusterHeatMap(object):
                  show_gene_label=False, hide_sample_label=False, hide_legend=False,
                  only_sample_dendrogram=False,
                  only_gene_dendrogram=False,
-                 sample_corr_as_heatmap=False, gene_corr_as_heatmap=False, corr_method='kendall',
+                 sample_corr_as_heatmap=False, gene_corr_as_heatmap=False, corr_method='spearman',
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=0, log_additive=1.0, zscore_before_cluster=False,
