@@ -277,10 +277,10 @@ class ClusterHeatMap(object):
         self.draw()
         if self.sample_corr_as_heatmap:
             out_corr_file = os.path.join(outdir, '{}.sample.corr.matrix.txt'.format(self.out_prefix))
-            self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
+            self.data.round(4)(out_corr_file, header=True, index=True, sep='\t')
         if self.gene_corr_as_heatmap:
             out_corr_file = os.path.join(outdir, '{}.gene.corr.matrix.txt'.format(self.out_prefix))
-            self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
+            self.data.round(4)(out_corr_file, header=True, index=True, sep='\t')
 
     def process_data(self):
         exp_pd = pd.read_csv(self.data_file, header=0, index_col=0, sep=None, engine='python')
@@ -292,7 +292,7 @@ class ClusterHeatMap(object):
             exp_pd = exp_pd.transpose()
         if self.target_cols or self.target_rows:
             out_name = os.path.join(self.outdir, '{}.target_raw_data'.format(self.out_prefix))
-            exp_pd.to_csv(out_name, header=True, index=True, sep='\t')
+            exp_pd.round(4)(out_name, header=True, index=True, sep='\t')
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
@@ -313,7 +313,7 @@ class ClusterHeatMap(object):
         out_name = os.path.join(self.outdir, '{}.log{}.cv{}.{}outof{}over{}.data'.format(
             self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
         ))
-        exp_pd.to_csv(out_name, header=True, index=True, sep='\t')
+        exp_pd.round(4)(out_name, header=True, index=True, sep='\t')
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -526,7 +526,7 @@ class ClusterHeatMap(object):
         if self.gene_annot and self.label_gene:
             heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
         # output data
-        heat_data.to_csv(out_name, header=True, index=True, sep='\t')
+        heat_data.round(4)(out_name, header=True, index=True, sep='\t')
         if self.link_gene:
             heat_data.index = ["""<a href="{}{}"> {}</a>""".format(self.link_source, x, x) for x in heat_data.index]
         self.heat_data = heat_data
@@ -923,10 +923,10 @@ class ClusterHeatMap(object):
             sub = exp_pd.loc[v, :]
             if transpose:
                 sub = sub.transpose()
-            sub.to_csv(out_dir, sep='\t', header=True, index=True)
+            sub.round(4)(out_dir, sep='\t', header=True, index=True)
         # write out cluster result z
         out_dir = os.path.join(output, prefix + "linkage_result")
-        pd.DataFrame(z).to_csv(out_dir, sep='\t')
+        pd.DataFrame(z).round(4)(out_dir, sep='\t')
         return z, subcluster
 
     @staticmethod
