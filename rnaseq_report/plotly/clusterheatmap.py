@@ -891,39 +891,23 @@ class ClusterHeatMap(object):
             if self.zscore_before_cluster:
                 from sklearn import preprocessing
                 exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
+            if metric.lower() == 'pearson':
+                metric = 'correlation'
+            if metric in ['spearman', 'kendall']:
+                exp_pd = exp_pd.transpose().corr(method=metric)
+                exp_pd = squareform(1 - exp_pd)
+                metric = 'correlation'  # no effect, just for save
             try:
-                if metric.lower() == 'pearson':
-                    metric = 'correlation'
-                if metric in ['spearman', 'kendall']:
-                    metric = 'correlation'
-                    exp_pd = exp_pd.corr(method=metric)
-                    exp_pd = squareform(1 - exp_pd)
                 z = hclust.linkage(exp_pd, method=method, metric=metric)
             except FloatingPointError as e:
-                print("fastcluster failed as : {}".format(e))
                 print('it seems that (at least) one of the vectors you want to cluster is all zeros, '
                       'so when it tries to compute the cosine distances to it there is a division by zero,'
                       ' hence nan is stored in your distance array, and that leads to your error.')
                 print('Anyway, we will remove the special rows for you now.')
-                check = exp_pd[exp_pd.sum(axis=1) == 0]
-                if check.shape[0] >= 1:
-                    print('Actually, we detected that some genes have zero expression across all samples.')
-                    print('such as {} has zero expression across all sample'.format(check.index[0]))
-                    exp_pd = exp_pd[exp_pd.sum(axis=1) > 0]
-                try:
-                    z = hclust.linkage(exp_pd, method=method, metric=metric)
-                except:
-                    print("enhen? fastcluster failed again, we will try scipy.cluster.hierarchy")
-                    z = sch.linkage(exp_pd, method=method, metric=metric)
+                raise Exception("fastcluster failed as : {}".format(e))
             except:
                 print("fastcluster failed, we will try scipy.cluster.hierarchy")
-                if metric.lower() == 'pearson':
-                    metric = 'correlation'
-                if metric in ['spearman', 'kendall']:
-                    metric = 'correlation'
-                    exp_pd = exp_pd.corr(method=metric)
-                    exp_pd = squareform(1 - exp_pd)
-                z = sch.linkage(exp_pd, method=method, metric=metric)
+                z = hclust.linkage(exp_pd, method=method, metric=metric)
         if n_clusters <= 1:
             return z, None
         # write out subcluster
