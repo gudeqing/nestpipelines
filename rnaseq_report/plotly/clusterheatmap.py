@@ -14,7 +14,7 @@ __version_ = '3.6.5'
 
 
 class ClusterHeatMap(object):
-    def __init__(self, data_file=None, out_name='clusterHeatMap.html',
+    def __init__(self, data_file=None, out_prefix='clusterHeatMap',
                  sample_cluster_method='average', sample_distance_metric="euclidean",
                  gene_cluster_method='average', gene_distance_metric="euclidean",
                  cluster_gene=False, cluster_sample=False,
@@ -54,7 +54,7 @@ class ClusterHeatMap(object):
             'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule', ]
         For more cluster method and metric option detail, please refer scipy.cluster.hierarchy.linkage
         :param data_file: data file path
-        :param out_name: figure file name, path info can be included
+        :param out_prefix: figure file name prefix, path info can be included
         :param sample_cluster_method: default "average"
         :param sample_distance_metric: default "euclidean", correlation actually refer to pearson corr
         :param gene_cluster_method: default "average"
@@ -193,8 +193,8 @@ class ClusterHeatMap(object):
         self.cv_cutoff = cv_cutoff
         self.zscore_before_cluster = zscore_before_cluster
 
-        self.out_name = out_name
-        outdir = os.path.dirname(out_name)
+        self.out_prefix = out_prefix
+        outdir = os.path.dirname(self.out_prefix)
         self.outdir = outdir if outdir else os.getcwd()
         if not os.path.exists(self.outdir):
             os.mkdir(self.outdir)
@@ -276,10 +276,10 @@ class ClusterHeatMap(object):
         self.layout = self.all_layout()
         self.draw()
         if self.sample_corr_as_heatmap:
-            out_corr_file = os.path.join(outdir, 'sample.corr.matrix.txt')
+            out_corr_file = os.path.join(outdir, '{}.sample.corr.matrix.txt'.format(self.out_prefix))
             self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
         if self.gene_corr_as_heatmap:
-            out_corr_file = os.path.join(outdir, 'gene.corr.matrix.txt')
+            out_corr_file = os.path.join(outdir, '{}.gene.corr.matrix.txt'.format(self.out_prefix))
             self.data.to_csv(out_corr_file, header=True, index=True, sep='\t')
 
     def process_data(self):
@@ -291,7 +291,7 @@ class ClusterHeatMap(object):
         if self.transpose_data:
             exp_pd = exp_pd.transpose()
         if self.target_cols or self.target_rows:
-            out_name = os.path.join(self.outdir, 'target_data_without_filtering')
+            out_name = os.path.join(self.outdir, '{}.target_raw_data'.format(self.out_prefix))
             exp_pd.to_csv(out_name, header=True, index=True, sep='\t')
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
@@ -310,8 +310,8 @@ class ClusterHeatMap(object):
             pass
         else:
             raise Exception('log base must be one of [2, 10, 1] ')
-        out_name = os.path.join(self.outdir, 'cluster.log{}.cv{}.{}outof{}over{}.preprocessed.data'.format(
-            self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
+        out_name = os.path.join(self.outdir, '{}.log{}.cv{}.{}outof{}over{}.data'.format(
+            self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
         ))
         exp_pd.to_csv(out_name, header=True, index=True, sep='\t')
         return exp_pd
@@ -518,8 +518,8 @@ class ClusterHeatMap(object):
             self.ordered_samples = range(self.data.shape[1])
         if not self.ordered_genes:
             self.ordered_genes = range(self.data.shape[0])
-        heat_data = self.data.iloc[self.ordered_genes, self.ordered_samples]
-        out_name = os.path.join(self.outdir, 'cluster.heatmap.data')
+        # heat_data = self.data.iloc[self.ordered_genes, self.ordered_samples]
+        out_name = os.path.join(self.outdir, '{}.heatmap.data'.format(self.out_prefix))
         # plotly plot data from bottom to top, thus we have to use [::-1], or it will not match dendrogram
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
         # trans gene id to gene name
@@ -746,7 +746,7 @@ class ClusterHeatMap(object):
             transpose=False,
             n_clusters=self.scn,
             output=self.outdir,
-            prefix='sample.'
+            prefix='{}.sample.'.format(self.out_prefix)
         )
         self.set_link_color_palette()
         results = sch.dendrogram(
@@ -795,7 +795,7 @@ class ClusterHeatMap(object):
             transpose=False,
             n_clusters=self.gcn,
             output=self.outdir,
-            prefix='gene.',
+            prefix='{}.gene.'.format(self.out_prefix),
         )
         self.set_link_color_palette()
         results = sch.dendrogram(
@@ -919,7 +919,7 @@ class ClusterHeatMap(object):
         else:
             output = os.getcwd()
         for k, v in subcluster.items():
-            out_dir = os.path.join(output, prefix + 'subcluster_{}_{}.xls'.format(k, len(v)))
+            out_dir = os.path.join(output, prefix + 'subcluster_{}_{}.xls'.format(k,len(v)))
             sub = exp_pd.loc[v, :]
             if transpose:
                 sub = sub.transpose()
@@ -1015,7 +1015,7 @@ class ClusterHeatMap(object):
             if self.group_sample is not None:
                 traces += self.group_bar_traces()
             fig = go.Figure(data=traces, layout=self.layout)
-            plt(fig, filename=self.out_name, auto_open=False)
+            plt(fig, filename=self.out_prefix+'.html', auto_open=False)
             return
 
         if self.only_gene_dendrogram:
@@ -1023,7 +1023,7 @@ class ClusterHeatMap(object):
             if self.group_gene is not None:
                 traces += self.gene_bar_traces()
             fig = go.Figure(data=traces, layout=self.layout)
-            plt(fig, filename=self.out_name, auto_open=False)
+            plt(fig, filename=self.out_prefix+'.html', auto_open=False)
             return
 
         if self.cluster_sample:
@@ -1051,7 +1051,7 @@ class ClusterHeatMap(object):
             )
 
         fig = go.Figure(data=traces, layout=self.layout)
-        plt(fig, filename=self.out_name, auto_open=False)
+        plt(fig, filename=self.out_prefix+'.html', auto_open=False)
 
 
 if __name__ == '__main__':
