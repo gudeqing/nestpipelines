@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn import decomposition, preprocessing
 from bokeh.plotting import figure, save, output_file
-from bokeh.models import ColumnDataSource, CDSView, GroupFilter, HoverTool, LabelSet
+from bokeh.models import ColumnDataSource, CDSView, GroupFilter, HoverTool, LabelSet, Legend
 from bokeh.layouts import gridplot
 
 
@@ -114,8 +114,9 @@ def pca_scatter(df=None, out_file='pca.html', annotate=False, text_size='6pt', m
         )
         s.add_tools(hover)
         groups = set(df[group_scheme])
+        legend_items = list()
         for group in groups:
-            s.scatter(
+            tmp = s.scatter(
                 x=df.columns[0],
                 y=df.columns[1],
                 marker=group_scheme+'_marker',
@@ -123,9 +124,14 @@ def pca_scatter(df=None, out_file='pca.html', annotate=False, text_size='6pt', m
                 size=marker_size,
                 color=group_scheme+'_color',
                 alpha=0.6,
-                legend=group,
+                # legend=group,
                 view=CDSView(source=source, filters=[GroupFilter(column_name=group_scheme, group=group)])
             )
+            legend_items.append((group, [tmp]))
+        # 如此可以保证legend在图形外面
+        legend = Legend(items=legend_items,location="center")
+        s.add_layout(legend, 'right')
+
         if annotate:
             labels = LabelSet(x=df.columns[0],
                               y=df.columns[1],
@@ -137,6 +143,7 @@ def pca_scatter(df=None, out_file='pca.html', annotate=False, text_size='6pt', m
                               text_font_size=text_size,
                               render_mode='canvas')
             s.add_layout(labels)
+
         s.legend.location = 'top_left'
         s.legend.click_policy = "hide"
         s.xaxis.axis_label = df.columns[0]
