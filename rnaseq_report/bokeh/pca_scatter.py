@@ -163,7 +163,7 @@ def get_color_pool(n):
             n = 3
         return colorlover.scales[str(n)]['qual']['Set1']
     if n <= 12:
-        return colorlover.scales[str(n)]['qual']['Set2']
+        return colorlover.scales[str(n)]['qual']['Paired']
 
     import random
     random.seed(666)
@@ -180,7 +180,7 @@ def get_color_pool(n):
         for i in range(0, 100):
             color = get_random_color(pastel_factor=pastel_factor)
             # exclude some colors
-            if np.absolute(np.array(color) - np.array([1, 1, 1])).sum() < 0.08:
+            if np.absolute(np.array(color) - np.array([1, 1, 1])).sum() < 0.1:
                 continue
             if not existing_colors:
                 return color
