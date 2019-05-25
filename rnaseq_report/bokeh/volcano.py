@@ -129,7 +129,8 @@ def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
             ('log2fc', '@log2fc'),
             ('pvalue', '@pvalue')
         ],
-        callback=on_hover
+        callback=on_hover,
+        point_policy="snap_to_data",
     )
     volcano.add_tools(hover)
 
