@@ -91,7 +91,9 @@ def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
         color='color',
         legend='regulate'
     )
-    volcano.legend.location = 'top_right'
+    volcano.legend.location = 'bottom_center'
+    volcano.legend.orientation = 'horizontal'
+    volcano.legend.background_fill_alpha = 0.5
     volcano.xaxis.axis_label = 'log2(FoldChange)'
     volcano.yaxis.axis_label = '-log10(Pvalue)'
 
