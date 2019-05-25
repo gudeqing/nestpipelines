@@ -60,6 +60,7 @@ def bar_source(table, exp_ind=None):
 
 
 def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
+    index_name = bar_source.index.name
     output_file(out_file)
     if volcano_source.index[0] != volcano_source['gene_symbol'][0]:
         first_gene = volcano_source.index[0] + ' | ' + volcano_source['gene_symbol'][0]
@@ -69,43 +70,55 @@ def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
     samples = list(bar_source.columns)
     point_groups = set(volcano_source['regulate'])
     point_stat = {x: x+': '+str(list(volcano_source['regulate']).count(x)) for x in point_groups}
-    bar_source.index = [str(x) for x in range(bar_source.shape[0])]
+    volcano_source['regulate'] = [point_stat[x] for x in volcano_source['regulate']]
     volcano_source = ColumnDataSource(volcano_source)
     dynamic = ColumnDataSource({'x': samples, 'y': bar_source.iloc[0]})
-    # print(bar_source.transpose().head().to_dict('index'))
-    bar_source = ColumnDataSource(bar_source.transpose())
-    js_args = {'bar': bar_source, 'dynamic': dynamic}
-    js_code = """
-        var ind = cb_obj.indices[0]; 
-        var d2 = bar.data;
-        console.log(ind);
-        console.log(cb_obj.value);
-        var d3 = dynamic.data;
-        d3['y'] = d2[ind+""];
-        dynamic.change.emit();
-    """
-    on_hover = CustomJS(args=js_args, code=js_code)
+    gene_list = list(bar_source.index)
+    bar_source = bar_source.transpose().to_dict('list')
+
+    # circle plot
     plot_options = dict(
         # width=250,
         # plot_height=500,
         tools='pan,wheel_zoom,box_select, reset,save',
+        toolbar_location="above"
     )
     volcano = figure(**plot_options)
-    legend_items = list()
-    for group in sorted(point_groups):
-        tmp = volcano.circle(
-            x='log2fc_shrink',
-            y='pvalue_shrink',
-            source=volcano_source,
-            color='color',
-            view=CDSView(source=volcano_source,
-                         filters=[GroupFilter(column_name='regulate', group=group)])
-        )
-        legend_items.append((point_stat[group], [tmp]))
-    # 如此可以保证legend在图形外面
-    legend = Legend(items=legend_items, location="center")
-    volcano.add_layout(legend, 'right')
-    volcano.legend.click_policy = "hide"
+    volcano.circle(
+        x='log2fc_shrink',
+        y='pvalue_shrink',
+        source=volcano_source,
+        color='color',
+        legend='regulate'
+    )
+    volcano.legend.location = 'top_right'
+    volcano.xaxis.axis_label = 'log2(FoldChange)'
+    volcano.yaxis.axis_label = '-log10(Pvalue)'
+
+    # bar plot
+    exp_bar = figure(**plot_options, x_range=samples)
+    exp_bar.vbar(x='x', top='y', width=0.5, source=dynamic, color='green')
+    exp_bar.xaxis.major_label_orientation = math.pi / 4
+    exp_bar.yaxis.axis_label = 'Expression'
+    # exp_bar.title.text = first_gene
+
+    # interaction
+    js_args = {
+        'bar': bar_source,
+        'dynamic': dynamic,
+        'title': exp_bar.title,
+        'genes': gene_list
+    }
+    js_code = """
+        var ind = cb_data.index['1d'].indices[0];
+        var d3 = dynamic.data;
+        console.log(ind);
+        var gene = genes[ind];
+        title.text = gene;
+        d3['y'] = bar[gene];
+        dynamic.change.emit();
+    """
+    on_hover = CustomJS(args=js_args, code=js_code)
 
     # define tools
     hover = HoverTool(
@@ -118,18 +131,16 @@ def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
     )
     volcano.add_tools(hover)
 
-    exp_bar = figure(**plot_options, x_range=samples)
-    exp_bar.vbar(x='x', top='y', width=0.5, source=dynamic, color='green')
-    exp_bar.xaxis.major_label_orientation = math.pi / 4
     # exp_bar.yaxis.axis_label = first_gene
-
     bar_hover = HoverTool(
         tooltips=[
             ('sample', '@x'),
         ],
     )
     exp_bar.add_tools(bar_hover)
-    lout = row(exp_bar, volcano)
+
+    # layout
+    lout = row(exp_bar, volcano, sizing_mode='stretch_both')
     save(lout)
 
 
