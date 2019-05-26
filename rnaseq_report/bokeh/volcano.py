@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import math
 from bokeh.io import output_file
-from bokeh.layouts import row
+from bokeh.layouts import layout, column, row
 from bokeh.plotting import figure, save
 from bokeh.models import (
     ColumnDataSource, CustomJS,
@@ -52,6 +52,7 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
 
 def bar_source(table, exp_ind=None):
     df = pd.read_csv(table, index_col=0, header=0, sep=None, engine='python')
+    df = df.round(2)
     if exp_ind is not None:
         df = df.iloc[:, exp_ind]
     else:
@@ -59,22 +60,29 @@ def bar_source(table, exp_ind=None):
     return df
 
 
-def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
-    index_name = bar_source.index.name
+def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', top=10):
     output_file(out_file)
-    if volcano_source.index[0] != volcano_source['gene_symbol'][0]:
-        first_gene = volcano_source.index[0] + ' | ' + volcano_source['gene_symbol'][0]
+    if volcano_df.index[0] != volcano_df['gene_symbol'][0]:
+        first_gene = volcano_df.index[0] + ' | ' + volcano_df['gene_symbol'][0]
     else:
-        first_gene = volcano_source.index[0]
-    bar_source = bar_source.loc[volcano_source.index]
-    samples = list(bar_source.columns)
-    point_groups = set(volcano_source['regulate'])
-    point_stat = {x: x+': '+str(list(volcano_source['regulate']).count(x)) for x in point_groups}
-    volcano_source['regulate'] = [point_stat[x] for x in volcano_source['regulate']]
-    volcano_source = ColumnDataSource(volcano_source)
-    dynamic = ColumnDataSource({'x': samples, 'y': bar_source.iloc[0]})
-    gene_list = list(bar_source.index)
-    bar_source = bar_source.transpose().to_dict('list')
+        first_gene = volcano_df.index[0]
+    bar_df = bar_df.loc[volcano_df.index]
+    samples = list(bar_df.columns)
+    point_groups = set(volcano_df['regulate'])
+    point_stat = {x: x+': '+str(list(volcano_df['regulate']).count(x)) for x in point_groups}
+    volcano_df['regulate'] = [point_stat[x] for x in volcano_df['regulate']]
+    volcano_source = ColumnDataSource(volcano_df)
+    gene_list = list(bar_df.index)
+    bar_dict_source = bar_df.transpose().to_dict('list')
+    # calculate correlation between genes
+    corr = bar_df.transpose().corr(method=corr_method)
+    corr_dict_source = dict()
+    for gene in corr.index:
+        tmp_corr = corr.loc[gene].abs().sort_values(ascending=False)
+        ind = tmp_corr.index[range(top+1)]
+        ind = [x for x in ind if x != gene]
+        top_corr = corr.loc[gene].loc[ind]
+        corr_dict_source[gene] = [list(ind), list(top_corr)]
 
     # circle plot
     plot_options = dict(
@@ -99,26 +107,50 @@ def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
 
     # bar plot
     exp_bar = figure(**plot_options, x_range=samples)
+    dynamic = ColumnDataSource({'x': samples, 'y': bar_df.loc[first_gene]})
     exp_bar.vbar(x='x', top='y', width=0.5, source=dynamic, color='green')
     exp_bar.xaxis.major_label_orientation = math.pi / 4
     exp_bar.yaxis.axis_label = 'Expression'
-    # exp_bar.title.text = first_gene
+    exp_bar.xgrid.grid_line_color = None
+    exp_bar.title.text = first_gene
+
+    # corr bar
+    corr_bar = figure(**plot_options, x_range=corr_dict_source[first_gene][0])
+    dynamic2 = ColumnDataSource({
+        'x': corr_dict_source[first_gene][0],
+        'y': corr_dict_source[first_gene][1],
+    })
+    corr_bar.vbar(x='x', top='y', width=0.5, source=dynamic2, color='olive')
+    corr_bar.xaxis.major_label_orientation = math.pi / 4
+    corr_bar.yaxis.axis_label = 'Correlation'
+    corr_bar.xgrid.grid_line_color = None
+    corr_bar.title.text = first_gene
+
 
     # interaction
     js_args = {
-        'bar': bar_source,
+        'exp': bar_dict_source,
         'dynamic': dynamic,
-        'title': exp_bar.title,
-        'genes': gene_list
+        'exp_bar_title': exp_bar.title,
+        'genes': gene_list,
+        'corr': corr_dict_source,
+        'dynamic2': dynamic2,
+        'corr_bar_x': corr_bar.x_range,
+        'title2': corr_bar.title
     }
     js_code = """
         var ind = cb_data.index['1d'].indices[0];
         var d3 = dynamic.data;
-        console.log(ind);
         var gene = genes[ind];
-        title.text = gene;
-        d3['y'] = bar[gene];
+        d3['y'] = exp[gene];
+        exp_bar_title.text = gene;
         dynamic.change.emit();
+        var d = dynamic2.data;
+        d['x'] = corr[gene][0];
+        d['y'] = corr[gene][1];
+        corr_bar_x.factors = corr[gene][0];
+        title2.text = gene;
+        dynamic2.change.emit();
     """
     on_hover = CustomJS(args=js_args, code=js_code)
 
@@ -138,12 +170,22 @@ def plot(volcano_source, bar_source, out_file='volcano_expression.html'):
     bar_hover = HoverTool(
         tooltips=[
             ('sample', '@x'),
+            ('expr', '@y'),
         ],
     )
     exp_bar.add_tools(bar_hover)
 
+    # corr hover
+    corr_hover = HoverTool(
+        tooltips=[
+            ('gene', '@x'),
+            ('corr', '@y'),
+        ],
+    )
+    corr_bar.add_tools(corr_hover)
+
     # layout
-    lout = row(exp_bar, volcano, sizing_mode='stretch_both')
+    lout = layout([exp_bar, volcano], corr_bar, sizing_mode='stretch_width')
     save(lout)
 
 
