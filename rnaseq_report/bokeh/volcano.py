@@ -77,7 +77,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     gene_list = list(bar_df.index)
     bar_dict_source = bar_df.transpose().to_dict('list')
     # calculate correlation between genes
-    corr = bar_df.transpose().corr(method=corr_method)
+    corr = bar_df.transpose().corr(method=corr_method).round(3)
     corr_dict_source = dict()
     for gene in corr.index:
         tmp_corr = corr.loc[gene].abs().sort_values(ascending=False)
@@ -114,11 +114,28 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'y': corr_dict_source[first_gene][1],
     })
     mapper = linear_cmap(palette=RdYlGn[11], field_name='y', low=-1, high=1)
-    corr_bar.vbar(x='x', top='y', width=0.5, source=dynamic2, color=mapper)
+    corr_bar_sr = corr_bar.vbar(x='x', top='y', width=0.5, source=dynamic2, color=mapper)
     corr_bar.xaxis.major_label_orientation = math.pi / 4
     corr_bar.yaxis.axis_label = 'Correlation'
     corr_bar.xgrid.grid_line_color = None
     corr_bar.title.text = first_gene
+
+    # corr line
+    corr_line = figure(**plot_options)
+    dynamic3 = ColumnDataSource({
+        'x': [0]*len(samples),
+        'y': [0]*len(samples),
+        'samples': samples
+    })
+    # corr_line.line(x='x', y='y', source=dynamic3, color='tomato')
+    corr_line.circle(x='x', y='y', size=12, source=dynamic3)
+    corr_line.xaxis.axis_label = 'gene1'
+    corr_line.yaxis.axis_label = 'gene2'
+    corr_line.title.text = 'gene1 vs gene2'
+    corr_line.add_tools(HoverTool(
+        # tooltips=[('sample', '@samples'),('gene1_expr', '@x'), ('gene2_expr', '@y')])
+        tooltips=[('sample', '@samples')])
+    )
 
     # bar plot
     exp_bar = figure(**plot_options, x_range=samples)
@@ -188,16 +205,50 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     exp_bar.add_tools(bar_hover)
 
     # corr hover
-    corr_hover = HoverTool(
+    # corr_hover = HoverTool(
+    #     tooltips=[
+    #         ('gene', '@x'),
+    #         ('corr', '@y'),
+    #     ],
+    # )
+    # corr_bar.add_tools(corr_hover)
+
+    # corr line between two genes
+    js_args = {
+        'exp': bar_dict_source,
+        'dynamic': dynamic3,
+        'corr_line_title': corr_line.title,
+        'corr_bar': corr_bar_sr.data_source,
+        'samples': samples,
+        'corr_bar_title': corr_bar.title,
+        'corr_line_x': corr_line.x_range,
+    }
+    js_code = """
+        var ind = cb_data.index['1d'].indices[0];
+        var gene = corr_bar.data.x[ind];
+        var correlation = corr_bar.data.y[ind];
+        var gene2 = corr_bar_title.text
+
+        var d3 = dynamic.data;
+        d3['x'] = exp[gene];
+        d3['y'] = exp[gene2];
+        corr_line_title.text = gene + ' vs ' + gene2 + ' = ' + correlation;
+        dynamic.change.emit();
+    """
+    on_hover = CustomJS(args=js_args, code=js_code)
+
+    # define tools
+    hover = HoverTool(
         tooltips=[
             ('gene', '@x'),
             ('corr', '@y'),
         ],
+        callback=on_hover,
     )
-    corr_bar.add_tools(corr_hover)
+    corr_bar.add_tools(hover)
 
     # layout
-    lout = layout([exp_bar, volcano], corr_bar, sizing_mode='stretch_width')
+    lout = layout([exp_bar, volcano], [corr_bar, corr_line], sizing_mode='stretch_width')
     save(lout)
 
 
