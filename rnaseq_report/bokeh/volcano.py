@@ -4,6 +4,8 @@ import math
 from bokeh.io import output_file
 from bokeh.layouts import layout, column, row
 from bokeh.plotting import figure, save
+from bokeh.palettes import RdYlGn
+from bokeh.transform import linear_cmap
 from bokeh.models import (
     ColumnDataSource, CustomJS,
     CDSView, GroupFilter, HoverTool,
@@ -44,9 +46,9 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
     p_desc = df['pvalue_shrink'].describe()
     p_limit = p_desc['75%'] + (p_desc['75%'] - p_desc['25%']) * limit
     df.loc[(df['pvalue_shrink'] >= p_limit), 'pvalue_shrink'] = p_limit
-    df['color'] = 'grey'
-    df.loc[df['regulate']=='Up', 'color'] = 'red'
-    df.loc[df['regulate']=='Down', 'color'] = 'green'
+    df['color'] = 'darkgrey'
+    df.loc[df['regulate']=='Up', 'color'] = 'tomato'
+    df.loc[df['regulate']=='Down', 'color'] = 'mediumseagreen'
     return df
 
 
@@ -105,27 +107,31 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     volcano.xaxis.axis_label = 'log2(FoldChange)'
     volcano.yaxis.axis_label = '-log10(Pvalue)'
 
-    # bar plot
-    exp_bar = figure(**plot_options, x_range=samples)
-    dynamic = ColumnDataSource({'x': samples, 'y': bar_df.loc[first_gene]})
-    exp_bar.vbar(x='x', top='y', width=0.5, source=dynamic, color='green')
-    exp_bar.xaxis.major_label_orientation = math.pi / 4
-    exp_bar.yaxis.axis_label = 'Expression'
-    exp_bar.xgrid.grid_line_color = None
-    exp_bar.title.text = first_gene
-
     # corr bar
     corr_bar = figure(**plot_options, x_range=corr_dict_source[first_gene][0])
     dynamic2 = ColumnDataSource({
         'x': corr_dict_source[first_gene][0],
         'y': corr_dict_source[first_gene][1],
     })
-    corr_bar.vbar(x='x', top='y', width=0.5, source=dynamic2, color='olive')
+    mapper = linear_cmap(palette=RdYlGn[11], field_name='y', low=-1, high=1)
+    corr_bar.vbar(x='x', top='y', width=0.5, source=dynamic2, color=mapper)
     corr_bar.xaxis.major_label_orientation = math.pi / 4
     corr_bar.yaxis.axis_label = 'Correlation'
     corr_bar.xgrid.grid_line_color = None
     corr_bar.title.text = first_gene
 
+    # bar plot
+    exp_bar = figure(**plot_options, x_range=samples)
+    dynamic = ColumnDataSource({
+        'x': samples,
+        'y': bar_df.loc[first_gene]
+    })
+    mapper = linear_cmap(palette=RdYlGn[11], field_name='y', low=1, high=1000)
+    exp_bar.vbar(x='x', top='y', width=0.5, source=dynamic, color=mapper)
+    exp_bar.xaxis.major_label_orientation = math.pi / 4
+    exp_bar.yaxis.axis_label = 'Expression'
+    exp_bar.xgrid.grid_line_color = None
+    exp_bar.title.text = first_gene
 
     # interaction
     js_args = {
@@ -133,6 +139,8 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'dynamic': dynamic,
         'exp_bar_title': exp_bar.title,
         'genes': gene_list,
+        'samples': samples,
+        'exp_bar_x': exp_bar.x_range,
         'corr': corr_dict_source,
         'dynamic2': dynamic2,
         'corr_bar_x': corr_bar.x_range,
@@ -140,17 +148,21 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     }
     js_code = """
         var ind = cb_data.index['1d'].indices[0];
-        var d3 = dynamic.data;
         var gene = genes[ind];
-        d3['y'] = exp[gene];
-        exp_bar_title.text = gene;
-        dynamic.change.emit();
+        
         var d = dynamic2.data;
         d['x'] = corr[gene][0];
         d['y'] = corr[gene][1];
         corr_bar_x.factors = corr[gene][0];
         title2.text = gene;
         dynamic2.change.emit();
+        
+        var d3 = dynamic.data;
+        d3['x'] = samples;
+        d3['y'] = exp[gene];
+        exp_bar_x.factors = samples;
+        exp_bar_title.text = gene;
+        dynamic.change.emit();
     """
     on_hover = CustomJS(args=js_args, code=js_code)
 
@@ -190,7 +202,8 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
 
 
 def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=None,
-            fc_cutoff=2.0, pval_cutoff=0.05, limit=3, out_file='volcano_expression.html'):
+            fc_cutoff=2.0, pval_cutoff=0.05, limit=3, corr_method='pearson', top=10,
+            out_file='volcano_expression.html'):
     volcano_data = volcano_source(table,
                                   gene_symbol_ind=gene_symbol_ind,
                                   log2fc_ind=log2fc_ind,
@@ -200,7 +213,7 @@ def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=N
                                   limit=limit
                                   )
     bar_data = bar_source(table, exp_ind=exp_ind)
-    plot(volcano_data, bar_data, out_file=out_file)
+    plot(volcano_data, bar_data, out_file=out_file, corr_method=corr_method, top=top)
 
 
 if __name__ == '__main__':
