@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy.stats import pearsonr, spearmanr, kendalltau
 import math
 from bokeh.io import output_file
 from bokeh.layouts import layout, column, row
@@ -62,7 +63,8 @@ def bar_source(table, exp_ind=None):
     return df
 
 
-def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', top=10):
+def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', corr_test=False,
+         top=10, corr_pval_cutoff=0.01, label_corr_line=True):
     output_file(out_file)
     if volcano_df.index[0] != volcano_df['gene_symbol'][0]:
         first_gene = volcano_df.index[0] + ' | ' + volcano_df['gene_symbol'][0]
@@ -77,14 +79,27 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     gene_list = list(bar_df.index)
     bar_dict_source = bar_df.transpose().to_dict('list')
     # calculate correlation between genes
-    corr = bar_df.transpose().corr(method=corr_method).round(3)
+    corr, corr_pval = df_corr(bar_df.transpose(), method=corr_method, test=corr_test)
     corr_dict_source = dict()
     for gene in corr.index:
-        tmp_corr = corr.loc[gene].abs().sort_values(ascending=False)
-        ind = tmp_corr.index[range(top+1)]
+        if corr_test:
+            pval_pass = corr_pval.loc[gene] < corr_pval_cutoff
+            tmp_corr = corr.loc[gene][pval_pass].abs().sort_values(ascending=False)
+        else:
+            tmp_corr = corr.loc[gene].abs().sort_values(ascending=False)
+        if top+1 >= tmp_corr.shape[0]:
+            ind = tmp_corr.index
+        else:
+            ind = tmp_corr.index[range(top+1)]
         ind = [x for x in ind if x != gene]
-        top_corr = corr.loc[gene].loc[ind]
-        corr_dict_source[gene] = [list(ind), list(top_corr)]
+        if not ind:
+            ind = [gene]
+        top_corr = corr.loc[gene].loc[ind].round(3)
+        if corr_test:
+            top_corr_pval = corr_pval.loc[gene].loc[ind]
+            corr_dict_source[gene] = [list(ind), list(top_corr), list(top_corr_pval)]
+        else:
+            corr_dict_source[gene] = [list(ind), list(top_corr)]
 
     # circle plot
     plot_options = dict(
@@ -109,10 +124,17 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
 
     # corr bar
     corr_bar = figure(**plot_options, x_range=corr_dict_source[first_gene][0])
-    dynamic2 = ColumnDataSource({
-        'x': corr_dict_source[first_gene][0],
-        'y': corr_dict_source[first_gene][1],
-    })
+    if corr_test:
+        dynamic2 = ColumnDataSource({
+            'x': corr_dict_source[first_gene][0],
+            'y': corr_dict_source[first_gene][1],
+            'pval': corr_dict_source[first_gene][2]
+        })
+    else:
+        dynamic2 = ColumnDataSource({
+            'x': corr_dict_source[first_gene][0],
+            'y': corr_dict_source[first_gene][1],
+        })
     mapper = linear_cmap(palette=RdYlGn[11], field_name='y', low=-1, high=1)
     corr_bar_sr = corr_bar.vbar(x='x', top='y', width=0.5, source=dynamic2, color=mapper)
     corr_bar.xaxis.major_label_orientation = math.pi / 4
@@ -121,7 +143,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     corr_bar.title.text = first_gene
 
     # corr line
-    corr_line = figure(**plot_options)
+    corr_line = figure(**plot_options, x_axis_location='above', y_axis_location='right')
     dynamic3 = ColumnDataSource({
         'x': [0]*len(samples),
         'y': [0]*len(samples),
@@ -129,13 +151,30 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     })
     # corr_line.line(x='x', y='y', source=dynamic3, color='tomato')
     corr_line.circle(x='x', y='y', size=12, source=dynamic3)
-    corr_line.xaxis.axis_label = 'gene1'
-    corr_line.yaxis.axis_label = 'gene2'
+    from bokeh.models import LinearAxis
+    # 为了能再callback时更新label信息
+    corr_line.xaxis.visible = None
+    corr_line.yaxis.visible = None
+    corr_line_xaxis = LinearAxis(axis_label="gene1")
+    corr_line_yaxis = LinearAxis(axis_label="gene2")
+    corr_line.add_layout(corr_line_xaxis, 'below')
+    corr_line.add_layout(corr_line_yaxis, 'left')
     corr_line.title.text = 'gene1 vs gene2'
     corr_line.add_tools(HoverTool(
         # tooltips=[('sample', '@samples'),('gene1_expr', '@x'), ('gene2_expr', '@y')])
         tooltips=[('sample', '@samples')])
     )
+    if label_corr_line:
+        labels = LabelSet(x='x',
+                          y='y',
+                          text='samples',
+                          level='glyph',
+                          x_offset=0,
+                          y_offset=0,
+                          source=dynamic3,
+                          text_font_size='6pt',
+                          render_mode='canvas')
+        corr_line.add_layout(labels)
 
     # bar plot
     exp_bar = figure(**plot_options, x_range=samples)
@@ -163,24 +202,45 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'corr_bar_x': corr_bar.x_range,
         'title2': corr_bar.title
     }
-    js_code = """
-        var ind = cb_data.index['1d'].indices[0];
-        var gene = genes[ind];
-        
-        var d = dynamic2.data;
-        d['x'] = corr[gene][0];
-        d['y'] = corr[gene][1];
-        corr_bar_x.factors = corr[gene][0];
-        title2.text = gene;
-        dynamic2.change.emit();
-        
-        var d3 = dynamic.data;
-        d3['x'] = samples;
-        d3['y'] = exp[gene];
-        exp_bar_x.factors = samples;
-        exp_bar_title.text = gene;
-        dynamic.change.emit();
-    """
+    if corr_test:
+        js_code = """
+            var ind = cb_data.index['1d'].indices[0];
+            var gene = genes[ind];
+            
+            var d = dynamic2.data;
+            d['x'] = corr[gene][0];
+            d['y'] = corr[gene][1];
+            d['pval'] = corr[gene][2];
+            corr_bar_x.factors = corr[gene][0];
+            title2.text = gene;
+            dynamic2.change.emit();
+            
+            var d3 = dynamic.data;
+            d3['x'] = samples;
+            d3['y'] = exp[gene];
+            exp_bar_x.factors = samples;
+            exp_bar_title.text = gene;
+            dynamic.change.emit();
+        """
+    else:
+        js_code = """
+                    var ind = cb_data.index['1d'].indices[0];
+                    var gene = genes[ind];
+
+                    var d = dynamic2.data;
+                    d['x'] = corr[gene][0];
+                    d['y'] = corr[gene][1];
+                    corr_bar_x.factors = corr[gene][0];
+                    title2.text = gene;
+                    dynamic2.change.emit();
+
+                    var d3 = dynamic.data;
+                    d3['x'] = samples;
+                    d3['y'] = exp[gene];
+                    exp_bar_x.factors = samples;
+                    exp_bar_title.text = gene;
+                    dynamic.change.emit();
+                """
     on_hover = CustomJS(args=js_args, code=js_code)
 
     # define tools
@@ -219,32 +279,46 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'dynamic': dynamic3,
         'corr_line_title': corr_line.title,
         'corr_bar': corr_bar_sr.data_source,
-        'samples': samples,
         'corr_bar_title': corr_bar.title,
-        'corr_line_x': corr_line.x_range,
+        'corr_line_xrange': corr_line.x_range,
+        'corr_line_xaxis': corr_line_xaxis,
+        'corr_line_yaxis': corr_line_yaxis,
     }
     js_code = """
         var ind = cb_data.index['1d'].indices[0];
-        var gene = corr_bar.data.x[ind];
-        var correlation = corr_bar.data.y[ind];
-        var gene2 = corr_bar_title.text
+        var data = corr_bar.data;
+        var gene = data.x[ind];
+        var correlation = data.y[ind];
+        var gene2 = corr_bar_title.text;
 
         var d3 = dynamic.data;
         d3['x'] = exp[gene];
         d3['y'] = exp[gene2];
+        corr_line_xaxis.axis_label = gene;
+        corr_line_yaxis.axis_label = gene2;
         corr_line_title.text = gene + ' vs ' + gene2 + ' = ' + correlation;
         dynamic.change.emit();
     """
     on_hover = CustomJS(args=js_args, code=js_code)
 
     # define tools
-    hover = HoverTool(
-        tooltips=[
-            ('gene', '@x'),
-            ('corr', '@y'),
-        ],
-        callback=on_hover,
-    )
+    if corr_test:
+        hover = HoverTool(
+            tooltips=[
+                ('gene', '@x'),
+                ('corr', '@y'),
+                ('pvalue', '@pval'),
+            ],
+            callback=on_hover,
+        )
+    else:
+        hover = HoverTool(
+            tooltips=[
+                ('gene', '@x'),
+                ('corr', '@y'),
+            ],
+            callback=on_hover,
+        )
     corr_bar.add_tools(hover)
 
     # layout
@@ -254,6 +328,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
 
 def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=None,
             fc_cutoff=2.0, pval_cutoff=0.05, limit=3, corr_method='pearson', top=10,
+            corr_test=False, corr_pval_cutoff=0.01, label_corr_line=True,
             out_file='volcano_expression.html'):
     volcano_data = volcano_source(table,
                                   gene_symbol_ind=gene_symbol_ind,
@@ -264,7 +339,48 @@ def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=N
                                   limit=limit
                                   )
     bar_data = bar_source(table, exp_ind=exp_ind)
-    plot(volcano_data, bar_data, out_file=out_file, corr_method=corr_method, top=top)
+    plot(volcano_data, bar_data,
+         out_file=out_file,
+         corr_method=corr_method, top=top,
+         corr_pval_cutoff=corr_pval_cutoff,
+         corr_test=corr_test,
+         label_corr_line=label_corr_line
+         )
+
+
+def df_corr(df, method="pearson", test=False):
+    if not test:
+        return df.corr(method), None
+
+    from scipy import stats
+
+    def correlation_function(func_name):
+        func_name = func_name.lower()
+        if func_name == "pearson":
+            return stats.pearsonr
+        elif func_name == "spearman":
+            return stats.spearmanr
+        elif func_name == "biserial":
+            return stats.pointbiserialr
+        elif func_name == 'kendall':
+            return stats.kendalltau
+        else:
+            raise Exception('{} is not in [pearson, spearman, biserial, kendall]')
+
+    corr_func = correlation_function(method)
+    coef_matrix = np.zeros((df.shape[1], df.shape[1]))
+    pval_matrix = np.zeros((df.shape[1], df.shape[1]))
+
+    for i in range(df.shape[1]):
+        for j in range(i, df.shape[1]):
+            corr, pval = corr_func(df[df.columns[i]], df.columns[j])
+            coef_matrix[i, j] = corr
+            coef_matrix[j, i] = corr
+            pval_matrix[j, i] = pval
+            pval_matrix[i, j] = pval
+    df_coef = pd.DataFrame(coef_matrix, columns=df.columns, index=df.columns)
+    df_pval = pd.DataFrame(pval_matrix, columns=df.columns, index=df.columns)
+    return df_coef, df_pval
 
 
 if __name__ == '__main__':
