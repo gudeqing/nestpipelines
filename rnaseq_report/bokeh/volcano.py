@@ -150,7 +150,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'samples': samples
     })
     # corr_line.line(x='x', y='y', source=dynamic3, color='tomato')
-    corr_line.circle(x='x', y='y', size=12, source=dynamic3)
+    corr_line.circle(x='x', y='y', size=12, source=dynamic3, alpha=0.5)
     from bokeh.models import LinearAxis
     # 为了能再callback时更新label信息
     corr_line.xaxis.visible = None
