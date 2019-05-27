@@ -18,8 +18,9 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
                    fc_cutoff=2.0, pval_cutoff=0.05, limit=3):
     df = pd.read_csv(table, index_col=0, header=0, sep=None, engine='python')
     if gene_symbol_ind >= 2:
-        df = df.iloc[:, [gene_symbol_ind-1, log2fc_ind-1, pvalue_ind-1]]
+        df = df.iloc[:, [gene_symbol_ind-2, log2fc_ind-2, pvalue_ind-2]]
         df.columns = ['gene_symbol', 'log2fc', 'pvalue']
+        df.index = df.index + '|' + df['gene_symbol']
     else:
         df = df.iloc[:, [log2fc_ind-1, pvalue_ind-1]]
         df.columns = ['log2fc', 'pvalue']
@@ -27,6 +28,7 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
     drop_before = df.shape[0]
     df.loc[:, ['log2fc', 'pvalue']] = df[['log2fc', 'pvalue']].apply(pd.to_numeric, errors='coerce')
     df = df.dropna(axis=0)
+    df = df.loc[(df['log2fc'].abs() > 0)]
     drop_after = df.shape[0]
     if drop_after-drop_before:
         print('drop', drop_after-drop_before, 'lines')
@@ -53,11 +55,19 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
     return df
 
 
-def bar_source(table, exp_ind=None):
+def bar_source(table, gene_symbol_ind=2, exp_ind=None):
     df = pd.read_csv(table, index_col=0, header=0, sep=None, engine='python')
     df = df.round(2)
+    if gene_symbol_ind >= 2:
+        df.index = df.index + '|' + df.iloc[:, gene_symbol_ind-2]
     if exp_ind is not None:
-        df = df.iloc[:, exp_ind]
+        if len(exp_ind) == 1 and type(exp_ind[0]) is str:
+            m, n = exp_ind[0].split('-')
+            df = df.iloc[:, int(m)-2:int(n)-1]
+        else:
+            exp_ind = [int(x)-2 for x in exp_ind]
+            df = df.iloc[:, exp_ind]
+        print('exp df:', df.shape)
     else:
         df = df.iloc[:, 6:]
     return df
@@ -66,11 +76,10 @@ def bar_source(table, exp_ind=None):
 def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', corr_test=False,
          top=10, corr_pval_cutoff=0.01, label_corr_line=True):
     output_file(out_file)
-    if volcano_df.index[0] != volcano_df['gene_symbol'][0]:
-        first_gene = volcano_df.index[0] + ' | ' + volcano_df['gene_symbol'][0]
-    else:
-        first_gene = volcano_df.index[0]
-    bar_df = bar_df.loc[volcano_df.index]
+    first_gene = volcano_df.index[0]
+    # filter out diff gene for analysis
+    diff_index = volcano_df.loc[volcano_df['regulate'] != 'NotSig'].index
+    bar_df = bar_df.loc[diff_index]
     samples = list(bar_df.columns)
     point_groups = set(volcano_df['regulate'])
     point_stat = {x: x+': '+str(list(volcano_df['regulate']).count(x)) for x in point_groups}
@@ -338,7 +347,7 @@ def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=N
                                   pval_cutoff=pval_cutoff,
                                   limit=limit
                                   )
-    bar_data = bar_source(table, exp_ind=exp_ind)
+    bar_data = bar_source(table, exp_ind=exp_ind, gene_symbol_ind=gene_symbol_ind)
     plot(volcano_data, bar_data,
          out_file=out_file,
          corr_method=corr_method, top=top,
@@ -373,7 +382,7 @@ def df_corr(df, method="pearson", test=False):
 
     for i in range(df.shape[1]):
         for j in range(i, df.shape[1]):
-            corr, pval = corr_func(df[df.columns[i]], df.columns[j])
+            corr, pval = corr_func(df.iloc[:, i], df.iloc[:, j])
             coef_matrix[i, j] = corr
             coef_matrix[j, i] = corr
             pval_matrix[j, i] = pval
