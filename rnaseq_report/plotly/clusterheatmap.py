@@ -907,7 +907,6 @@ class ClusterHeatMap(object):
                 print('it seems that (at least) one of the vectors you want to cluster is all zeros, '
                       'so when it tries to compute the cosine distances to it there is a division by zero,'
                       ' hence nan is stored in your distance array, and that leads to your error.')
-                print('Anyway, we will remove the special rows for you now.')
                 raise Exception("fastcluster failed as : {}".format(e))
             except:
                 print("fastcluster failed, we will try scipy.cluster.hierarchy")
