@@ -1,7 +1,9 @@
 import pandas as pd
+pd.set_option('mode.chained_assignment','raise')
 import numpy as np
-from scipy.stats import pearsonr, spearmanr, kendalltau
+import numba
 import math
+from scipy import stats
 from bokeh.io import output_file
 from bokeh.layouts import layout, column, row
 from bokeh.plotting import figure, save
@@ -15,16 +17,15 @@ from bokeh.models import (
 
 
 def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
-                   fc_cutoff=2.0, pval_cutoff=0.05, limit=3):
-    df = pd.read_csv(table, index_col=0, header=0, sep=None, engine='python')
+                   fc_cutoff=2.0, pval_cutoff=0.05, limit=6, exp_ind=('6-',)):
+    df_raw = pd.read_csv(table, index_col=0, header=0, sep=None, engine='python')
+    df_raw.index.name = 'index'
     if gene_symbol_ind >= 2:
-        df = df.iloc[:, [gene_symbol_ind-2, log2fc_ind-2, pvalue_ind-2]]
-        df.columns = ['gene_symbol', 'log2fc', 'pvalue']
-        df.index = df.index + '|' + df['gene_symbol']
-    else:
-        df = df.iloc[:, [log2fc_ind-1, pvalue_ind-1]]
-        df.columns = ['log2fc', 'pvalue']
-        df['gene_symbol'] = df.index
+        df_raw.index = df_raw.index + '|' + df_raw.iloc[:, gene_symbol_ind-2]
+
+    # prepare scatter source
+    df = df_raw.iloc[:, [log2fc_ind-2, pvalue_ind-2]].copy()
+    df.columns = ['log2fc', 'pvalue']
     drop_before = df.shape[0]
     df.loc[:, ['log2fc', 'pvalue']] = df[['log2fc', 'pvalue']].apply(pd.to_numeric, errors='coerce')
     df = df.dropna(axis=0)
@@ -52,41 +53,43 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
     df['color'] = 'darkgrey'
     df.loc[df['regulate']=='Up', 'color'] = 'tomato'
     df.loc[df['regulate']=='Down', 'color'] = 'mediumseagreen'
-    return df
 
-
-def bar_source(table, gene_symbol_ind=2, exp_ind=None):
-    df = pd.read_csv(table, index_col=0, header=0, sep=None, engine='python')
-    df = df.round(2)
-    if gene_symbol_ind >= 2:
-        df.index = df.index + '|' + df.iloc[:, gene_symbol_ind-2]
-    if exp_ind is not None:
-        if len(exp_ind) == 1 and type(exp_ind[0]) is str:
-            m, n = exp_ind[0].split('-')
-            df = df.iloc[:, int(m)-2:int(n)-1]
+    # prepare exp bar source
+    if len(exp_ind) == 1 and type(exp_ind[0]) is str:
+        ind_str= exp_ind[0].split('-')
+        if len(ind_str) == 1:
+            start = int(ind_str[0])
+            end = df_raw.shape[1]
         else:
-            exp_ind = [int(x)-2 for x in exp_ind]
-            df = df.iloc[:, exp_ind]
-        print('exp df:', df.shape)
+            start = int(ind_str[0])
+            end = int(ind_str[1])
+        exp_bar = df_raw.iloc[:, start-2:end-1]
     else:
-        df = df.iloc[:, 6:]
-    return df
+        exp_ind = [int(x)-2 for x in exp_ind]
+        exp_bar = df_raw.iloc[:, exp_ind]
+
+    return df, exp_bar
 
 
 def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', corr_test=False,
-         top=10, corr_pval_cutoff=0.01, label_corr_line=True):
+         top=10, corr_pval_cutoff=0.01, label_corr_line=True, only_link_diff_gene=True):
     output_file(out_file)
-    first_gene = volcano_df.index[0]
+    first_gene = volcano_df.index[volcano_df['regulate'] == 'Up'][0]
     # filter out diff gene for analysis
-    diff_index = volcano_df.loc[volcano_df['regulate'] != 'NotSig'].index
-    bar_df = bar_df.loc[diff_index]
+    if only_link_diff_gene:
+        diff_index = volcano_df.loc[volcano_df['regulate'] != 'NotSig'].index
+        bar_df = bar_df.loc[diff_index]
+        print('bar_df shape', bar_df.shape)
+    else:
+        bar_df = bar_df.loc[volcano_df.index]
     samples = list(bar_df.columns)
     point_groups = set(volcano_df['regulate'])
     point_stat = {x: x+': '+str(list(volcano_df['regulate']).count(x)) for x in point_groups}
     volcano_df['regulate'] = [point_stat[x] for x in volcano_df['regulate']]
     volcano_source = ColumnDataSource(volcano_df)
-    gene_list = list(bar_df.index)
+    volcano_gene_list = list(volcano_df.index)
     bar_dict_source = bar_df.transpose().to_dict('list')
+
     # calculate correlation between genes
     corr, corr_pval = df_corr(bar_df.transpose(), method=corr_method, test=corr_test)
     corr_dict_source = dict()
@@ -203,7 +206,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'exp': bar_dict_source,
         'dynamic': dynamic,
         'exp_bar_title': exp_bar.title,
-        'genes': gene_list,
+        'genes': volcano_gene_list,
         'samples': samples,
         'exp_bar_x': exp_bar.x_range,
         'corr': corr_dict_source,
@@ -255,7 +258,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     # define tools
     hover = HoverTool(
         tooltips=[
-            ('gene', '@gene_symbol'),
+            ('gene', '@index'),
             ('log2fc', '@log2fc'),
             ('pvalue', '@pvalue')
         ],
@@ -335,54 +338,55 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     save(lout)
 
 
-def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=None,
-            fc_cutoff=2.0, pval_cutoff=0.05, limit=3, corr_method='pearson', top=10,
-            corr_test=False, corr_pval_cutoff=0.01, label_corr_line=True,
+def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=('6-',),
+            fc_cutoff=2.0, pval_cutoff=0.05, limit=5, corr_method='pearson', top=20,
+            corr_test=True, corr_pval_cutoff=0.001, label_corr_line=True, link_all_gene=False,
             out_file='volcano_expression.html'):
-    volcano_data = volcano_source(table,
-                                  gene_symbol_ind=gene_symbol_ind,
-                                  log2fc_ind=log2fc_ind,
-                                  pvalue_ind=pvalue_ind,
-                                  fc_cutoff=fc_cutoff,
-                                  pval_cutoff=pval_cutoff,
-                                  limit=limit
-                                  )
-    bar_data = bar_source(table, exp_ind=exp_ind, gene_symbol_ind=gene_symbol_ind)
+    volcano_data, bar_data = volcano_source(
+        table, gene_symbol_ind=gene_symbol_ind,
+        log2fc_ind=log2fc_ind,
+        pvalue_ind=pvalue_ind,
+        fc_cutoff=fc_cutoff,
+        pval_cutoff=pval_cutoff,
+        limit=limit,
+        exp_ind=exp_ind,
+    )
     plot(volcano_data, bar_data,
          out_file=out_file,
          corr_method=corr_method, top=top,
          corr_pval_cutoff=corr_pval_cutoff,
          corr_test=corr_test,
-         label_corr_line=label_corr_line
+         label_corr_line=label_corr_line,
+         only_link_diff_gene=not link_all_gene
          )
+
+
+def correlation_function(func_name):
+    func_name = func_name.lower()
+    if func_name == "pearson":
+        return stats.pearsonr
+    elif func_name == "spearman":
+        return stats.spearmanr
+    elif func_name == "biserial":
+        return stats.pointbiserialr
+    elif func_name == 'kendall':
+        return stats.kendalltau
+    else:
+        raise Exception('{} is not in [pearson, spearman, biserial, kendall]')
 
 
 def df_corr(df, method="pearson", test=False):
     if not test:
         return df.corr(method), None
 
-    from scipy import stats
-
-    def correlation_function(func_name):
-        func_name = func_name.lower()
-        if func_name == "pearson":
-            return stats.pearsonr
-        elif func_name == "spearman":
-            return stats.spearmanr
-        elif func_name == "biserial":
-            return stats.pointbiserialr
-        elif func_name == 'kendall':
-            return stats.kendalltau
-        else:
-            raise Exception('{} is not in [pearson, spearman, biserial, kendall]')
-
     corr_func = correlation_function(method)
     coef_matrix = np.zeros((df.shape[1], df.shape[1]))
     pval_matrix = np.zeros((df.shape[1], df.shape[1]))
 
     for i in range(df.shape[1]):
+        v = df[df.columns[i]]
         for j in range(i, df.shape[1]):
-            corr, pval = corr_func(df.iloc[:, i], df.iloc[:, j])
+            corr, pval = corr_func(v, df[df.columns[j]])
             coef_matrix[i, j] = corr
             coef_matrix[j, i] = corr
             pval_matrix[j, i] = pval
