@@ -1,7 +1,6 @@
 import pandas as pd
 pd.set_option('mode.chained_assignment','raise')
 import numpy as np
-import numba
 import math
 from scipy import stats
 from bokeh.io import output_file
@@ -74,7 +73,7 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
 def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', corr_test=False,
          top=10, corr_pval_cutoff=0.01, label_corr_line=True, only_link_diff_gene=True):
     output_file(out_file)
-    first_gene = volcano_df.index[volcano_df['regulate'] == 'Up'][0]
+    first_gene = volcano_df.index[volcano_df['regulate'] != 'NotSig' ][0]
     # filter out diff gene for analysis
     if only_link_diff_gene:
         diff_index = volcano_df.loc[volcano_df['regulate'] != 'NotSig'].index
@@ -86,9 +85,9 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     point_groups = set(volcano_df['regulate'])
     point_stat = {x: x+': '+str(list(volcano_df['regulate']).count(x)) for x in point_groups}
     volcano_df['regulate'] = [point_stat[x] for x in volcano_df['regulate']]
-    volcano_source = ColumnDataSource(volcano_df)
+    volcano_source = ColumnDataSource(volcano_df.round(2))
     volcano_gene_list = list(volcano_df.index)
-    bar_dict_source = bar_df.transpose().to_dict('list')
+    bar_dict_source = bar_df.round(2).transpose().to_dict('list')
 
     # calculate correlation between genes
     corr, corr_pval = df_corr(bar_df.transpose(), method=corr_method, test=corr_test)
@@ -130,7 +129,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     )
     volcano.legend.location = 'bottom_center'
     volcano.legend.orientation = 'horizontal'
-    volcano.legend.background_fill_alpha = 0.5
+    volcano.legend.background_fill_alpha = 0.6
     volcano.xaxis.axis_label = 'log2(FoldChange)'
     volcano.yaxis.axis_label = '-log10(Pvalue)'
 
@@ -194,7 +193,13 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'x': samples,
         'y': bar_df.loc[first_gene]
     })
-    mapper = linear_cmap(palette=RdYlGn[11], field_name='y', low=1, high=1000)
+    describe = pd.Series(bar_df.values.flatten()).describe()
+    upper_limit = describe["75%"] + (describe["75%"] - describe["25%"]) * 3
+    upper_limit = upper_limit if upper_limit < describe['max'] else describe['max']
+    lower_limit = describe["25%"] - (describe["75%"] - describe["25%"]) * 3
+    lower_limit = lower_limit if lower_limit > describe['min'] else describe['min']
+    print('Exp Color range: ', lower_limit, upper_limit)
+    mapper = linear_cmap(palette=RdYlGn[11], field_name='y', low=lower_limit, high=upper_limit)
     exp_bar.vbar(x='x', top='y', width=0.5, source=dynamic, color=mapper)
     exp_bar.xaxis.major_label_orientation = math.pi / 4
     exp_bar.yaxis.axis_label = 'Expression'
@@ -216,24 +221,24 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
     }
     if corr_test:
         js_code = """
-            var ind = cb_data.index['1d'].indices[0];
-            var gene = genes[ind];
-            
-            var d = dynamic2.data;
-            d['x'] = corr[gene][0];
-            d['y'] = corr[gene][1];
-            d['pval'] = corr[gene][2];
-            corr_bar_x.factors = corr[gene][0];
-            title2.text = gene;
-            dynamic2.change.emit();
-            
-            var d3 = dynamic.data;
-            d3['x'] = samples;
-            d3['y'] = exp[gene];
-            exp_bar_x.factors = samples;
-            exp_bar_title.text = gene;
-            dynamic.change.emit();
-        """
+                    var ind = cb_data.index['1d'].indices[0];
+                    var gene = genes[ind];
+                    
+                    var d = dynamic2.data;
+                    d['x'] = corr[gene][0];
+                    d['y'] = corr[gene][1];
+                    d['pval'] = corr[gene][2];
+                    corr_bar_x.factors = corr[gene][0];
+                    title2.text = gene;
+                    dynamic2.change.emit();
+                    
+                    var d3 = dynamic.data;
+                    d3['x'] = samples;
+                    d3['y'] = exp[gene];
+                    exp_bar_x.factors = samples;
+                    exp_bar_title.text = gene;
+                    dynamic.change.emit();
+                """
     else:
         js_code = """
                     var ind = cb_data.index['1d'].indices[0];
