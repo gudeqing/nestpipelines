@@ -70,8 +70,9 @@ def volcano_source(table, gene_symbol_ind=2, log2fc_ind=3, pvalue_ind=5,
     return df, exp_bar
 
 
-def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pearson', corr_test=False,
-         top=10, corr_pval_cutoff=0.01, label_corr_line=True, only_link_diff_gene=True):
+def plot(volcano_df, bar_df, out_file='volcano_expression.html', title='volcano',
+         corr_method='pearson', corr_test=False, top=10, corr_pval_cutoff=0.01,
+         label_corr_line=True, only_link_diff_gene=True):
     output_file(out_file)
     first_gene = volcano_df.index[volcano_df['regulate'] != 'NotSig' ][0]
     # filter out diff gene for analysis
@@ -108,6 +109,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         top_corr = corr.loc[gene].loc[ind].round(3)
         if corr_test:
             top_corr_pval = corr_pval.loc[gene].loc[ind]
+            top_corr_pval = [format(p, '.2e') if p < 0.001 else round(p, 4) for  p in  top_corr_pval]
             corr_dict_source[gene] = [list(ind), list(top_corr), list(top_corr_pval)]
         else:
             corr_dict_source[gene] = [list(ind), list(top_corr)]
@@ -119,7 +121,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         tools='pan,wheel_zoom,box_select, reset,save',
         toolbar_location="above"
     )
-    volcano = figure(**plot_options)
+    volcano = figure(**plot_options, title=title)
     volcano.circle(
         x='log2fc_shrink',
         y='pvalue_shrink',
@@ -217,47 +219,30 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'corr': corr_dict_source,
         'dynamic2': dynamic2,
         'corr_bar_x': corr_bar.x_range,
-        'title2': corr_bar.title
+        'title2': corr_bar.title,
+        'corr_test': 'yes' if corr_test else 'no'
     }
-    if corr_test:
-        js_code = """
-                    var ind = cb_data.index['1d'].indices[0];
-                    var gene = genes[ind];
-                    
-                    var d = dynamic2.data;
-                    d['x'] = corr[gene][0];
-                    d['y'] = corr[gene][1];
-                    d['pval'] = corr[gene][2];
-                    corr_bar_x.factors = corr[gene][0];
-                    title2.text = gene;
-                    dynamic2.change.emit();
-                    
-                    var d3 = dynamic.data;
-                    d3['x'] = samples;
-                    d3['y'] = exp[gene];
-                    exp_bar_x.factors = samples;
-                    exp_bar_title.text = gene;
-                    dynamic.change.emit();
-                """
-    else:
-        js_code = """
-                    var ind = cb_data.index['1d'].indices[0];
-                    var gene = genes[ind];
-
-                    var d = dynamic2.data;
-                    d['x'] = corr[gene][0];
-                    d['y'] = corr[gene][1];
-                    corr_bar_x.factors = corr[gene][0];
-                    title2.text = gene;
-                    dynamic2.change.emit();
-
-                    var d3 = dynamic.data;
-                    d3['x'] = samples;
-                    d3['y'] = exp[gene];
-                    exp_bar_x.factors = samples;
-                    exp_bar_title.text = gene;
-                    dynamic.change.emit();
-                """
+    js_code = """
+                var ind = cb_data.index['1d'].indices[0];
+                if (typeof(ind) != 'undefined'){
+                var gene = genes[ind];
+                
+                var d = dynamic2.data;
+                d['x'] = corr[gene][0];
+                d['y'] = corr[gene][1];
+                if (corr_test == 'yes'){
+                d['pval'] = corr[gene][2];}
+                corr_bar_x.factors = corr[gene][0];
+                title2.text = gene;
+                dynamic2.change.emit();
+                
+                var d3 = dynamic.data;
+                d3['x'] = samples;
+                d3['y'] = exp[gene];
+                exp_bar_x.factors = samples;
+                exp_bar_title.text = gene;
+                dynamic.change.emit();}
+            """
     on_hover = CustomJS(args=js_args, code=js_code)
 
     # define tools
@@ -297,15 +282,18 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         'corr_line_title': corr_line.title,
         'corr_bar': corr_bar_sr.data_source,
         'corr_bar_title': corr_bar.title,
-        'corr_line_xrange': corr_line.x_range,
         'corr_line_xaxis': corr_line_xaxis,
         'corr_line_yaxis': corr_line_yaxis,
+        'corr_test': 'yes' if corr_test else 'no'
     }
     js_code = """
         var ind = cb_data.index['1d'].indices[0];
+        if (typeof(ind) != 'undefined'){
         var data = corr_bar.data;
         var gene = data.x[ind];
         var correlation = data.y[ind];
+        if (corr_test == 'yes'){
+        var pval = data.pval[ind];}
         var gene2 = corr_bar_title.text;
 
         var d3 = dynamic.data;
@@ -313,8 +301,10 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
         d3['y'] = exp[gene2];
         corr_line_xaxis.axis_label = gene;
         corr_line_yaxis.axis_label = gene2;
-        corr_line_title.text = gene + ' vs ' + gene2 + ' = ' + correlation;
-        dynamic.change.emit();
+        if (corr_test == 'yes'){
+        corr_line_title.text = 'Corr: ' + correlation + ' (P=' + pval +')';}
+        else {corr_line_title.text = 'Corr: ' + correlation}
+        dynamic.change.emit();}
     """
     on_hover = CustomJS(args=js_args, code=js_code)
 
@@ -346,7 +336,7 @@ def plot(volcano_df, bar_df, out_file='volcano_expression.html', corr_method='pe
 def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=('6-',),
             fc_cutoff=2.0, pval_cutoff=0.05, limit=5, corr_method='pearson', top=20,
             corr_test=True, corr_pval_cutoff=0.001, label_corr_line=True, link_all_gene=False,
-            out_file='volcano_expression.html'):
+            out_file='volcano_expression.html', title=None):
     volcano_data, bar_data = volcano_source(
         table, gene_symbol_ind=gene_symbol_ind,
         log2fc_ind=log2fc_ind,
@@ -356,13 +346,19 @@ def volcano(table, gene_symbol_ind=1, log2fc_ind=2, pvalue_ind=4, exp_ind:list=(
         limit=limit,
         exp_ind=exp_ind,
     )
+    cutoff = '|FC| > {} & P < {}'.format(fc_cutoff, pval_cutoff)
+    if title is None:
+        title = table.split('.', 1)[0] + ' (' + cutoff + ')'
+    else:
+        title = title + ' (' + cutoff + ')'
     plot(volcano_data, bar_data,
          out_file=out_file,
          corr_method=corr_method, top=top,
          corr_pval_cutoff=corr_pval_cutoff,
          corr_test=corr_test,
          label_corr_line=label_corr_line,
-         only_link_diff_gene=not link_all_gene
+         only_link_diff_gene=not link_all_gene,
+         title=title
          )
 
 
