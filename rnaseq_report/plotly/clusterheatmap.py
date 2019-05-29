@@ -392,7 +392,7 @@ class ClusterHeatMap(object):
             'ticks': "",
             'anchor': 'y3',
             'scaleanchor': 'x',
-            'side': 'top',
+            'side': 'top' if not self.only_sample_dendrogram else 'bottom',
             'range': (0, self.data.shape[1]*10)
         }
 
