@@ -9,7 +9,7 @@ from bokeh.layouts import gridplot
 
 def pca(table, row_sum_cutoff=1, exp_cutoff=0.5, cv_cutoff=0.01, pass_exp_cutoff_num=None,
         explained_ratio=0.9, prefix='pca', no_log_transform=False, log_additive=0, no_pre_scale=False,
-        x=1, y=2, group_file=None, annotate=False, text_size='6pt', marker_size=15):
+        x=1, y=2, group_file=None, annotate=False, text_size='6pt', marker_size=15, stretch='both'):
     data = pd.read_csv(table, header=0, index_col=0, sep=None, engine='python')
     data = data[data.sum(axis=1) >= row_sum_cutoff]
     pass_state = data.apply(lambda x: sum(x > exp_cutoff), axis=1)
@@ -51,11 +51,11 @@ def pca(table, row_sum_cutoff=1, exp_cutoff=0.5, cv_cutoff=0.01, pass_exp_cutoff
         group_info = pd.read_csv(group_file, sep=None, index_col=0, header=0, engine='python')
         plt_data = plt_data.join(group_info)
     pca_scatter(plt_data, out_file='{}.html'.format(prefix), annotate=annotate,
-                text_size=text_size, marker_size=marker_size)
+                text_size=text_size, marker_size=marker_size, stretch=stretch)
     return result
 
 
-def pca_scatter(df=None, out_file='pca.html', annotate=False, text_size='6pt', marker_size=15):
+def pca_scatter(df=None, out_file='pca.html', annotate=False, text_size='6pt', marker_size=15, stretch='both'):
     # sample
     if df is None:
         df = pd.DataFrame(dict(
@@ -150,7 +150,7 @@ def pca_scatter(df=None, out_file='pca.html', annotate=False, text_size='6pt', m
         s.yaxis.axis_label = df.columns[1]
         plots.append(s)
 
-    p = gridplot(plots, sizing_mode='stretch_both', ncols=2)
+    p = gridplot(plots, sizing_mode='stretch_{}'.format(stretch), ncols=2)
     output_file(out_file, title="PCA Scatter")
     save(p)
 
