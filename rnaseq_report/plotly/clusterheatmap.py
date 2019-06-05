@@ -529,12 +529,14 @@ class ClusterHeatMap(object):
         # trans gene id to gene name
         if self.gene_annot:
             heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
-        if self.gene_corr_as_heatmap:
-            heat_data.columns = heat_data.index
         # output data
         heat_data.round(4).to_csv(out_name, header=True, index=True, sep='\t')
         if self.link_gene:
             heat_data.index = ["""<a href="{}{}"> {}</a>""".format(self.link_source, x, x) for x in heat_data.index]
+
+        if self.gene_corr_as_heatmap:
+            heat_data.columns = heat_data.index
+
         self.heat_data = heat_data
         # process heat data to make color be more even
         describe = pd.Series(heat_data.values.flatten()).describe()
