@@ -527,8 +527,10 @@ class ClusterHeatMap(object):
         # plotly plot data from bottom to top, thus we have to use [::-1], or it will not match dendrogram
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
         # trans gene id to gene name
-        if self.gene_annot and self.label_gene:
+        if self.gene_annot:
             heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
+        if self.gene_corr_as_heatmap:
+            heat_data.columns = heat_data.index
         # output data
         heat_data.round(4).to_csv(out_name, header=True, index=True, sep='\t')
         if self.link_gene:
@@ -889,7 +891,7 @@ class ClusterHeatMap(object):
 
         if self.sample_corr_as_heatmap or self.gene_corr_as_heatmap:
             self.logbase = None
-            condensed_distance = squareform(1 - exp_pd)
+            condensed_distance = squareform(1 - exp_pd.abs())
             z = hclust.linkage(condensed_distance, method=self.scm)
         else:
             if self.zscore_before_cluster:
