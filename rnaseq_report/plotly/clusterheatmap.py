@@ -307,7 +307,7 @@ class ClusterHeatMap(object):
             pass_state = exp_pd.apply(lambda x: sum(x > self.lower_exp_cutoff), axis=1)
             exp_pd = exp_pd[pass_state >= pass_num_cutoff]
         if self.logbase == 2:
-            exp_pd = np.log2(exp_pd+1)
+            exp_pd = np.log2(exp_pd+self.log_additive)
         elif self.logbase == 10:
             exp_pd = np.log10(exp_pd+self.log_additive)
         elif not self.logbase or self.logbase == 1:
