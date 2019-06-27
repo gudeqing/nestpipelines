@@ -113,3 +113,75 @@ class NestedCmd(Basic):
         )
         self.workflow.update(commands)
         return commands
+
+    def bowtie2_index(self, step_name='bowtie2_index'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        args = dict(self.arg_pool['bowtie2_index'])
+        fasta = args['fasta']
+        args['basename'] = fasta.rsplit('.')[0] + '.index'
+        cmd = cmdx.bowtie2_index(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            cpu=5,
+            mem=1024 ** 3 * 1,
+            index=args['basename']
+        )
+        self.workflow.update(commands)
+        return commands
+
+    def bowtie2_align(self, depend_cmds, depend_index_cmd, step_name='bowtie2_align'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        for step, cmd_info in depend_index_cmd.items():
+            index_step = step
+            index = cmd_info['index']
+        for step, cmd_info in depend_cmds.items():
+            sample = cmd_info['sample']
+            args = dict(self.arg_pool['bowtie2_align'])
+            args['index'] = index
+            args['out_bam'] = os.path.join(outdir, '{}.bam'.format(sample))
+            args['fastq_read1'] = cmd_info['output_read1']
+            if 'output_read2' in cmd_info:
+                args['fastq_read2'] = ' {}'.format(cmd_info['output_read2'])
+            cmd = cmdx.bowtie2_align(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                cpu=5,
+                mem=1024 ** 3 * 1,
+                sample=sample,
+                depend=step + ',' + index_step,
+                out_bam=args['out_bam']
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def mageck_count_with_bam(self, depend_cmds:dict, step_name='mageck_bamcount'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        prefix = os.path.join(outdir, 'mageck')
+        samples = list()
+        bams = list()
+        steps = list()
+        for step, cmd_info in depend_cmds.items():
+            steps.append(step)
+            samples.append(cmd_info['sample'])
+            bams.append(cmd_info['out_bam'])
+        args = dict(self.arg_pool['mageck_count'])
+        args['out_prefix'] = prefix
+        args['sample_label'] = ','.join(samples)
+        args['fastq_read1'] = ' '.join(bams)
+        cmd = cmdx.mageck_count(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            cpu=5,
+            mem=1024 ** 3 * 1,
+            depend=','.join(steps),
+            out_prefix=args['out_prefix']
+        )
+        self.workflow.update(commands)
+        return commands
+

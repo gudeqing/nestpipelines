@@ -1,4 +1,5 @@
 # coding = utf-8
+import os
 
 
 def fastqc(**kwargs):
@@ -53,5 +54,26 @@ def mageck_count(**kwargs):
         cmd += '--fastq-2 {} '.format(kwargs['fastq_read2'])
     return cmd
 
+
+def bowtie2_index(**kwargs):
+    cmd = '{} '.format(kwargs['bowtie2-build'])
+    cmd += '{} '.format(kwargs['fasta'])
+    cmd += '{} '.format(kwargs['basename'])
+    return cmd
+
+
+def bowtie2_align(**kwargs):
+    cmd = '{} '.format(kwargs['bowtie2'])
+    cmd += '-x {} '.format(kwargs['index'])
+    cmd += '-p {} '.format(kwargs['threads'])
+    if kwargs['--norc'] == 'yes':
+        cmd += '--norc '
+    if 'fastq_read2' in kwargs:
+        cmd += '-1 {} '.format(kwargs['fastq_read1'])
+        cmd += '-2 {} '.format(kwargs['fastq_read2'])
+    else:
+        cmd += '-U {} '.format(kwargs['fastq_read1'])
+    cmd += '| {} view -bS - > {}'.format(kwargs['samtools'], kwargs['out_bam'])
+    return cmd
 
 
