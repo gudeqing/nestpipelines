@@ -27,7 +27,7 @@ if (args.pipeline_cfg is None) and (not args.fastq_info):
 def pipeline():
     cutadapt_cmds = nc.cutadapt_cmds(args.fastq_info)
     fastqc_cmds = nc.fastqc_cmds(cutadapt_cmds)
-    mageck_cmds = nc.mageck_count(cutadapt_cmds)
+    mageck_raw_cmds = nc.mageck_count_with_rawfastq(args.fastq_info)
     index_cmd = nc.bowtie2_index()
     align_cmds = nc.bowtie2_align(cutadapt_cmds, index_cmd)
     mageck_bam_cmds = nc.mageck_count_with_bam(align_cmds)

@@ -42,7 +42,7 @@ class NestedCmd(Basic):
             args['output_read1'] = os.path.join(outdir,  sample + '.clean.R1.fq.gz')
 
             if len(cols) >= 2:
-                args['input_read2'] = cols[0]
+                args['input_read2'] = cols[1]
                 args['output_read2'] = os.path.join(outdir, sample + '.clean.R2.fq.gz')
 
             cmd = cmdx.cutadapt(**args)
@@ -106,10 +106,42 @@ class NestedCmd(Basic):
         cmd = cmdx.mageck_count(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
-            cpu=5,
+            cpu=2,
             mem=1024 ** 3 * 1,
             depend=','.join(steps),
             out_prefix = args['out_prefix']
+        )
+        self.workflow.update(commands)
+        return commands
+
+    def mageck_count_with_rawfastq(self, fastq_info, step_name='mageck_rawcount'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        prefix = os.path.join(outdir, 'mageck')
+        samples = list()
+        fastq_read1 = list()
+        fastq_read2 = list()
+        import pandas as pd
+        df = pd.read_csv(fastq_info, header=None, index_col=0, sep='\t')
+        for sample, cols in df.iterrows():
+            samples.append(sample)
+            cols = list(cols)
+            fastq_read1.append(cols[0])
+            if len(cols) >= 2:
+                fastq_read2.append(cols[1])
+        args = dict(self.arg_pool['mageck_count'])
+        args['out_prefix'] = prefix
+        args['fastq_read1'] = ' '.join(fastq_read1)
+        if fastq_read2:
+            args['fastq_read2'] = ' '.join(fastq_read2)
+        args['sample_label'] = ','.join(samples)
+        cmd = cmdx.mageck_count(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            cpu=2,
+            mem=1024 ** 3 * 1,
+            out_prefix=args['out_prefix']
         )
         self.workflow.update(commands)
         return commands
@@ -177,7 +209,7 @@ class NestedCmd(Basic):
         cmd = cmdx.mageck_count(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
-            cpu=5,
+            cpu=2,
             mem=1024 ** 3 * 1,
             depend=','.join(steps),
             out_prefix=args['out_prefix']
