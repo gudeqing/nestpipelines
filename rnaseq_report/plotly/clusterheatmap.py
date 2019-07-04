@@ -914,7 +914,7 @@ class ClusterHeatMap(object):
                 raise Exception("fastcluster failed as : {}".format(e))
             except:
                 print("fastcluster failed, we will try scipy.cluster.hierarchy")
-                z = hclust.linkage(exp_pd, method=method, metric=metric)
+                z = sch.linkage(exp_pd, method=method, metric=metric)
         if n_clusters <= 1:
             return z, None
         # write out subcluster
