@@ -211,7 +211,11 @@ class Command(object):
     def _write_log(self):
         log_dir = os.path.join(self.outdir, 'logs')
         if not os.path.exists(log_dir):
-            os.mkdir(log_dir)
+            try:
+                os.mkdir(log_dir)
+            except FileExistsError:
+                pass
+
         prefix = os.path.join(self.outdir, 'logs', self.name+'.'+str(self.proc.pid))
         if self.stderr:
             with open(prefix+'.stderr.txt', 'wb') as f:
