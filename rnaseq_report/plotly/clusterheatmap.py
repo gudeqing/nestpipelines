@@ -35,7 +35,7 @@ class ClusterHeatMap(object):
                  gene_label_size:int=None, sample_label_size:int=None, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
                  left_dendrogram_width=0.13, top_dendrogram_height=0.13, group_bar_thickness=0.02,
-                 colorbar_x:float=None, legend_x:float=None):
+                 colorbar_x:float=None, legend_x:float=None, tmp_keep=False):
         """
         A cluster/heatmap tool designed for gene expression matrix
         * note: gene name should not be pure integer
@@ -146,6 +146,7 @@ class ClusterHeatMap(object):
         self.show_legend = not hide_legend
         self.colorbar_x = colorbar_x
         self.legend_x = legend_x
+        self.keep_tmp = tmp_keep
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -299,8 +300,9 @@ class ClusterHeatMap(object):
         if self.transpose_data:
             exp_pd = exp_pd.transpose()
         if self.target_cols or self.target_rows:
-            out_name = os.path.join(self.outdir, '{}.target_raw_data'.format(self.out_prefix))
-            exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
+            if self.keep_tmp:
+                out_name = os.path.join(self.outdir, '{}.target_raw_data'.format(self.out_prefix))
+                exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
@@ -321,10 +323,11 @@ class ClusterHeatMap(object):
         # translate sample_id to sample_name
         if self.sample_names is not None:
             exp_pd.columns = [self.sample_names[x] if x in self.sample_names else x for x in exp_pd.columns]
-        out_name = os.path.join(self.outdir, '{}.log{}.cv{}.{}outof{}over{}.data'.format(
-            self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
-        ))
-        exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
+        if self.keep_tmp:
+            out_name = os.path.join(self.outdir, '{}.log{}.cv{}.{}outof{}over{}.data'.format(
+                self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
+            ))
+            exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -537,7 +540,8 @@ class ClusterHeatMap(object):
         if self.gene_names:
             heat_data.index = [self.gene_names[x] if x in self.gene_names else x for x in heat_data.index]
         # output data
-        heat_data.round(4).to_csv(out_name, header=True, index=True, sep='\t')
+        if self.keep_tmp:
+            heat_data.round(4).to_csv(out_name, header=True, index=True, sep='\t')
         if self.link_gene:
             heat_data.index = ["""<a href="{}{}"> {}</a>""".format(self.link_source, x, x) for x in heat_data.index]
 
