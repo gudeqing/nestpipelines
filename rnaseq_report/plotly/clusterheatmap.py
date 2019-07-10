@@ -10,7 +10,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.6.5'
+__version_ = '3.6.6'
 
 
 class ClusterHeatMap(object):
@@ -28,7 +28,9 @@ class ClusterHeatMap(object):
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
                  no_gene_link:bool=None, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
                  lower_exp_cutoff=0., pass_lower_exp_num=None,
-                 row_sum_cutoff=0., cv_cutoff=0., target_cols=None, target_rows=None, gene_annot=None,
+                 row_sum_cutoff=0., cv_cutoff=0.,
+                 target_cols=None, target_rows=None,
+                 gene_names=None, sample_names=None,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size:int=None, sample_label_size:int=None, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
@@ -98,7 +100,8 @@ class ClusterHeatMap(object):
         :param cv_cutoff: genes with cv (=std/mean) higher than will be retained
         :param target_cols: target columns to extract from data file for analysis
         :param target_rows: target rows to extract from data file for analysis
-        :param gene_annot: gene annotation file, two columns, gene_id \t gene symbol
+        :param gene_names: gene annotation file, two columns, gene_id \t gene_symbol
+        :param sample_names: sample annotation file, two columns, sample_id \t sample_name
         :param width: figure width, default to auto
         :param height: figure height, default to auto
         :param paper_bgcolor: figure background color, such as 'black'
@@ -136,7 +139,8 @@ class ClusterHeatMap(object):
         self.outlier_k = k_outlier
         self.link_gene = True if no_gene_link is None else not no_gene_link
         self.link_source = link_source
-        self.gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else gene_annot
+        self.gene_names = dict(x.strip().split('\t')[:2] for x in open(gene_names)) if gene_names else None
+        self.sample_names = dict(x.strip().split('\t')[:2] for x in open(sample_names)) if sample_names else None
         self.target_cols = [x.strip().split()[0] for x in open(target_cols)] if target_cols else None
         self.target_rows = [x.strip().split()[0] for x in open(target_rows)] if target_rows else None
         self.show_legend = not hide_legend
@@ -314,6 +318,9 @@ class ClusterHeatMap(object):
             pass
         else:
             raise Exception('log base must be one of [2, 10, 1] ')
+        # translate sample_id to sample_name
+        if self.sample_names is not None:
+            exp_pd.columns = [self.sample_names[x] if x in self.sample_names else x for x in exp_pd.columns]
         out_name = os.path.join(self.outdir, '{}.log{}.cv{}.{}outof{}over{}.data'.format(
             self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
         ))
@@ -527,8 +534,8 @@ class ClusterHeatMap(object):
         # plotly plot data from bottom to top, thus we have to use [::-1], or it will not match dendrogram
         heat_data = self.data.iloc[self.ordered_genes[::-1], self.ordered_samples]
         # trans gene id to gene name
-        if self.gene_annot:
-            heat_data.index = [self.gene_annot[x] if x in self.gene_annot else x for x in heat_data.index]
+        if self.gene_names:
+            heat_data.index = [self.gene_names[x] if x in self.gene_names else x for x in heat_data.index]
         # output data
         heat_data.round(4).to_csv(out_name, header=True, index=True, sep='\t')
         if self.link_gene:
@@ -694,12 +701,12 @@ class ClusterHeatMap(object):
             self.layout['yaxis5']['side'] = 'right'
             self.layout['yaxis5']['dtick'] = 1
             labels = [x for x in ordered_genes]
-            if self.gene_annot:
+            if self.gene_names:
                 new_labels = []
                 for x in labels:
-                    if x in self.gene_annot:
+                    if x in self.gene_names:
                         new_labels.append(
-                            """<a href="{}{}">{}</a>""".format(self.link_source, self.gene_annot[x], self.gene_annot[x])
+                            """<a href="{}{}">{}</a>""".format(self.link_source, self.gene_names[x], self.gene_names[x])
                         )
                     else:
                         new_labels.append(
@@ -841,12 +848,12 @@ class ClusterHeatMap(object):
                 self.layout['yaxis2']['tickvals'] = [-1*x for x in tick_values]
                 self.layout['yaxis2']['side'] = 'right'
                 labels = exp_pd.iloc[self.ordered_genes].index
-                if self.gene_annot:
+                if self.gene_names:
                     new_labels = []
                     for x in labels:
-                        if x in self.gene_annot:
+                        if x in self.gene_names:
                             new_labels.append(
-                                """<a href="{}{}"> {}</a>""".format(self.link_source, self.gene_annot[x], self.gene_annot[x])
+                                """<a href="{}{}"> {}</a>""".format(self.link_source, self.gene_names[x], self.gene_names[x])
                             )
                         else:
                             new_labels.append(
