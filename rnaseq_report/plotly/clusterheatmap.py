@@ -31,6 +31,7 @@ class ClusterHeatMap(object):
                  row_sum_cutoff=0., cv_cutoff=0.,
                  target_cols=None, target_rows=None,
                  gene_names=None, sample_names=None,
+                 xgap=0, ygap=0,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size:int=None, sample_label_size:int=None, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
@@ -102,6 +103,8 @@ class ClusterHeatMap(object):
         :param target_rows: target rows to extract from data file for analysis
         :param gene_names: gene annotation file, two columns, gene_id \t gene_symbol
         :param sample_names: sample annotation file, two columns, sample_id \t sample_name
+        :param xgap: heatmap xgap
+        :param ygap: heatmap ygap
         :param width: figure width, default to auto
         :param height: figure height, default to auto
         :param paper_bgcolor: figure background color, such as 'black'
@@ -147,6 +150,8 @@ class ClusterHeatMap(object):
         self.colorbar_x = colorbar_x
         self.legend_x = legend_x
         self.keep_tmp = tmp_keep
+        self.xgap = xgap
+        self.ygap = ygap
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
@@ -571,6 +576,8 @@ class ClusterHeatMap(object):
             showlegend=False,
             xaxis='x',
             yaxis='y',
+            xgap=self.xgap,
+            ygap=self.ygap,
             zmin=lower_limit,
             zmax=upper_limit,
             name='',
