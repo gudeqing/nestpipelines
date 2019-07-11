@@ -31,7 +31,7 @@ class ClusterHeatMap(object):
                  row_sum_cutoff=0., cv_cutoff=0.,
                  target_cols=None, target_rows=None,
                  gene_names=None, sample_names=None,
-                 xgap=0, ygap=0,
+                 xgap=0.05, ygap=0.05,
                  width:int=None, height:int=None, paper_bgcolor=None, plot_bgcolor=None, sort_cluster_by='distance',
                  gene_label_size:int=None, sample_label_size:int=None, sample_label_angle=45, k_outlier=3.0,
                  color_scale='RdYlBu', reverse_scale=False, preprocess_data_func=None, transpose_data=False,
