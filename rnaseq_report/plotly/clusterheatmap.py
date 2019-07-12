@@ -190,11 +190,14 @@ class ClusterHeatMap(object):
         self.paper_bgcolor = paper_bgcolor
         self.plot_bgcolor = plot_bgcolor
         cs_pool = colorlover.scales['11']['div']
-        ratio = [x / 100 for x in range(1, 100, int(100 / 9))]
-        ratio[0] = 0
-        ratio[-1] = 1
-        colors = cs_pool[color_scale][1:-1]
-        self.colorscale = list(zip(ratio, colors)) if color_scale in cs_pool else color_scale
+        if color_scale in cs_pool:
+            ratio = [x / 100 for x in range(1, 100, int(100 / 9))]
+            ratio[0] = 0
+            ratio[-1] = 1
+            colors = cs_pool[color_scale][1:-1]
+            self.colorscale = list(zip(ratio, colors))
+        else:
+            self.colorscale = color_scale
         self.reverse_scale = reverse_scale
         self.logbase = log_base
         self.log_additive = log_additive
