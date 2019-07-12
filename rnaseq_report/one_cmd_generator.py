@@ -187,7 +187,7 @@ def sample_correlation(**kwargs):
     cmd = '{} '.format(kwargs['python'])
     cmd += '{} '.format(kwargs['script'])
     cmd += '-data_file {} '.format(kwargs['data_file'])
-    cmd += '-out_name {} '.format(kwargs['out_name'])
+    cmd += '-out_prefix {} '.format(kwargs['out_prefix'])
     cmd += '-corr_method {} '.format(kwargs['corr_method'])
     cmd += '-log_base {} '.format(kwargs['log_base'])
     cmd += '-log_additive {} '.format(kwargs['log_additive'])
@@ -199,7 +199,7 @@ def sample_correlation(**kwargs):
     cmd += '-sample_label_size {} '.format(kwargs['sample_label_size'])
     cmd += '-sample_label_angle {} '.format(kwargs['sample_label_angle'])
     cmd += '-color_scale {} '.format(kwargs['color_scale'])
-    cmd += '--do_correlation_cluster '
+    cmd += '--sample_corr_as_heatmap '
     cmd += '--cluster_sample '
     cmd += '--cluster_gene '
     cmd += '--show_gene_label '
