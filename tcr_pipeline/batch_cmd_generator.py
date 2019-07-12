@@ -103,7 +103,7 @@ class NestedCmd(Basic):
         import pandas as pd
         input_args = dict(self.arg_pool['vdjtools'])
         meta_df = pd.read_csv(input_args['metadata'], sep='\t')
-        for each_file, sample in zip(meta_df['files'], meta_df['sample_id']):
+        for each_file, sample in zip(meta_df['files'], meta_df[input_args['label_field']]):
             # get args from pool
             args = dict(self.arg_pool['PlotFancySpectratype'])
             # update args
@@ -129,7 +129,7 @@ class NestedCmd(Basic):
         import pandas as pd
         input_args = dict(self.arg_pool['vdjtools'])
         meta_df = pd.read_csv(input_args['metadata'], sep='\t')
-        for each_file, sample in zip(meta_df['files'], meta_df['sample_id']):
+        for each_file, sample in zip(meta_df['files'], meta_df[input_args['label_field']]):
             # get args from pool
             args = dict(self.arg_pool['PlotFancyVJUsage'])
             # update args
@@ -155,7 +155,7 @@ class NestedCmd(Basic):
         import pandas as pd
         input_args = dict(self.arg_pool['vdjtools'])
         meta_df = pd.read_csv(input_args['metadata'], sep='\t')
-        for each_file, sample in zip(meta_df['files'], meta_df['sample_id']):
+        for each_file, sample in zip(meta_df['files'], meta_df[input_args['label_field']]):
             # get args from pool
             args = dict(self.arg_pool['PlotSpectratypeV'])
             # update args
@@ -181,7 +181,7 @@ class NestedCmd(Basic):
         import pandas as pd
         input_args = dict(self.arg_pool['vdjtools'])
         meta_df = pd.read_csv(input_args['metadata'], sep='\t')
-        for each_file, sample in zip(meta_df['files'], meta_df['sample_id']):
+        for each_file, sample in zip(meta_df['files'], meta_df[input_args['label_field']]):
             # get args from pool
             args = dict(self.arg_pool['PlotQuantileStats'])
             # update args
