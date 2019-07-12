@@ -309,7 +309,7 @@ def basic_arg_parser():
                         help='是否监控每一步运行时的资源消耗, 如需对某一步设置不同的值, 可在运行流程前修改pipeline.ini')
     parser.add_argument('--monitor_time_step', default=3, type=int,
                         help='监控资源时的时间间隔, 默认3秒, 如需对某一步设置不同的值, 可在运行流程前修改pipeline.ini')
-    parser.add_argument('-wait_resource_time', default=30, type=int,
+    parser.add_argument('-wait_resource_time', default=1500, type=int,
                         help="等待资源的时间上限, 默认60秒, 等待时间超过这个时间时,资源不足时判定任务失败")
     parser.add_argument('--no_check_resource_before_run', default=False, action='store_true',
                         help="指示运行某步骤前检测指定的资源是否足够, 如不足, 则该步骤失败; 如果设置该参数, 则运行前不检查资源. "
