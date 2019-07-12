@@ -177,7 +177,7 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['sample_correlation'])
         args['data_file'] = exp_table
         args['sample_group'] = self.workflow_arguments.group_dict
-        args['out_name'] = os.path.join(outdir, 'CorrelationCluster.html')
+        args['out_prefix'] = os.path.join(outdir, 'CorrelationCluster')
         cmd = cmdx.sample_correlation(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
