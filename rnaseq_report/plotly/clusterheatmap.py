@@ -155,11 +155,11 @@ class ClusterHeatMap(object):
         if isinstance(sample_group, str):
             if not os.path.exists(sample_group):
                 raise Exception('sample group file is not existed')
-            self.group_sample = pd.read_csv(sample_group, sep=None, header=0, index_col=0, engine='python').fillna('Unknown')
+            self.group_sample = pd.read_csv(sample_group, sep=None, header=0, index_col=0, engine='python', dtype=str).fillna('Unknown')
         if isinstance(gene_group, str):
             if not os.path.exists(gene_group):
                 raise Exception('sample group file is not existed')
-            self.group_gene = pd.read_csv(gene_group, sep=None, header=0, index_col=0, engine='python').fillna('Unknown')
+            self.group_gene = pd.read_csv(gene_group, sep=None, header=0, index_col=0, engine='python', dtype=str).fillna('Unknown')
         if isinstance(sample_group_color, str):
             if not os.path.exists(sample_group_color):
                 raise Exception('sample color file is not existed')
