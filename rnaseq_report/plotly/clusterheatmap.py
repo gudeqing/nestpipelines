@@ -130,6 +130,7 @@ class ClusterHeatMap(object):
         self.gdm = gene_distance_metric
         self.scn = sample_cluster_num
         self.gcn = gene_cluster_num
+        self.corr_method = corr_method
         self.total_group_num = 0
         self.group_sample = sample_group
         self.sample_group_color = sample_group_color
@@ -294,10 +295,10 @@ class ClusterHeatMap(object):
         self.layout = self.all_layout()
         self.draw()
         if self.sample_corr_as_heatmap:
-            out_corr_file = os.path.join(outdir, '{}.sample.corr.matrix.txt'.format(self.out_prefix))
+            out_corr_file = os.path.join(outdir, '{}.sample.{}.corr.txt'.format(self.out_prefix, self.corr_method))
             self.data.round(4).to_csv(out_corr_file, header=True, index=True, sep='\t')
         if self.gene_corr_as_heatmap:
-            out_corr_file = os.path.join(outdir, '{}.gene.corr.matrix.txt'.format(self.out_prefix))
+            out_corr_file = os.path.join(outdir, '{}.gene.{}.corr.txt'.format(self.out_prefix, self.corr_method))
             self.data.round(4).to_csv(out_corr_file, header=True, index=True, sep='\t')
 
     def process_data(self):
