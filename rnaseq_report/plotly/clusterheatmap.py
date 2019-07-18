@@ -317,7 +317,7 @@ class ClusterHeatMap(object):
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
         exp_pd = exp_pd[exp_pd.sum(axis=1) > self.row_sum_cutoff]
-        exp_pd = exp_pd[exp_pd.std(axis=1)/exp_pd.mean(axis=1) > self.cv_cutoff]
+        exp_pd = exp_pd[(exp_pd.std(axis=1)/exp_pd.mean(axis=1)).abs() > self.cv_cutoff]
         pass_num_cutoff = int(exp_pd.shape[1] / 3) if self.pass_lower_exp_num is None else self.pass_lower_exp_num
         if self.lower_exp_cutoff > 0:
             pass_state = exp_pd.apply(lambda x: sum(x > self.lower_exp_cutoff), axis=1)
