@@ -249,6 +249,8 @@ def read_distribution(files:list, outdir, formats=('html',), height:int=None, wi
         prefix = "{}.ReadDistribution".format(sample)
         draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale)
     df = pd.concat(all_data, axis=1).T
+    order = sorted(df.index)
+    df = df.loc[order]
     # print(df.head())
     data = [go.Bar(x=df.index, y=df[x]/df.sum(axis=1), name=x) for x in df.columns]
     layout = go.Layout(
