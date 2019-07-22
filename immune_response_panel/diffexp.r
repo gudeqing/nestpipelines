@@ -5,7 +5,7 @@ opt_list = list(
     make_option(c('-g', '--group'), help='sample group file'),
     make_option(c('-c', '--contrast'), help='comparison info file'),
     make_option(c('-p', '--proportion'), default=0.1, help='comparison info file', type='numeric'),
-    make_option(c('-f', '--fold_change'), default=2.0, help='fold change cutoff', type='numeric'),
+    make_option(c('-f', '--fold_change'), default=2.0, help='fold change cutoff, if = -1, log2fc_cutoff = mean(abs(result$logFC)) + 2*sd(abs(result$logFC))', type='numeric'),
     make_option(c('-s', '--stat_cutoff'), default=0.05, help='pvalue or adjust pvalue cutoff', type='numeric'),
     make_option(c('-t', '--type'), default='padjust', help='use uncorrected pvalue if set to pvalue')
 )
@@ -54,13 +54,27 @@ for (i in 1:nrow(contrast)){
     expr_matrix = all_expr_table[, append(as.vector(ctrl_samples), as.vector(test_samples))]
     contrast_exp = paste(test, '-', ctrl)
     result = diff_test(expr_matrix, group_list, contrast_exp, proportion=opt$p)
-    if (opt$t == 'padjust'){
-        result$significant = (abs(result$'logFC') >= log2(opt$f)) & (result[, 'adj.P.Val'] <= opt$s)
-        result[order(result$adj.P.Val), ]
+    if (opt$f == -1){
+        fc_cutoff = mean(abs(result$logFC)) + 2*sd(abs(result$logFC))
     }else{
-        result$significant = (abs(result$'logFC') >= log2(opt$f)) & (result[, 'P.Value'] <= opt$s)
-        result[order(result[, "P.Value"]), ]
+        fc_cutoff = abs(log2(opt$f))
     }
+    if (opt$t == 'padjust'){
+        result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'adj.P.Val'] <= opt$s)
+        result[order(result$adj.P.Val), ]
+        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & pvalue", ' <= ', opt$s, sep=''))
+    }else{
+        result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'P.Value'] <= opt$s)
+        result[order(result[, "P.Value"]), ]
+        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & padjust", ' <= ', opt$s, sep=''))
+    }
+    result$regulate = 'up'
+    result[result$logFC < 0, 'regulate'] = 'down'
     out_name = paste(ctrl, '_vs_', test, '.xls', sep='')
     write.table(result, out_name, sep='\t', col.names=NA, quote=FALSE)
+    out_name = paste(ctrl, '_vs_', test, '.DE.list', sep='')
+    deg = rownames(result[result$significant==T, ])
+    print(paste('DEG number: ', length(deg), sep=''))
+    deg_reg = cbind(deg, result[result$significant==T, 'regulate'])
+    write.table(deg_reg, out_name, sep='\t', col.names=F, quote=FALSE, row.names=F)
 }
