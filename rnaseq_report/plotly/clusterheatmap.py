@@ -624,15 +624,18 @@ class ClusterHeatMap(object):
                 target_genes = set(self.group_gene.index) & set(self.ordered_genes)
                 gene_group_num += len(set(self.group_gene.loc[list(target_genes), :].values.flatten()))
         self.total_group_num = len(groups) + gene_group_num
-        colors = self.get_color_pool(self.total_group_num)
-        group_colors = dict(zip(groups, colors))
-        # if 'Unknown' in group_colors:
-        #     group_colors['Unknown'] = 'darkgrey'
-        if self.sample_group_color:
-            # user defined color overrides random generated one
-            for k, v in self.sample_group_color.items():
-                group_colors[k] = v
-
+        if self.gene_corr_as_heatmap:
+            group_colors = self.gene_group_color
+        else:
+            colors = self.get_color_pool(self.total_group_num)
+            group_colors = dict(zip(groups, colors))
+            # if 'Unknown' in group_colors:
+            #     group_colors['Unknown'] = 'darkgrey'
+            if self.sample_group_color:
+                # user defined color overrides random generated one
+                for k, v in self.sample_group_color.items():
+                    group_colors[k] = v
+            self.sample_group_color = group_colors
         # plot
         traces = list()
         existed_legend = set()
@@ -648,6 +651,9 @@ class ClusterHeatMap(object):
                     trace_name = each
                 else:
                     trace_name = '{sample}|{group}'.format(sample=each, group=group_dict[each])
+                show_legend = True if sample_colors[each] not in existed_legend else False
+                if self.gene_corr_as_heatmap:
+                    show_legend = False
                 bar = go.Bar(
                     name=group_dict[each],
                     legendgroup=group_dict[each],
@@ -656,7 +662,7 @@ class ClusterHeatMap(object):
                     y=[1],
                     base=base,
                     width=10,
-                    showlegend=True if sample_colors[each] not in existed_legend else False,
+                    showlegend=show_legend,
                     xaxis='x4',
                     yaxis='y4',
                     marker=dict(color=sample_colors[each]),
@@ -702,15 +708,19 @@ class ClusterHeatMap(object):
                 target_samples = set(self.group_sample.index) & set(self.ordered_samples)
                 sample_group_num += len(set(self.group_gene.loc[list(target_samples), :].values.flatten()))
         self.total_group_num = len(groups)+sample_group_num
-        colors = self.get_color_pool(self.total_group_num)
-        colors = colors[-len(groups):]
-        group_colors = dict(zip(groups, colors))
-        # if 'Unknown' in group_colors:
-        #     group_colors['Unknown'] = 'darkgrey'
-        if self.gene_group_color:
-            # user defined color overrides random generated one
-            for k, v in self.gene_group_color.items():
-                group_colors[k] = v
+        if self.sample_corr_as_heatmap:
+            group_colors = self.sample_group_color
+        else:
+            colors = self.get_color_pool(self.total_group_num)
+            colors = colors[-len(groups):]
+            group_colors = dict(zip(groups, colors))
+            # if 'Unknown' in group_colors:
+            #     group_colors['Unknown'] = 'darkgrey'
+            if self.gene_group_color:
+                # user defined color overrides random generated one
+                for k, v in self.gene_group_color.items():
+                    group_colors[k] = v
+            self.gene_group_color = group_colors
         # insert link
         if self.only_gene_dendrogram:
             self.layout['yaxis5']['showticklabels'] = True
@@ -745,6 +755,9 @@ class ClusterHeatMap(object):
                     trace_name = each
                 else:
                     trace_name = '{sample}|{group}'.format(sample=each, group=group_dict[each])
+                show_legend = True if sample_colors[each] not in existed_legend else False
+                if self.sample_corr_as_heatmap:
+                    show_legend = False
                 bar = go.Bar(
                     orientation='h',
                     name=group_dict[each],
@@ -754,7 +767,7 @@ class ClusterHeatMap(object):
                     y=[each if not self.only_gene_dendrogram else labels[ind]],
                     base=base,
                     width=1,
-                    showlegend=True if sample_colors[each] not in existed_legend else False,
+                    showlegend=show_legend,
                     xaxis='x5',
                     yaxis='y5',
                     marker=dict(color=sample_colors[each]),
