@@ -23,6 +23,10 @@ document.styles.add_style('reference', WD_STYLE_TYPE.CHARACTER)
 obj_font = document.styles['reference'].font
 obj_font.size = Pt(9)
 obj_font.name = 'Times New Roman'
+# add new heading style
+document.styles.add_style('heading', WD_STYLE_TYPE.PARAGRAPH)
+obj_font = document.styles['heading'].font
+obj_font.name = 'Times New Roman'
 
 
 # set header
@@ -114,7 +118,9 @@ for chapter in chapters:
     level = len([x for x in level.split('.') if x != ''])
     if level == 1:
         document.add_page_break()
-    h = document.add_heading(heading, level)
+    title = document.add_heading('', level=level).add_run(heading)
+    title.font.name = u'微软雅黑'
+    title._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
 
     for i in range(1, sum(x.startswith('p') for x in content)):
         key = 'p'+str(i)
@@ -133,7 +139,7 @@ for chapter in chapters:
                 if os.path.exists(figure):
                     if figure.endswith('.pdf'):
                         figure = pdf2png(figure)
-                        figure = trim_white_around(figure)
+                    figure = trim_white_around(figure)
                     if heading == '分析流程':
                         document.add_picture(figure, width=Inches(5.8))
                     else:
