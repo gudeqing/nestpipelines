@@ -7,7 +7,9 @@ opt_list = list(
     make_option(c('-p', '--proportion'), default=0.1, help='comparison info file', type='numeric'),
     make_option(c('-f', '--fold_change'), default=2.0, help='fold change cutoff, if = -1, log2fc_cutoff = mean(abs(result$logFC)) + 2*sd(abs(result$logFC))', type='numeric'),
     make_option(c('-s', '--stat_cutoff'), default=0.05, help='pvalue or adjust pvalue cutoff', type='numeric'),
-    make_option(c('-t', '--type'), default='padjust', help='use uncorrected pvalue if set to pvalue')
+    make_option(c('-t', '--type'), default='padjust', help='use uncorrected pvalue if set to pvalue'),
+    make_option(c('-x', '--x_paired'), default=0, help='1 for paired t-test, 0 for unpaired t-test', type='integer'),
+    make_option(c('-o', '--out_prefix'), default='', help='out prefix')
 )
 
 # make options
@@ -49,11 +51,26 @@ for (i in 1:nrow(contrast)){
     test = as.character(contrast[i, 2])
     test_samples = group_matrix[which(group_matrix[, 2] == test), 1]
     ctrl_samples = group_matrix[which(group_matrix[, 2] == ctrl), 1]
+    if (length(ctrl_samples) <= 1 | length(test_samples) <= 1){
+        next
+    }
     print(paste(ctrl, '(', length(ctrl_samples), ')', '_vs_', test, '(', length(test_samples), ')', sep=''))
     group_list = append(rep(ctrl, length(ctrl_samples)), rep(test, length(test_samples)))
     expr_matrix = all_expr_table[, append(as.vector(ctrl_samples), as.vector(test_samples))]
     contrast_exp = paste(test, '-', ctrl)
     result = diff_test(expr_matrix, group_list, contrast_exp, proportion=opt$p)
+
+    ctrl_num = length(ctrl_samples) + 1
+    ttest_pvalue = apply(expr_matrix, 1,
+        function(x){
+            t.test(as.numeric(x[1:length(ctrl_samples)]),
+                as.numeric(x[ctrl_num:dim(expr_matrix)[2]]),
+                var.equal=F,
+                paired=opt$x)$p.value
+        }
+    )
+    result$ttest_pvalue = ttest_pvalue
+
     if (opt$f == -1){
         fc_cutoff = mean(abs(result$logFC)) + 2*sd(abs(result$logFC))
     }else{
@@ -62,17 +79,22 @@ for (i in 1:nrow(contrast)){
     if (opt$t == 'padjust'){
         result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'adj.P.Val'] <= opt$s)
         result[order(result$adj.P.Val), ]
-        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & pvalue", ' <= ', opt$s, sep=''))
-    }else{
+        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & pajust", ' <= ', opt$s, sep=''))
+    }else if (opt$t == 'ttest') {
+        result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'ttest_pvalue'] <= opt$s)
+        result[order(result[, "ttest_pvalue"]), ]
+        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & ttest_pvalue", ' <= ', opt$s, sep=''))
+    }
+    else{
         result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'P.Value'] <= opt$s)
         result[order(result[, "P.Value"]), ]
-        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & padjust", ' <= ', opt$s, sep=''))
+        print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & pvalue", ' <= ', opt$s, sep=''))
     }
     result$regulate = 'up'
     result[result$logFC < 0, 'regulate'] = 'down'
-    out_name = paste(ctrl, '_vs_', test, '.xls', sep='')
+    out_name = paste(opt$o, ctrl, '_vs_', test, '.xls', sep='')
     write.table(result, out_name, sep='\t', col.names=NA, quote=FALSE)
-    out_name = paste(ctrl, '_vs_', test, '.DE.list', sep='')
+    out_name = paste(opt$o, ctrl, '_vs_', test, '.DE.list', sep='')
     deg = rownames(result[result$significant==T, ])
     print(paste('DEG number: ', length(deg), sep=''))
     deg_reg = cbind(deg, result[result$significant==T, 'regulate'])
