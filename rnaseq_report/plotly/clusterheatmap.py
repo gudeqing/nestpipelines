@@ -338,6 +338,12 @@ class ClusterHeatMap(object):
                 self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
             ))
             exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
+
+        # do zscore
+        if self.zscore_before_cluster:
+            from scipy.stats import zscore
+            exp_pd = exp_pd.transpose().apply(zscore).transpose()
+
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -932,9 +938,6 @@ class ClusterHeatMap(object):
             condensed_distance = squareform(1 - exp_pd.abs())
             z = hclust.linkage(condensed_distance, method=self.scm)
         else:
-            if self.zscore_before_cluster:
-                from sklearn import preprocessing
-                exp_pd = exp_pd.apply(preprocessing.scale, axis=0)
             if metric.lower() == 'pearson':
                 metric = 'correlation'
             if metric in ['spearman', 'kendall']:
