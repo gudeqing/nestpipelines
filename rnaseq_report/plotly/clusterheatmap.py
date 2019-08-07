@@ -5,6 +5,7 @@ from plotly.offline import plot as plt
 import pandas as pd
 import numpy as np
 import scipy as scp
+from scipy.stats import zscore
 from scipy.spatial.distance import squareform
 from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
@@ -338,12 +339,6 @@ class ClusterHeatMap(object):
                 self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
             ))
             exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
-
-        # do zscore
-        if self.zscore_before_cluster:
-            from scipy.stats import zscore
-            exp_pd = exp_pd.transpose().apply(zscore).transpose()
-
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -789,6 +784,9 @@ class ClusterHeatMap(object):
 
     def top_dendrogram_traces(self):
         exp_pd = self.data.transpose()
+        if not (self.sample_corr_as_heatmap or self.gene_corr_as_heatmap):
+            if self.zscore_before_cluster:
+                exp_pd = exp_pd.transpose().apply(zscore).transpose()
         z, subcluster = self.hcluster(
             exp_pd,
             method=self.scm,
@@ -838,6 +836,10 @@ class ClusterHeatMap(object):
 
     def left_dendrogram_traces(self):
         exp_pd = self.data
+        if not (self.sample_corr_as_heatmap or self.gene_corr_as_heatmap):
+            if self.zscore_before_cluster:
+                exp_pd = exp_pd.transpose().apply(zscore).transpose()
+                self.data = exp_pd
         z, subcluster = self.hcluster(
             exp_pd,
             method=self.gcm,
