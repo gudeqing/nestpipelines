@@ -134,6 +134,7 @@ def salmon_index(**kwargs):
 
 def salmon_quant(**kwargs):
     cmd = '{} quant '.format(kwargs['salmon'])
+    cmd += '--validateMappings '
     cmd += '-i {} '.format(kwargs['index'])
     cmd += '-l A '
     if kwargs['mode'] == 'PE':
