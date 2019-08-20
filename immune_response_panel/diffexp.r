@@ -78,16 +78,16 @@ for (i in 1:nrow(contrast)){
     }
     if (opt$t == 'padjust'){
         result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'adj.P.Val'] <= opt$s)
-        result[order(result$adj.P.Val), ]
+        result = result[order(result$adj.P.Val), ]
         print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & pajust", ' <= ', opt$s, sep=''))
     }else if (opt$t == 'ttest') {
         result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'ttest_pvalue'] <= opt$s)
-        result[order(result[, "ttest_pvalue"]), ]
+        result = result[order(result[, "ttest_pvalue"]), ]
         print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & ttest_pvalue", ' <= ', opt$s, sep=''))
     }
     else{
         result$significant = (abs(result$'logFC') >= fc_cutoff) & (result[, 'P.Value'] <= opt$s)
-        result[order(result[, "P.Value"]), ]
+        result = result[order(result[, "P.Value"]), ]
         print(paste('cutoff: |log2fc| >= ', fc_cutoff, " & pvalue", ' <= ', opt$s, sep=''))
     }
     result$regulate = 'up'
