@@ -39,8 +39,8 @@ diff_test <-function(expr_matrix, group_list, contrast_exp,
     fit2 <- contrasts.fit(fit, contrast.matrix)
     ##step3 贝叶斯检验
     fit2 <- eBayes(fit2, proportion=proportion, trend=trend, robust=robust)
-    ##step4 生成所有基因的检验结果报告
-    result = topTable(fit2, coef=1, n=Inf)
+    ##step4 生成所有基因的检验结果报告, 不排序，方便后面添加其他列
+    result = topTable(fit2, coef=1, n=Inf, adjust.method='BH', sort.by="none")
 }
 
 group_matrix = read.table(opt$g, header=T)
@@ -56,10 +56,22 @@ for (i in 1:nrow(contrast)){
     }
     print(paste(ctrl, '(', length(ctrl_samples), ')', '_vs_', test, '(', length(test_samples), ')', sep=''))
     group_list = append(rep(ctrl, length(ctrl_samples)), rep(test, length(test_samples)))
+
+    # ctrl stat
+    ctrl_mean_value = apply(all_expr_table[, as.vector(ctrl_samples)], 1, mean)
+    ctrl_median_value = apply(all_expr_table[, as.vector(ctrl_samples)], 1, median)
+    ctrl_sd_value = apply(all_expr_table[, as.vector(ctrl_samples)], 1, sd)
+
+    # test stat
+    test_mean_value = apply(all_expr_table[, as.vector(test_samples)], 1, mean)
+    test_median_value = apply(all_expr_table[, as.vector(test_samples)], 1, median)
+    test_sd_value = apply(all_expr_table[, as.vector(test_samples)], 1, sd)
+    # print(head(test_mean_value, 30))
+    # do ebayes test
     expr_matrix = all_expr_table[, append(as.vector(ctrl_samples), as.vector(test_samples))]
     contrast_exp = paste(test, '-', ctrl)
     result = diff_test(expr_matrix, group_list, contrast_exp, proportion=opt$p)
-
+    # print(head(result, 30))
     ctrl_num = length(ctrl_samples) + 1
     ttest_pvalue = apply(expr_matrix, 1,
         function(x){
@@ -69,7 +81,17 @@ for (i in 1:nrow(contrast)){
                 paired=opt$x)$p.value
         }
     )
+
     result$ttest_pvalue = ttest_pvalue
+    result$adj.ttest_pvalue = as.vector(p.adjust(ttest_pvalue, method='BH'))
+
+    # add mean and median and sd columns
+    result[, paste('mean.', ctrl, sep='')] = ctrl_mean_value
+    result[, paste('mean.', test, sep='')] = test_mean_value
+    result[, paste('median.', ctrl, sep='')] = ctrl_median_value
+    result[, paste('median.', test, sep='')] = test_median_value
+    result[, paste('std.', ctrl, sep='')] = ctrl_sd_value
+    result[, paste('std.', test, sep='')] = test_sd_value
 
     if (opt$f == -1){
         fc_cutoff = mean(abs(result$logFC)) + 2*sd(abs(result$logFC))
@@ -92,6 +114,7 @@ for (i in 1:nrow(contrast)){
     }
     result$regulate = 'up'
     result[result$logFC < 0, 'regulate'] = 'down'
+    # output
     out_name = paste(opt$o, ctrl, '_vs_', test, '.xls', sep='')
     write.table(result, out_name, sep='\t', col.names=NA, quote=FALSE)
     out_name = paste(opt$o, ctrl, '_vs_', test, '.DE.list', sep='')
