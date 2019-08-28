@@ -54,7 +54,7 @@ def Plot3dVJUsage(**kwargs):
     cmd += '{} '.format(kwargs['script'])
     cmd += '-data {} '.format(kwargs['data'])
     cmd += '-out {} '.format(kwargs['data'])
-
+    return cmd
 
 def PlotCDRVenn(**kwargs):
     cmd = '{} '.format(kwargs['python'])
@@ -63,7 +63,7 @@ def PlotCDRVenn(**kwargs):
     cmd += '-label_field {} '.format(kwargs['label_field'])
     cmd += '-factor_field {} '.format(kwargs['factor_field'])
     cmd += '-outdir {} '.format(kwargs['outdir'])
-
+    return cmd
 
 def PlotSpectratypeV(**kwargs):
     cmd = '{} '.format(kwargs['vdjtools'])
