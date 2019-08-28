@@ -151,7 +151,7 @@ def venn_plot(files: list, exp=None, out_prefix='result', has_header=False,
 def tcr_venn(metadata, label_field, factor_field, outdir=None):
     seq_types = ['CDR3nt', 'CDR3aa']
     for seq_type in seq_types:
-        data, group = merge_clone_seq(metadata, label_field, factor_field, seq_type='CDR3nt', outdir=outdir)
+        data, group = merge_clone_seq(metadata, label_field, factor_field, seq_type=seq_type, outdir=outdir)
         venn_plot([data], out_prefix=os.path.join(outdir, seq_type), venn_list=[group])
 
 
