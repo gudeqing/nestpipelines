@@ -17,7 +17,7 @@ def merge_clone_seq(metadata_file, label_field, factor_field, seq_type='CDR3nt',
     if outdir is None:
         outdir = os.getcwd()
     out = os.path.join(outdir, seq_type + '.merged.xls')
-    seq_df.to_csv(out, sep='\t')
+    seq_df.to_csv(out, sep='\t', index=False)
     group = os.path.join(outdir, f'{factor_field}.group.txt')
     meta_df[[label_field, factor_field]].to_csv(group, index=False, header=False, sep='\t')
     return out, group
@@ -136,7 +136,7 @@ def venn_plot(files: list, exp=None, out_prefix='result', has_header=False,
     if venn_list is None:
         if len(venn_set_dict) <= 8:
             plot(from_contents(venn_set_dict), sum_over=False, sort_categories_by=None, show_counts=True)
-            plt.savefig('all.upSet.{}'.format(graph_format), dpi=300)
+            plt.savefig('{}.upSet.{}'.format(out_prefix, graph_format), dpi=300)
             plt.close()
     else:
         for group, name in zip(venn_list, venn_names):
@@ -144,7 +144,7 @@ def venn_plot(files: list, exp=None, out_prefix='result', has_header=False,
             tmp_dict = {x: y for x, y in venn_set_dict.items() if x in groups}
             if len(tmp_dict) > 1:
                 plot(from_contents(tmp_dict), sum_over=False, sort_categories_by=None, show_counts=True)
-                plt.savefig('all.{}.upSet.{}'.format(name, graph_format), dpi=300)
+                plt.savefig('{}.{}.upSet.{}'.format(out_prefix, name, graph_format), dpi=300)
                 plt.close()
 
 
@@ -152,7 +152,7 @@ def tcr_venn(metadata, label_field, factor_field, outdir=None):
     seq_types = ['CDR3nt', 'CDR3aa']
     for seq_type in seq_types:
         data, group = merge_clone_seq(metadata, label_field, factor_field, seq_type=seq_type, outdir=outdir)
-        venn_plot([data], out_prefix=os.path.join(outdir, seq_type), venn_list=[group])
+        venn_plot([data], out_prefix=os.path.join(outdir, seq_type), venn_list=[group], has_header=True)
 
 
 if __name__ == '__main__':
