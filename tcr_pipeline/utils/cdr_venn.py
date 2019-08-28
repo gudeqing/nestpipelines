@@ -19,7 +19,7 @@ def merge_clone_seq(metadata_file, label_field, factor_field, seq_type='CDR3nt',
     out = os.path.join(outdir, seq_type + '.merged.xls')
     seq_df.to_csv(out, sep='\t')
     group = os.path.join(outdir, f'{factor_field}.group.txt')
-    meta_df[[label_field, factor_field]].to_csv(group, index=False, header=False)
+    meta_df[[label_field, factor_field]].to_csv(group, index=False, header=False, sep='\t')
     return out, group
 
 
