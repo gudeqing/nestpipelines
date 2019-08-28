@@ -88,7 +88,7 @@ def venn_plot(files: list, exp=None, out_prefix='result', has_header=False,
         print('result is empty!')
     else:
         print('result size: {}'.format(len(result)))
-    with open(out_prefix + '.list', 'w') as f:
+    with open(out_prefix + '.intersect.list', 'w') as f:
         if not count_dict:
             _ = [f.write(x) for x in result]
         else:
