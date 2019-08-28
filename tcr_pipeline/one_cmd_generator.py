@@ -49,6 +49,22 @@ def PlotFancyVJUsage(**kwargs):
     return cmd
 
 
+def Plot3dVJUsage(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += '-data {} '.format(kwargs['data'])
+    cmd += '-out {} '.format(kwargs['data'])
+
+
+def PlotCDRVenn(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += '-metadata {} '.format(kwargs['metadata'])
+    cmd += '-label_field {} '.format(kwargs['label_field'])
+    cmd += '-factor_field {} '.format(kwargs['factor_field'])
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+
+
 def PlotSpectratypeV(**kwargs):
     cmd = '{} '.format(kwargs['vdjtools'])
     cmd += '{} '.format(kwargs['sub_cmd'])

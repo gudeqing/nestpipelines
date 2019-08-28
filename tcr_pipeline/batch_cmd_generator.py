@@ -142,7 +142,48 @@ class NestedCmd(Basic):
                 cpu=2,
                 mem=1024 ** 3 * 1,
                 out_prefix=args['prefix'],
+                sample=sample
             )
+        self.workflow.update(commands)
+        return commands
+
+    def Plot3dVJUsage_cmds(self, depend_cmds, step_name='7.Bar3dVJUsage', main_step_name='1.BasicStats'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, main_step_name)
+        self.mkdir(outdir)
+        outdir = os.path.join(outdir, step_name)
+        self.mkdir(outdir)
+        for step, cmd_info in depend_cmds.items():
+            sample = cmd_info['sample']
+            args = dict(self.arg_pool['Plot3dVJUsage'])
+            args['data'] = cmd_info['out_prefix'] + '.fancyvj.wt.txt'
+            args['out'] = os.path.join(outdir, sample, '.VJ.3dBar.png')
+            cmd = cmdx.Plot3dVJUsage(**args)
+            commands[step_name+'_'+sample] = self.cmd_dict(
+                cmd=cmd,
+                cpu=2,
+                mem=1024 ** 3 * 1,
+                sample=sample,
+                out=args['out']
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def PlotCDRVenn_cmds(self, step_name='8.PlotCDRVenn', main_step_name='1.BasicStats'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, main_step_name)
+        self.mkdir(outdir)
+        outdir = os.path.join(outdir, step_name)
+        self.mkdir(outdir)
+        args = dict(self.arg_pool['PlotCDRVenn'])
+        args['outdir'] = outdir
+        cmd = cmdx.PlotCDRVenn(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            cpu=2,
+            mem=1024 ** 3 * 1,
+            out_prefix=args['outdir'],
+        )
         self.workflow.update(commands)
         return commands
 
