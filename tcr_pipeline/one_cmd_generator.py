@@ -53,7 +53,7 @@ def Plot3dVJUsage(**kwargs):
     cmd = '{} '.format(kwargs['python'])
     cmd += '{} '.format(kwargs['script'])
     cmd += '-data {} '.format(kwargs['data'])
-    cmd += '-out {} '.format(kwargs['data'])
+    cmd += '-out {} '.format(kwargs['out'])
     return cmd
 
 

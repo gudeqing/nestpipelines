@@ -160,6 +160,7 @@ class NestedCmd(Basic):
             args['out'] = os.path.join(outdir, sample, '.VJ.3dBar.png')
             cmd = cmdx.Plot3dVJUsage(**args)
             commands[step_name+'_'+sample] = self.cmd_dict(
+                depend=step,
                 cmd=cmd,
                 cpu=2,
                 mem=1024 ** 3 * 1,
