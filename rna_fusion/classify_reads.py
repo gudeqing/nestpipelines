@@ -162,11 +162,11 @@ def junction_from_one_end(splits):
         for a, a2 in itertools.permutations(aligns.values(), 2):
             if abs(a.reference_start - a2.reference_start) > 200 \
                     or a.reference_name != a2.reference_name:
-                if a.cigartuples[-1][0] == 4 and a2.cigartuples[0][0] == 0:
+                if a.cigartuples[-1][0] == 4 and a2.cigartuples[0][0] == 4:
                     m = a.seq[a.query_alignment_end:] == a2.seq[a2.query_alignment_start:]
                     m2 = a.seq[:a.query_alignment_end] == a2.seq[:a2.query_alignment_start]
                     if m and m2:
-                        print(a.cigarstring, a2.cigarstring)
+                        # print(a.cigarstring, a2.cigarstring)
                         break1 = a.reference_name + ':' + str(a.reference_end)
                         break2 = a2.reference_name + ':' + str(a2.reference_start)
                         if abs(a2.reference_start - a.reference_end) > 50 or\
@@ -180,15 +180,17 @@ def junction_from_one_end(splits):
 def junction_from_pair_end(paired_splits, ref_fasta, max_inner_dist=300):
     ref = pysam.FastaFile(ref_fasta)
     sj = set()
-    names = (x[:-1] for x in paired_splits.keys() if x.endswith('0'))
+    names = [x[:-1] for x in paired_splits.keys() if x.endswith('0')]
     for name in names:
         r1_name, r2_name = name + '0', name + '1'
-        r1 = paired_splits.pop(r1_name)
-        if r2_name not in paired_splits:
+        if (r1_name not in paired_splits) or (r2_name not in paired_splits):
             continue
+        r1 = paired_splits.pop(r1_name)
         r2 = paired_splits.pop(r2_name)
         for a, a2 in itertools.product(r1.values(), r2.values()):
             distance = abs(a.reference_start - a2.reference_start)
+            if not a.cigartuples or (not a2.cigartuples):
+                continue
             if distance > 200 or (a.reference_name != a.reference_name):
                 # 如果r1和r2有overlap序列，而且overlap包含断点
                 if a.cigartuples[-1][0] == a2.cigartuples[0][0] == 4:
@@ -200,7 +202,7 @@ def junction_from_pair_end(paired_splits, ref_fasta, max_inner_dist=300):
                         sj.add(break1+'  '+break2)
 
                 # 仅r1包含断点，而r2不包含断点
-                if a.cigartuples[-1][0] == 4 and a2.cigartuples[0][0] == 0:
+                elif a.cigartuples[-1][0] == 4 and a2.cigartuples[0][0] == 0:
                     clip_seq = a.seq[a.query_alignment_end:]
                     # 如果 r1和r2有overlap序列，而且overlap不包含断点，但是r1包含断点
                     # 假设overlap至少包含6个碱基，那么r2前6个碱基一定包含在r1右端被clip掉的reads中
@@ -219,7 +221,7 @@ def junction_from_pair_end(paired_splits, ref_fasta, max_inner_dist=300):
                     if len(clip_seq) >= 8:
                         # 如果r1和r2没有overlap，但是r1包含断点，且假设r1右端clip掉的seq和r2之间的真实距离在一定范围内
                         # 根据r1右端clip掉的seq一定在r2的上游区域，定位其在上游区域的位置得到的就是第二个断点
-                        print(f"在r2上游的{max_inner_dist}范围内搜索 {clip_seq}")
+                        # print(f"在r2上游的{max_inner_dist}范围内搜索 {clip_seq}")
                         r2_up_seq = ref.fetch(a2.reference_name,
                                               a2.reference_start-max_inner_dist,
                                               a2.reference_start)
@@ -233,12 +235,12 @@ def junction_from_pair_end(paired_splits, ref_fasta, max_inner_dist=300):
                                 break2 = a2.reference_name + ':' + str(b2_pos)
                                 sj.add(break1+'  '+break2)
 
-                # 以上都是假设r1包含断点，下面假设r1不包含断点，而是r2包含断点
-                # 如果 r1和r2有overlap序列，而且overlap不包含断点，但是r2包含断点
-                if a.cigartuples[-1][0] == 0 and a2.cigartuples[0][0] == 4:
+                # 下面假设r1不包含断点，而是r2包含断点
+                elif a.cigartuples[-1][0] == 0 and a2.cigartuples[0][0] == 4:
                     clip_seq = a2.seq[:a.query_alignment_start]
                     # 假设overlap至少包含6个碱基，那么clip_seq中前6个碱基一定在r1中
                     if len(clip_seq) >= 6:
+                        # 如果 r1和r2有overlap序列，而且overlap不包含断点，但是r2包含断点
                         ind = a.seq.rfind(clip_seq[:6])
                         if ind >= 0:
                             b1_pos = a.reference_end - (a.query_length - ind) + len(clip_seq)
@@ -252,7 +254,7 @@ def junction_from_pair_end(paired_splits, ref_fasta, max_inner_dist=300):
                     if len(clip_seq) >= 8:
                         # 如果r1和r2没有overlap，但是r2包含断点，且假设r2左端clip掉的seq和r1之间的真实距离在一定范围内
                         # 根据r2左端clip掉的seq一定在r1的下游区域，定位其在下游区域的位置得到的就是第二个断点
-                        print(f"在r1上游的{max_inner_dist}范围内搜索 {clip_seq}")
+                        # print(f"在r1上游的{max_inner_dist}范围内搜索 {clip_seq}")
                         r1_down_seq = ref.fetch(a.reference_name,
                                                 a.reference_end,
                                                 a.reference_end+max_inner_dist)
