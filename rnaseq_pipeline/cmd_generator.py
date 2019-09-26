@@ -97,6 +97,7 @@ def star_align(**kwargs):
     cmd += '--chimOutJunctionFormat {} '.format(kwargs['chimOutJunctionFormat'])
     cmd += '--peOverlapNbasesMin {} '.format(kwargs['peOverlapNbasesMin'])
     cmd += '--peOverlapMMp {} '.format(kwargs['peOverlapMMp'])
+    cmd += '--chimOutType {} '.format(kwargs['chimOutType'])
     return cmd
 
 
