@@ -25,7 +25,7 @@ def timer(func):
     def inner(*args, **kw):
         start_time = time.time()
         result = func(*args,**kw)
-        print(f'Runtime of {func.__name__} is', time.time()-start_time, 's')
+        print(f'Runtime of {func.__name__} is', round(time.time()-start_time), 's')
         return result
     return inner
 
@@ -118,6 +118,7 @@ def reverse_complement(seq):
     return ''.join(complement[base] if base in complement else base for base in seq[::-1])
 
 
+@timer
 def splitted_reads(bam_file, min_clip_size=3):
     bam = pysam.AlignmentFile(bam_file, "rb")
     splits = dict()
@@ -139,6 +140,7 @@ def splitted_reads(bam_file, min_clip_size=3):
     return splits
 
 
+@timer
 def paired_splitted_reads(bam_file, splits):
     bam = pysam.AlignmentFile(bam_file, "rb")
     targets = dict()
@@ -216,7 +218,8 @@ def filter_by_coverage(bam_obj, chr_name, start, direction='keep_up', extend=23)
     return False
 
 
-def junction_from_single_end(splits, ref_fasta, min_intron_size=30):
+@timer
+def junction_from_single_end(splits, ref_fasta, masked_ref_fasta=None, min_clip_size=15, min_intron_size=30):
     """
     仅仅根据单条read的多重比对结果寻找断点，如一条read有两个比对结果:30M120S和30S120M
     这个断点可以是由于新的可变剪切产生的，也可以是融合基因带来的比对效果
@@ -226,44 +229,46 @@ def junction_from_single_end(splits, ref_fasta, min_intron_size=30):
     """
     sj = dict()
     ref = pysam.FastaFile(ref_fasta)
+    if masked_ref_fasta:
+        masked_ref = pysam.FastaFile(masked_ref_fasta)
+    else:
+        masked_ref = ref
     for name, aligns in splits.items():
         # 一条read可能有多个比对结果, 排列组合查看
         for a, a2 in itertools.permutations(aligns, 2):
-            if abs(a.reference_end - a2.reference_start) >= min_intron_size \
-                    or a.reference_name != a2.reference_name:
+            if (abs(a.reference_end - a2.reference_start) >= min_intron_size
+                    or a.reference_name != a2.reference_name):
                 if a.is_reverse == a2.is_reverse:
-                    if a.cigartuples[-1][0] == 4 and a2.cigartuples[0][0] == 4:
-                        if len(a.seq[a.query_alignment_end:]) < 7 or len(a2.seq[:a2.query_alignment_start])<7:
-                            continue
-                        m = a.seq[a.query_alignment_end:] == a2.seq[a2.query_alignment_start:]
-                        m2 = a.seq[:a.query_alignment_end] == a2.seq[:a2.query_alignment_start]
-                        if m and m2:
-                            if not filter_by_seq_similarity(
-                                    ref, a.reference_name, a.reference_end,
-                                    a2.reference_name, a2.reference_start
-                            ):
-                                break1 = a.reference_name + ':' + str(a.reference_end)
-                                break2 = a2.reference_name + ':' + str(a2.reference_start)
-                                break_pair = break1 + ' ' + break2
-                                sj.setdefault(break_pair, set())
-                                sj[break_pair].add(a.seq)
-                else:
-                    if a.cigartuples[-1][0] == 4 and a2.cigartuples[-1][0] == 4:
-                        if len(a.seq[a.query_alignment_end:]) < 7 or len(a2.seq[a2.query_alignment_end:]) < 7:
-                            continue
-                        m = a.seq[:a.query_alignment_end] == reverse_complement(a2.seq[a2.query_alignment_end:])
-                        m2 = a.seq[a.query_alignment_end:] == reverse_complement(a2.seq[:a2.query_alignment_end])
-                        if m and m2:
-                            if not filter_by_seq_similarity(
-                                    ref, a.reference_name, a.reference_end,
-                                    a2.reference_name, a2.reference_end,
-                                    reverse=True
-                            ):
-                                break1 = a.reference_name + ':' + str(a.reference_end)
-                                break2 = a2.reference_name + ':' + str(a2.reference_end)
-                                break_pair = break1 + ' ' + break2
-                                sj.setdefault(break_pair, set())
-                                sj[break_pair].add(a.seq)
+                    if (a.cigartuples[-1][0] == 4
+                            and a2.cigartuples[0][0] == 4
+                            and len(a.seq[a.query_alignment_end:]) > min_clip_size
+                            and len(a2.seq[:a2.query_alignment_start]) > min_clip_size
+                            and a.seq[a.query_alignment_end:] == a2.seq[a2.query_alignment_start:]
+                            and a.seq[:a.query_alignment_end] == a2.seq[:a2.query_alignment_start]
+                            and not filter_by_seq_similarity(masked_ref, a.reference_name, a.reference_end,
+                                                             a2.reference_name, a2.reference_start)
+                    ):
+                        break1 = a.reference_name + ':' + str(a.reference_end)
+                        break2 = a2.reference_name + ':' + str(a2.reference_start)
+                        break_pair = break1 + ' ' + break2
+                        sj.setdefault(break_pair, set())
+                        sj[break_pair].add(a.seq)
+
+                # else:
+                #     if (a.cigartuples[-1][0] == 4
+                #             and a2.cigartuples[-1][0] == 4 and
+                #             len(a.seq[a.query_alignment_end:]) > min_clip_size
+                #             and len(a2.seq[a2.query_alignment_end:]) > min_clip_size
+                #             and a.seq[:a.query_alignment_end] == reverse_complement(a2.seq[a2.query_alignment_end:])
+                #             and a.seq[a.query_alignment_end:] == reverse_complement(a2.seq[:a2.query_alignment_end])
+                #             and not filter_by_seq_similarity(ref, a.reference_name, a.reference_end,
+                #                                              a2.reference_name, a2.reference_end, reverse=True)
+                #     ):
+                #         break1 = a.reference_name + ':' + str(a.reference_end)
+                #         break2 = a2.reference_name + ':' + str(a2.reference_end)
+                #         break_pair = break1 + ' ' + break2
+                #         sj.setdefault(break_pair, set())
+                #         sj[break_pair].add(a.seq)
     ref.close()
     result = dict()
     for break_pair, reads in sj.items():
@@ -272,6 +277,7 @@ def junction_from_single_end(splits, ref_fasta, min_intron_size=30):
     return dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
 
 
+@timer
 def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libtype="ISR"):
     ref = pysam.FastaFile(ref_fasta)
     sj = dict()
@@ -418,7 +424,7 @@ def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libt
     result = {k:len(v) for k, v in sj.items()}
     fusion_paired = dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
 
-    single_support = {k:len(v) for k, v in single_support.items()}
+    single_support = {k: len(v) for k, v in single_support.items()}
     single_support = dict(sorted(single_support.items(), key=lambda x: x[1], reverse=True))
     return fusion_paired, fusion_type, single_support
 
