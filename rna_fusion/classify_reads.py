@@ -253,22 +253,21 @@ def junction_from_single_end(splits, ref_fasta, masked_ref_fasta=None, min_clip_
                         break_pair = break1 + ' ' + break2
                         sj.setdefault(break_pair, set())
                         sj[break_pair].add(a.seq)
-
-                # else:
-                #     if (a.cigartuples[-1][0] == 4
-                #             and a2.cigartuples[-1][0] == 4 and
-                #             len(a.seq[a.query_alignment_end:]) > min_clip_size
-                #             and len(a2.seq[a2.query_alignment_end:]) > min_clip_size
-                #             and a.seq[:a.query_alignment_end] == reverse_complement(a2.seq[a2.query_alignment_end:])
-                #             and a.seq[a.query_alignment_end:] == reverse_complement(a2.seq[:a2.query_alignment_end])
-                #             and not filter_by_seq_similarity(ref, a.reference_name, a.reference_end,
-                #                                              a2.reference_name, a2.reference_end, reverse=True)
-                #     ):
-                #         break1 = a.reference_name + ':' + str(a.reference_end)
-                #         break2 = a2.reference_name + ':' + str(a2.reference_end)
-                #         break_pair = break1 + ' ' + break2
-                #         sj.setdefault(break_pair, set())
-                #         sj[break_pair].add(a.seq)
+                elif a.is_reverse != a2.is_reverse == True:
+                    if (a.cigartuples[-1][0] == 4
+                            and a2.cigartuples[-1][0] == 4 and
+                            len(a.seq[a.query_alignment_end:]) > min_clip_size
+                            and len(a2.seq[a2.query_alignment_end:]) > min_clip_size
+                            and a.seq[:a.query_alignment_end] == reverse_complement(a2.seq[a2.query_alignment_end:])
+                            and a.seq[a.query_alignment_end:] == reverse_complement(a2.seq[:a2.query_alignment_end])
+                            and not filter_by_seq_similarity(masked_ref, a.reference_name, a.reference_end,
+                                                             a2.reference_name, a2.reference_end, reverse=True)
+                    ):
+                        break1 = a.reference_name + ':' + str(a.reference_end)
+                        break2 = a2.reference_name + ':' + str(a2.reference_end)
+                        break_pair = break1 + ' ' + break2
+                        sj.setdefault(break_pair, set())
+                        sj[break_pair].add(a.seq)
     ref.close()
     result = dict()
     for break_pair, reads in sj.items():
