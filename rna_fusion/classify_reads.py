@@ -38,9 +38,6 @@ def set_logger(name='log.info', logger_id='x'):
     return logger
 
 
-logger = set_logger('jc_from_pair.log', logger_id='global')
-
-
 def get_suspicious_reads(bam_file, fasta_file):
     """
     提取疑似包含新的可变剪接位点或包含融合断点的reads，可疑等级较低。
@@ -119,7 +116,7 @@ def reverse_complement(seq):
 
 
 @timer
-def splitted_reads(bam_file, min_clip_size=3):
+def splitted_reads(bam_file, min_clip_size=3, max_hit_num=10):
     bam = pysam.AlignmentFile(bam_file, "rb")
     splits = dict()
     for n, r in enumerate(bam):
@@ -137,11 +134,11 @@ def splitted_reads(bam_file, min_clip_size=3):
             record.append(r)
     else:
         bam.close()
-    return splits
+    return {k: v for k, v in splits.items() if len(v) < max_hit_num}
 
 
 @timer
-def paired_splitted_reads(bam_file, splits):
+def paired_splitted_reads(bam_file, splits, max_hit_num=10):
     bam = pysam.AlignmentFile(bam_file, "rb")
     targets = dict()
     read_names = set(x[:-2] for x in splits.keys())
@@ -152,7 +149,8 @@ def paired_splitted_reads(bam_file, splits):
             record = targets.setdefault(r.query_name + '_' + str(int(r.is_read2)), [])
             record.append(r)
     bam.close()
-    # targets = {k: v for k, v in targets.items() if k[:-2]+'_0' in targets and k[:-2]+'_1' in targets}
+    # 过滤掉没有配对的，过滤掉比对的位置超过10的reads
+    targets = {k: v for k, v in targets.items() if len(v) < max_hit_num and k[:-2]+'_0' in targets and k[:-2]+'_1' in targets}
     return targets
 
 
@@ -218,6 +216,19 @@ def filter_by_coverage(bam_obj, chr_name, start, direction='keep_up', extend=23)
     return False
 
 
+def get_overlap(seq, seq2, min_overlap=6, maximum=True):
+    """寻找第一条序列尾部和第二条序列的头部的重合序列，默认求最大overlap"""
+    match = re.match(seq2[:min_overlap-2]+'.*'+seq[-2:], seq2)
+    if match:
+        m_seq = match.group()
+        indexes = range(min_overlap, len(m_seq)+1)
+        if maximum:
+            indexes = indexes[::-1]
+        for i in indexes:
+            if seq.endswith(m_seq[:i]):
+                return m_seq[:i]
+    return ''
+
 @timer
 def junction_from_single_end(splits, ref_fasta, masked_ref_fasta=None, min_clip_size=15, min_intron_size=30):
     """
@@ -277,55 +288,80 @@ def junction_from_single_end(splits, ref_fasta, masked_ref_fasta=None, min_clip_
 
 
 @timer
-def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libtype="ISR"):
+def junction_from_one_pair(split_pair_reads, ref_fasta, masked_ref_fasta=None, min_clip_size=7,
+                           max_inner_dist=250, libtype="ISR", logger=None):
+    logger = set_logger('jc_from_one_pair.log', logger_id='jfop') if logger is None else logger
     ref = pysam.FastaFile(ref_fasta)
+    if masked_ref_fasta:
+        masked_ref = pysam.FastaFile(masked_ref_fasta)
+    else:
+        masked_ref = ref
     sj = dict()
     fusion_type = dict()
     names = [x[:-2] for x in split_pair_reads.keys() if x.endswith('0')]
-    single_support = dict()
     for name in names:
         r1_name, r2_name = name + '_0', name + '_1'
         if (r1_name not in split_pair_reads) or (r2_name not in split_pair_reads):
             continue
-        for a, a2 in itertools.product(split_pair_reads[r1_name], split_pair_reads[r2_name]):
+        r1r2_pair = itertools.product(split_pair_reads[r1_name], split_pair_reads[r2_name])
+        r2r1_pair = itertools.product(split_pair_reads[r2_name], split_pair_reads[r1_name])
+        for a, a2 in itertools.chain(r1r2_pair, r2r1_pair):
             if a.reference_start != a2.next_reference_start:
                 continue
             if not a.cigartuples or (not a2.cigartuples):
                 continue
 
             # 如果r1和r2有overlap序列，而且overlap包含断点
-            if a.cigartuples[-1][0] == a2.cigartuples[0][0] == 4:
-                evidence1 = a.seq[:a.query_alignment_end].endswith(a2.seq[:a2.query_alignment_start])
-                evidence2 = a2.seq[a2.query_alignment_start:].startswith(a.seq[a.query_alignment_end:])
-                if evidence1 and evidence2:
-                    if not filter_by_seq_similarity(
-                        ref, a.reference_name, a.reference_end,
-                        a2.reference_name, a2.reference_start
-                    ):
-                        break1 = a.reference_name + ':' + str(a.reference_end)
-                        break2 = a2.reference_name + ':' + str(a2.reference_start)
-                        break_pair = break1 + ' ' + break2
-                        sj.setdefault(break_pair, set())
-                        sj[break_pair].add(a.seq+a2.seq)
-                        fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
+            if (a.cigartuples[-1][0] == a2.cigartuples[0][0] == 4
+                    and a.is_reverse != a2.is_reverse
+                    and (a.reference_end < a2.reference_start or a.reference_name != a2.reference_name)
+                    and get_overlap(a.seq, a2.seq, min_clip_size*2)
+                    and a.seq[:a.query_alignment_end].endswith(a2.seq[:a2.query_alignment_start])
+                    and a2.seq[a2.query_alignment_start:].startswith(a.seq[a.query_alignment_end:])
+                    and not filter_by_seq_similarity(
+                        masked_ref, a.reference_name, a.reference_end,
+                        a2.reference_name, a2.reference_start)
+            ) or (a.cigartuples[-1][0] == a2.cigartuples[0][0] == 4
+                    and a.is_reverse == a2.is_reverse
+                    # and (a.reference_end < a2.reference_start or a.reference_name != a2.reference_name)
+                    and get_overlap(a.seq, reverse_complement(a2.seq), min_clip_size*2)
+                    and a.seq[:a.query_alignment_end].endswith(reverse_complement(a2.seq[:a2.query_alignment_start]))
+                    and a2.seq[a2.query_alignment_start:].startswith(reverse_complement(a.seq[a.query_alignment_end:]))
+                    and not filter_by_seq_similarity(
+                        masked_ref, a.reference_name, a.reference_end,
+                        a2.reference_name, a2.reference_start, reverse=True)
+            ):
+                break1 = a.reference_name + ':' + str(a.reference_end)
+                break2 = a2.reference_name + ':' + str(a2.reference_start)
+                break_pair = break1 + ' ' + break2
+                sj.setdefault(break_pair, set())
+                sj[break_pair].add(a.seq+a2.seq)
+                fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
+                if a.is_reverse == a2.is_reverse:
+                    logger.info(break_pair + ' diff_strand '+' Overlap contain break points '+ a.cigarstring+' '+a2.cigarstring)
+                    logger.info(a.seq)
+                    logger.info(a2.seq)
+                else:
+                    logger.info(break_pair + ' same_strand '+' Overlap contain break points '+ a.cigarstring+' '+a2.cigarstring)
+                    logger.info(a.seq)
+                    logger.info(a2.seq)
 
-            # 仅r1包含断点，而r2不包含断点
+            # (1) 仅r1包含断点，而r2不包含相应断点
             elif a.cigartuples[-1][0] == 4 and a2.cigartuples[0][0] == 0:
                 clip_seq = a.seq[a.query_alignment_end:]
-                # 如果 r1和r2有overlap序列，而且overlap不包含断点，但是r1包含断点
-                # 假设overlap至少包含6个碱基，那么r2前6个碱基一定包含在r1右端被clip掉的reads中
-                if len(clip_seq) >= 6:
+                if len(clip_seq) >= min_clip_size and get_overlap(a.seq, a2.seq, min_clip_size):
                     # 假设是r1和r2存在overlap,但overlap不包含断点
-                    ind = clip_seq.rfind(a2.seq[:6])
+                    # 假设overlap至少包含6个碱基，那么r2前6个碱基一定包含在r1右端被clip掉的reads中
+                    ind = clip_seq.rfind(reverse_complement(a2.seq[:min_clip_size]))
                     if ind >= 0:
                         b2_pos = a2.reference_start - ind
                         if abs(b2_pos - a.reference_end) < 3 and a.reference_name == a2.reference_name:
                             logger.info(f'read1: {a.to_string()}')
                             logger.info(f'read2: {a2.to_string()}')
-                            logger.info(f"以上两条read可能由于多了几个错配而发生clip, 最后反推回来并没有发现断点")
+                            logger.info(f"以上两条read最后反推回来并没有发现断点")
                         else:
                             if not filter_by_seq_similarity(
-                                    ref, a.reference_name, a.reference_end,
+                                    masked_ref, a.reference_name, a.reference_end,
                                     a2.reference_name, a2.reference_start
                             ):
                                 break1 = a.reference_name + ':' + str(a.reference_end)
@@ -335,23 +371,23 @@ def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libt
                                 sj[break_pair].add(a.seq+a2.seq)
                                 fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
 
-                if len(clip_seq) >= 8:
+                elif len(clip_seq) >= min_clip_size and not get_overlap(a.seq, a2.seq, 5):
                     # 如果r1和r2没有overlap，但是r1包含断点，且假设r1右端clip掉的seq和r2之间的真实距离在一定范围内
                     # 根据r1右端clip掉的seq一定在r2的上游区域，定位其在上游区域的位置得到的就是第二个断点
                     # print(f"在r2上游的{max_inner_dist}范围内搜索 {clip_seq}")
                     r2_up_seq = ref.fetch(a2.reference_name,
                                           max([a2.reference_start-max_inner_dist, 0]),
                                           a2.reference_start)
-                    ind = r2_up_seq.rfind(clip_seq)
+                    ind = r2_up_seq.rfind(reverse_complement(clip_seq))
                     if ind >= 0:
                         b2_pos = a2.reference_start-max_inner_dist+ind
                         if abs(b2_pos - a.reference_end) < 3 and a.reference_name == a2.reference_name:
                             logger.info(f'read1: {a.to_string()}')
                             logger.info(f'read2: {a2.to_string()}')
-                            logger.info(f"以上两条read可能由于多了几个错配而发生clip, 最后反推回来并没有发现断点")
+                            logger.info("以上两条read最后反推回来并没有发现断点")
                         else:
                             if not filter_by_seq_similarity(
-                                    ref, a.reference_name, a.reference_end,
+                                    masked_ref, a.reference_name, a.reference_end,
                                     a2.reference_name, a2.reference_start
                             ):
                                 break1 = a.reference_name + ':' + str(a.reference_end)
@@ -361,19 +397,19 @@ def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libt
                                 sj[break_pair].add(a.seq+a2.seq)
                                 fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
 
-            # 下面假设r1不包含断点，而是r2包含断点
+            # (2) 下面假设r1不包含断点，而是r2包含断点，同链融合, 分是否有overlap讨论
             elif a.cigartuples[-1][0] == 0 and a2.cigartuples[0][0] == 4:
                 clip_seq = a2.seq[:a.query_alignment_start]
-                # 假设overlap至少包含6个碱基，那么clip_seq中前6个碱基一定在r1中
-                if len(clip_seq) >= 6:
+                if len(clip_seq) >= min_clip_size and get_overlap(a.seq, a2.seq, min_clip_size):
                     # 如果 r1和r2有overlap序列，而且overlap不包含断点，但是r2包含断点
-                    ind = a.seq.rfind(clip_seq[:6])
+                    # 假设overlap至少包含6个碱基，那么clip_seq中前6个碱基一定在r1中
+                    ind = a.seq.rfind(reverse_complement(clip_seq[:min_clip_size]))
                     if ind >= 0:
                         b1_pos = a.reference_end - (a.query_length - ind) + len(clip_seq)
                         if abs(b1_pos - a2.reference_start) < 3 and a.reference_name == a2.reference_name:
                             logger.info(f'read1: {a.to_string()}')
                             logger.info(f'read2: {a2.to_string()}')
-                            logger.info(f"以上两条read可能由于多了几个错配而发生clip, 最后反推回来并没有发现断点")
+                            logger.info("以上两条read最后反推回来并没有发现断点")
                         else:
                             if not filter_by_seq_similarity(
                                     ref, a.reference_name, a.reference_end,
@@ -386,23 +422,23 @@ def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libt
                                 sj[break_pair].add(a.seq+a2.seq)
                                 fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
 
-                if len(clip_seq) >= 8:
+                elif len(clip_seq) >= min_clip_size and not get_overlap(a.seq, a2.seq, 5):
                     # 如果r1和r2没有overlap，但是r2包含断点，且假设r2左端clip掉的seq和r1之间的真实距离在一定范围内
                     # 根据r2左端clip掉的seq一定在r1的下游区域，定位其在下游区域的位置得到的就是第二个断点
                     # print(f"在r1上游的{max_inner_dist}范围内搜索 {clip_seq}")
                     r1_down_seq = ref.fetch(a.reference_name,
                                             a.reference_end,
                                             a.reference_end+max_inner_dist)
-                    ind = r1_down_seq.find(clip_seq)
+                    ind = r1_down_seq.find(reverse_complement(clip_seq))
                     if ind >= 0:
                         b1_pos = a.reference_end + ind
                         if abs(b1_pos - a2.reference_start) < 3 and a.reference_name == a2.reference_name:
                             logger.info(f'read1: {a.to_string()}')
                             logger.info(f'read2: {a2.to_string()}')
-                            logger.info(f"以上两条read可能由于多了几个错配而发生clip, 最后反推回来并没有发现断点")
+                            logger.info("以上两条read最后反推回来并没有发现断点")
                         else:
                             if not filter_by_seq_similarity(
-                                    ref, a.reference_name, a.reference_end,
+                                    masked_ref, a.reference_name, a.reference_end,
                                     a2.reference_name, a2.reference_start
                             ):
                                 break1 = a.reference_name + ':' + str(b1_pos)
@@ -412,20 +448,12 @@ def junction_from_one_pair(split_pair_reads, ref_fasta, max_inner_dist=250, libt
                                 sj[break_pair].add(a.seq+a2.seq)
                                 fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
 
-            elif a.cigartuples[0][0] == 4 or a2.cigartuples[-1][0] == 4:
-                if a.cigartuples[0][0] == 4:
-                    key = a.reference_name+':'+str(a.reference_start)
-                    single_support.setdefault(key, set()).add(a.seq)
-                if a2.cigartuples[-1][0] == 4:
-                    key = a2.reference_name+':'+str(a2.reference_end)
-                    single_support.setdefault(key, set()).add(a2.seq)
+
     ref.close()
     result = {k:len(v) for k, v in sj.items()}
     fusion_paired = dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
 
-    single_support = {k: len(v) for k, v in single_support.items()}
-    single_support = dict(sorted(single_support.items(), key=lambda x: x[1], reverse=True))
-    return fusion_paired, fusion_type, single_support
+    return fusion_paired, fusion_type
 
 
 @timer
