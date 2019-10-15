@@ -67,7 +67,7 @@ def star_align(**kwargs):
     cmd += '--runThreadN {} '.format(kwargs['runThreadN'])
     cmd += '--genomeDir {} '.format(kwargs['genomeDir'])
     cmd += '--readFilesIn {} '.format(kwargs['readFilesIn'])
-    cmd += '--outFileNamePrefix  {} '.format(kwargs['outFileNamePrefix'])
+    cmd += '--outFileNamePrefix {} '.format(kwargs['outFileNamePrefix'])
     cmd += '--outSAMtype {} '.format(kwargs['outSAMtype'])
     cmd += '--outSAMunmapped {} '.format(kwargs['outSAMunmapped'])
     cmd += '--readFilesCommand {} '.format(kwargs['readFilesCommand'])
