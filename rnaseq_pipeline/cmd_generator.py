@@ -97,7 +97,7 @@ def star_align(**kwargs):
     cmd += '--chimOutJunctionFormat {} '.format(kwargs['chimOutJunctionFormat'])
     cmd += '--peOverlapNbasesMin {} '.format(kwargs['peOverlapNbasesMin'])
     cmd += '--peOverlapMMp {} '.format(kwargs['peOverlapMMp'])
-    # cmd += '--chimOutType {} '.format(kwargs['chimOutType'])
+    cmd += '--chimOutType {} '.format(kwargs['chimOutType'])
     return cmd
 
 
@@ -407,4 +407,20 @@ def CollectRnaSeqMetrics(**kwargs):
     cmd += 'REF_FLAT={} '.format(kwargs['ref_flat'])
     cmd += 'STRAND={} '.format(kwargs['strand'])
     cmd += 'RIBOSOMAL_INTERVALS={} '.format(kwargs['ribosomal_interval_list'])
+    return cmd
+
+
+def arriba(**kwargs):
+    cmd = "{} ".format(kwargs['arriba'])
+    cmd += '-x {} '.format(kwargs['x'])
+    cmd += '-g {} '.format(kwargs['g'])
+    cmd += '-a {} '.format(kwargs['a'])
+    cmd += '-b {} '.format(kwargs['b'])
+    cmd += '-o {} '.format(kwargs['o'])
+    cmd += '-O {} '.format(kwargs['discarded'])
+    cmd += '-s {} '.format(kwargs['strandness'])
+    cmd += '-T '.format(kwargs['assemble_transcript'])
+    cmd += '-P '.format(kwargs['translate_pipetide'])
+    if kwargs['known_fusion']:
+        cmd += '-k '.format(kwargs['known_fusion'])
     return cmd

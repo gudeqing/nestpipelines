@@ -56,11 +56,18 @@ def pipeline():
     
     if list(trim_cmds.keys())[0].split('_', 1)[0] in nc.workflow_arguments.skip:
         align_cmds = nc.star_align_with_rawdata_cmds(fastq_info_dict, index_cmd=star_indexing, step_name='Align')
+        arriba_align_cmds = nc.star_align_with_rawdata_cmds(
+            fastq_info_dict, index_cmd=star_indexing, step_name='Align', chimeric_in_bam=True
+        )
     else:
         align_cmds = nc.star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align')
+        arriba_align_cmds = nc.star_align_cmds(
+            trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align', chimeric_in_bam=True
+        )
     
     bam_indexing_cmds = nc.bam_index_cmds(align_cmds, step_name='IndexBam')
-    fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='Fusion')
+    fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='StarFusion')
+    arriba_cmds = nc.arriba_cmds(arriba_align_cmds, step_name='ArribaFusion')
 
     # run some RseQC cmds
     gbc_cmds = nc.gene_body_coverage_cmds(bam_indexing_cmds, step_name='GeneBodyCoverage')
