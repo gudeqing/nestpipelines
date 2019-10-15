@@ -43,7 +43,9 @@ with open("cmd." + str(time.time()) + ".txt", 'w') as f:
 
 def pipeline():
     """
-    **为了能正常跳过一些步骤,步骤名即step_name不能包含'_',且保证最后生成的步骤名不能有重复**
+    注意：
+    * 为了能正常跳过一些步骤,步骤名即step_name不能包含'_'
+    * step_name不能重复, 保证最后生成的步骤名不能有重复**
     """
     # fastqc and trimmomatic
     fastq_info_dict = nc.parse_fastq_info(nc.workflow_arguments.fastq_info)
@@ -57,16 +59,16 @@ def pipeline():
     if list(trim_cmds.keys())[0].split('_', 1)[0] in nc.workflow_arguments.skip:
         align_cmds = nc.star_align_with_rawdata_cmds(fastq_info_dict, index_cmd=star_indexing, step_name='Align')
         arriba_align_cmds = nc.star_align_with_rawdata_cmds(
-            fastq_info_dict, index_cmd=star_indexing, step_name='Align', chimeric_in_bam=True
+            fastq_info_dict, index_cmd=star_indexing, step_name='ArribaAlign', chimeric_in_bam=True
         )
     else:
         align_cmds = nc.star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align')
         arriba_align_cmds = nc.star_align_cmds(
-            trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align', chimeric_in_bam=True
+            trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='ArribaAlign', chimeric_in_bam=True
         )
     
     bam_indexing_cmds = nc.bam_index_cmds(align_cmds, step_name='IndexBam')
-    fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='StarFusion')
+    fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='Fusion')
     arriba_cmds = nc.arriba_cmds(arriba_align_cmds, step_name='ArribaFusion')
 
     # run some RseQC cmds

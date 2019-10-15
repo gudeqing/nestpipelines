@@ -153,6 +153,7 @@ class NestedCmd(Basic):
             args['outSAMattrRGline'] = 'ID:{prefix} SM:{prefix} PL:{platform}'.format(prefix=sample, platform="illumina")
             if chimeric_in_bam:
                 args['chimOutType'] = 'WithinBAM'
+                args['chimMultimapNmax'] = 0
             cmd = cmdx.star_align(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
@@ -187,6 +188,7 @@ class NestedCmd(Basic):
             args['outSAMattrRGline'] = 'ID:{prefix} SM:{prefix} PL:{platform}'.format(prefix=sample, platform="illumina")
             if chimeric_in_bam:
                 args['chimOutType'] = 'WithinBAM'
+                args['chimMultimapNmax'] = 0
             cmd = cmdx.star_align(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd, mem=1024 ** 3 * 10, cpu=2,
@@ -257,7 +259,7 @@ class NestedCmd(Basic):
                 cmd=cmd, mem=1024 ** 5 * 2, cpu=5, monitor_time_step=5,
                 depend=step,
                 sample_name=sample,
-                outdir=args['outdir'],
+                outdir=outdir,
                 fusions=args['o']
             )
         self.workflow.update(commands)
