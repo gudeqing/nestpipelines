@@ -12,11 +12,12 @@
 已知junction位点应该用两个坐标表示
 
 """
+import os
 import pysam
 import re
 import itertools
 import logging
-import difflib
+from difflib import SequenceMatcher as similarity
 import statistics
 import time
 
@@ -138,7 +139,7 @@ def splitted_reads(bam_file, min_clip_size=3, max_hit_num=10):
 
 
 @timer
-def paired_splitted_reads(bam_file, splits, max_hit_num=10):
+def paired_splitted_reads(bam_file, splits, max_hit_num=20):
     bam = pysam.AlignmentFile(bam_file, "rb")
     targets = dict()
     read_names = set(x[:-2] for x in splits.keys())
@@ -174,30 +175,35 @@ def determine_fusion_type(a, a2, libtype='ISR'):
     return break_type
 
 
-def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, reverse=False,
+def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True, reverse=False,
                              cutoff=0.8, extend_up=80, extend_down=80):
+    up_seq = max(0, break1-extend_up)
+    up_seq2 = max(0, break2-extend_up)
     try:
-        seq = ref_obj.fetch(chr1, break1-extend_up, break1+extend_down)
-        seq2 = ref_obj.fetch(chr2, break2-extend_up, break2+extend_down)
+        seq = ref_obj.fetch(chr1, up_seq, break1+extend_down)
+        seq2 = ref_obj.fetch(chr2, up_seq2, break2+extend_down)
     except KeyError:
         chr1 = chr1[3:]
         chr2 = chr2[3:]
         try:
-            seq = ref_obj.fetch(chr1, break1 - extend_up, break1 + extend_down)
-            seq2 = ref_obj.fetch(chr2, break2 - extend_up, break2 + extend_down)
-        except:
+            seq = ref_obj.fetch(chr1, up_seq, break1 + extend_down)
+            seq2 = ref_obj.fetch(chr2, up_seq2, break2 + extend_down)
+        except KeyError:
             return True
+        except ValueError:
+            return False
 
     # 通过大小写判断是否在重复区域附近
-    seq_in_repeat = sum(x.islower() for x in seq) / len(seq) >= 0.2
-    seq2_in_repeat = sum(x.islower() for x in seq2) / len(seq2) >= 0.2
-    if seq_in_repeat or seq2_in_repeat:
-        return True
+    if ref_masked:
+        seq_in_repeat = sum(x.islower() for x in seq) / len(seq) >= 0.35
+        seq2_in_repeat = sum(x.islower() for x in seq2) / len(seq2) >= 0.35
+        if seq_in_repeat or seq2_in_repeat:
+            return True
 
     # 判断两个断点附近的序列是否非常相似或者包含的参考序列N太多
     if reverse:
         seq = reverse_complement(seq)
-    ratio = difflib.SequenceMatcher(None, seq.lower(), seq2.lower()).ratio()
+    ratio = similarity(None, seq.lower(), seq2.lower()).ratio()
     if ratio > cutoff or seq.upper().count('N') > len(seq)*0.1 or seq2.upper().count('N') > len(seq2)*0.1:
         return True
 
@@ -228,6 +234,7 @@ def get_overlap(seq, seq2, min_overlap=6, maximum=True):
             if seq.endswith(m_seq[:i]):
                 return m_seq[:i]
     return ''
+
 
 @timer
 def junction_from_single_end(splits, ref_fasta, masked_ref_fasta=None, min_clip_size=15, min_intron_size=30):
@@ -448,7 +455,6 @@ def junction_from_one_pair(split_pair_reads, ref_fasta, masked_ref_fasta=None, m
                                 sj[break_pair].add(a.seq+a2.seq)
                                 fusion_type[break_pair] = determine_fusion_type(a, a2, libtype)
 
-
     ref.close()
     result = {k:len(v) for k, v in sj.items()}
     fusion_paired = dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
@@ -553,19 +559,41 @@ def fusion_pipe(bam_file, ref_fasta, max_inner_dist=300, libtype='ISR'):
     return merged_fusion, all_split_reads
 
 
-# if __name__ == '__main__':
-#     from xcmds import xcmds
-#     xcmds.xcmds(locals(), include=['get_clipped_reads','get_suspicious_reads', 'single_junction_pos'])
-#
-#
-
-def junction_from_clipped_reads(splits, min_clip=6):
+@timer
+def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=6, prefix=''):
     """good！"""
-    logger = set_logger('junction_from_clipped_reads.log')
-    logger2 = set_logger('all.clipped.points.log', logger_id="2")
+    # 1. setting logger
+    log_name = prefix+'warn.log'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    logger = set_logger(log_name, logger_id="11")
+
+    log_name = prefix + 'all.junction.points.log'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    all_break_log = set_logger(log_name, logger_id="22")
+
+    log_name = prefix + 'break_point_pair.tsv'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    break_pair_txt = set_logger(log_name, logger_id='33')
+
+    log_name = prefix + 'break_nearby.bed'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    break_nearby_bed = set_logger(log_name, logger_id='55')
+
+    log_name = prefix + 'single_break.log'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    single_break = set_logger(log_name, logger_id='66')
+
+    # 2. get {junction—around-seq: [support-alignments]}
     jad = dict()
     for read, alignments in splits.items():
         for ind, a in enumerate(alignments):
+            # start index of the aligned query portion of the sequence (0-based, inclusive)
+            # end index of the aligned query portion of the sequence (0-based, exclusive)
             if a.cigartuples[-1][0] == 4 and a.cigartuples[-1][1] >= min_clip:
                 jun_seq = a.seq[a.query_alignment_end - min_clip:a.query_alignment_end + min_clip]
                 if len(set(jun_seq)) > 2:  # 如果jun_seq是高度重复序列则去掉
@@ -575,7 +603,7 @@ def junction_from_clipped_reads(splits, min_clip=6):
                 if len(set(jun_seq)) > 2:
                     jad.setdefault(jun_seq, list()).append((read, ind, a.reference_name, a.reference_start))
 
-    # 如果jun_seq之间反向互补则认为他们包含同一个断点
+    # 3. 如果jun_seq之间反向互补则认为他们包含同一个断点
     for jun_seq in list(jad.keys()):
         if jun_seq in jad:
             jun_seq_reverse = reverse_complement(jun_seq)
@@ -585,10 +613,15 @@ def junction_from_clipped_reads(splits, min_clip=6):
                     info = jad.pop(jun_seq_reverse)
                     jad[jun_seq].extend(info)
 
-    # 提取断点信息
+    # 4. 提取断点信息
     single_break_info = dict()
     single_break_points = dict()
     break_pairs = dict()
+    ref = pysam.FastaFile(ref_fasta)
+    if masked_ref_fasta:
+        masked_ref = pysam.FastaFile(masked_ref_fasta)
+    else:
+        masked_ref = ref
     for jun_seq, reads in jad.items():
         if len(reads) <= 2:
             continue
@@ -598,13 +631,14 @@ def junction_from_clipped_reads(splits, min_clip=6):
             break_points.append((chr_name, point))
             read_info.append((name, ind))
         break_point_set = set(break_points)
-        logger2.info(jun_seq+":"+str(break_point_set))
+        all_break_log.info(jun_seq+":"+str(break_point_set))
         if len(break_point_set) < 2:
             single_break_info[jun_seq] = reads
             bp = list(break_point_set)[0]
             single_break_points[bp] = len(
                 {splits[r[0]][r[1]].seq for p, r in zip(break_points, read_info) if p == bp}
             )
+            single_break.info(jun_seq+':'+str(break_point_set))
             continue
         elif len(break_point_set) < 10:
             candidates = dict()
@@ -613,12 +647,31 @@ def junction_from_clipped_reads(splits, min_clip=6):
                 p2_support_aln = [splits[r[0]][r[1]] for p, r in zip(break_points, read_info) if p == p2]
                 p1_support_seq_count = len({x.seq for x in p1_support_aln})
                 p2_support_seq_count = len({x.seq for x in p2_support_aln})
-                p1_primary_count = sum(not x.is_secondary for x in p1_support_aln)
-                p2_primary_count = sum(not x.is_secondary for x in p2_support_aln)
-                if p1_support_seq_count > 1 and p2_support_seq_count > 1 \
-                        and p1_primary_count > 1 and p2_primary_count > 1:
-                    fusion = p1[0] + ':' + str(p1[1]) + ' ' + p2[0] + ':' + str(p2[1])
-                    candidates[fusion] = (p1_support_seq_count, p2_support_seq_count)
+                p1_primary_count = sum(not x.is_secondary and x.is_supplementary for x in p1_support_aln)
+                p2_primary_count = sum(not x.is_secondary and x.is_supplementary for x in p2_support_aln)
+                supports = [p1_support_seq_count, p2_support_seq_count]
+                if (p1_support_seq_count > 1
+                        and p2_support_seq_count > 1
+                        and p1_primary_count > 1
+                        and p2_primary_count > 1
+                        and max(supports)/min(supports) < 20
+                        and (not filter_by_seq_similarity(masked_ref, p1[0], p1[1], p2[0], p2[1]))
+                ):
+                    # 方向的确定可能仍然有问题,当融合的点附近存在突变时，如果用完全匹配，肯定是有问题的
+                    b1_up_seq = ref.fetch(p1[0], max([p1[1] - min_clip, 0]), p1[1]).upper()
+                    b2_up_seq = ref.fetch(p2[0], max([p2[1] - min_clip, 0]), p2[1]).upper()
+                    jun_seq_half = jun_seq[:len(jun_seq)//2+1]
+                    score = similarity(None, b1_up_seq, jun_seq_half).ratio()
+                    score2 = similarity(None, b2_up_seq, jun_seq_half).ratio()
+                    if ((score > score2 and score > 0.7)
+                        or (similarity(None, reverse_complement(b1_up_seq), jun_seq_half).ratio() >
+                            similarity(None, reverse_complement(b2_up_seq), jun_seq_half).ratio())
+                    ):
+                        fusion = p1[0] + ':' + str(p1[1]) + ' ' + p2[0] + ':' + str(p2[1])
+                        candidates[fusion] = (p1_support_seq_count, p2_support_seq_count)
+                    else:
+                        fusion = p2[0] + ':' + str(p2[1]) + ' ' + p1[0] + ':' + str(p1[1])
+                        candidates[fusion] = (p2_support_seq_count, p1_support_seq_count)
             if candidates:
                 target = sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]
                 if target not in break_pairs:
@@ -627,7 +680,28 @@ def junction_from_clipped_reads(splits, min_clip=6):
                     logger.info('不同jun_seq:推出了同一个断点?')
                     break_pairs[target[0]] = (break_pairs[target[0]][0]+target[1][0], break_pairs[target[0]][1]+target[1][1])
         else:
-            logger.info('一个jun_seq对应超过5个断点, 丢弃！')
-            logger.info(str(len(jad[jun_seq])))
-            # logger.info(len(jad[jun_seq]))
-    return sorted(break_pairs.items(), key=lambda x: sum(x[1]), reverse=True), single_break_points
+            logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
+            logger.info(str(jad[jun_seq]))
+
+    break_pairs = {k: v for k, v in break_pairs.items() if max(v)/min(v) < 20}
+    break_pairs = sorted(break_pairs.items(), key=lambda x: sum(x[1]), reverse=True)
+    annotate_bed = set_logger('for_annotate.bed')
+    for position, count in break_pairs:
+        chr_name, pos = position.split()[0].split(':')
+        chr_name2, pos2 = position.split()[1].split(':')
+        break_pair_txt.info(position + '\t' + str(count[0]) + '\t' + str(count[1]))
+        break_nearby_bed.info(chr_name + '\t' + str(int(pos) - 50) + '\t' + pos)
+        break_nearby_bed.info(chr_name2 + '\t' + pos2 + '\t' + str(int(pos2) + 50))
+        annotate_bed.info(chr_name+'\t'+pos+'\t'+pos+'\t'+position)
+        annotate_bed.info(chr_name2+'\t'+pos2+'\t'+pos2+'\t'+position)
+
+    ref.close()
+    masked_ref.close()
+    return break_pairs, single_break_points
+
+
+# if __name__ == '__main__':
+#     from xcmds import xcmds
+#     xcmds.xcmds(locals(), include=['get_clipped_reads','get_suspicious_reads', 'single_junction_pos'])
+#
+#
