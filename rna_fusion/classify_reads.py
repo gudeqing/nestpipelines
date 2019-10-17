@@ -20,6 +20,7 @@ import logging
 from difflib import SequenceMatcher as similarity
 import statistics
 import time
+from subprocess import check_call
 
 
 def timer(func):
@@ -176,7 +177,7 @@ def determine_fusion_type(a, a2, libtype='ISR'):
 
 
 def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True, reverse=False,
-                             cutoff=0.8, extend_up=80, extend_down=80):
+                             cutoff=0.8, extend_up=60, extend_down=60):
     up_seq = max(0, break1-extend_up)
     up_seq2 = max(0, break2-extend_up)
     try:
@@ -673,12 +674,12 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                         fusion = p2[0] + ':' + str(p2[1]) + ' ' + p1[0] + ':' + str(p1[1])
                         candidates[fusion] = (p2_support_seq_count, p1_support_seq_count)
             if candidates:
-                target = sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]
-                if target not in break_pairs:
-                    break_pairs[target[0]] = target[1]
+                fusion, counts = sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]
+                if fusion not in break_pairs:
+                    break_pairs[fusion] = counts
                 else:
                     logger.info('不同jun_seq:推出了同一个断点?')
-                    break_pairs[target[0]] = (break_pairs[target[0]][0]+target[1][0], break_pairs[target[0]][1]+target[1][1])
+                    break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
         else:
             logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
             logger.info(str(jad[jun_seq]))
@@ -686,18 +687,158 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
     break_pairs = {k: v for k, v in break_pairs.items() if max(v)/min(v) < 20}
     break_pairs = sorted(break_pairs.items(), key=lambda x: sum(x[1]), reverse=True)
     annotate_bed = set_logger('for_annotate.bed')
-    for position, count in break_pairs:
-        chr_name, pos = position.split()[0].split(':')
-        chr_name2, pos2 = position.split()[1].split(':')
-        break_pair_txt.info(position + '\t' + str(count[0]) + '\t' + str(count[1]))
+    for fusion, counts in break_pairs:
+        chr_name, pos = fusion.split()[0].split(':')
+        chr_name2, pos2 = fusion.split()[1].split(':')
+        break_pair_txt.info(fusion + '\t' + str(counts[0]) + '\t' + str(counts[1]))
         break_nearby_bed.info(chr_name + '\t' + str(int(pos) - 50) + '\t' + pos)
         break_nearby_bed.info(chr_name2 + '\t' + pos2 + '\t' + str(int(pos2) + 50))
-        annotate_bed.info(chr_name+'\t'+pos+'\t'+pos+'\t'+position)
-        annotate_bed.info(chr_name2+'\t'+pos2+'\t'+pos2+'\t'+position)
+        annotate_bed.info(chr_name+'\t'+pos+'\t'+pos+'\t'+fusion+'\t'+str(counts[0]))
+        annotate_bed.info(chr_name2+'\t'+pos2+'\t'+pos2+'\t'+fusion+'\t'+str(counts[1]))
 
     ref.close()
     masked_ref.close()
     return break_pairs, single_break_points
+
+
+def parse_gtf_annotated_bed(file_obj, sep='\t'):
+    tmp_dict = dict()
+    for line in file_obj:
+        if line.startswith("#"):
+            continue
+        tmp_list = line.rstrip().split(sep)
+        tmp_dict['fusion'] = tmp_list[3]
+        tmp_dict['break_point'] = tmp_list[:2]
+        partner = 'break1'
+        if tmp_dict['fusion'].split()[1] == ":".join(tmp_list[:2]):
+            partner = 'break2'
+        tmp_dict['fusion_partner'] = partner
+        tmp_dict['support'] = tmp_list[4]
+        tmp_dict['chr'] = tmp_list[0+5]
+        tmp_dict['feature'] = tmp_list[2+5]
+        tmp_dict['start'] = tmp_list[3+5]
+        tmp_dict['end'] = tmp_list[4+5]
+        tmp_dict['strand'] = tmp_list[6+5]
+        # parse the column 9
+        col_9 = tmp_list[8+5].strip().split(";")
+        for each in col_9[:-1]:
+            name = each.split()[0].strip()
+            value = each.split()[1].strip().strip('"')
+            tmp_dict[name] = value
+        yield tmp_dict
+
+
+@timer
+def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='exon_number',
+                            gene_name='gene_name', transcript_id='transcript_id',
+                            bedtools="bedtools"):
+    # bedtools intersect
+    cmd = f"{bedtools} intersect -loj "
+    cmd += f"-a {bed} "
+    cmd += f"-b {gtf} "
+    cmd += "> {} ".format(bed+'.gtf.annotated')
+    check_call(cmd, shell=True)
+
+    annotated_dict = dict()
+    # {fusion:{ break1:[support, match_boundary, {gene1:{gene_name, trans:{t1: info, t2:info}}}], break2:[...]}
+    with open(bed+'.gtf.annotated', 'r') as fr:
+        for line in parse_gtf_annotated_bed(fr):
+            chr_name, break_pos = line['break_point']
+            match_boundary = False
+            if chr_name == line['chr']:
+                # 判断断点都是已知的外显子边界的
+                if abs(int(break_pos) - int(line['start'])) < 3 or abs(int(break_pos) - int(line['end'])) < 3:
+                    match_boundary = True
+
+            fusion_info = annotated_dict.setdefault(line['fusion'], dict())
+            detail = fusion_info.setdefault(line['fusion_partner'], [line['support'], match_boundary, dict()])
+            if gene_id in line:
+                tmp = detail[2].setdefault(line[gene_id], dict())
+                if gene_name in line:
+                    tmp['gene_name'] = line[gene_name]
+                if transcript_id in line:
+                    if 'transcript' not in tmp:
+                        tmp['transcript'] = {line[transcript_id]: 'intron'}
+                    else:
+                        if line[transcript_id] not in tmp['transcript']:
+                            tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|intron'
+                    if exon_number in line:
+                        # 当出现在外显子上，则把intron改成外显子number
+                        tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|'+line[exon_number]
+                    if line['feature'] == "CDS":
+                        tmp['transcript'][line[transcript_id]] += '|CDS'
+                    if line['feature'] == 'UTR':
+                        tmp['transcript'][line[transcript_id]] += '|UTR'
+
+    # 有时候断点对应两个基因，无法确定真实对应哪一个基因
+    # 如果一个两个断点刚好对应两个已知的junction，则以这两个junction对应的基因为准
+    # 如果两个断点都没有对应的基因注释，那么也过滤掉
+    discarded_fusion = set()
+    if bam:
+        bam_obj = pysam.AlignmentFile(bam)
+    for fusion in annotated_dict:
+        if fusion in discarded_fusion:
+            continue
+        b1_support, b1_match_jun, break1_info = annotated_dict[fusion]['break1']
+        b2_support, b2_match_jun, break2_info = annotated_dict[fusion]['break2']
+        if not break1_info:
+            break1_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
+        if not break2_info:
+            break2_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
+        for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
+            if b1_match_jun and b2_match_jun and g1 == g2:
+                discarded_fusion.add(fusion)
+            elif g1 == g2 == 'None':
+                discarded_fusion.add(fusion)
+            if bam:
+                chr_name, pos = fusion.split()[0].split(':')
+                pos = int(pos)
+                break1_around_cov = len(list(bam_obj.fetch(chr_name, pos-50, pos+1)))
+                chr_name, pos = fusion.split()[1].split(':')
+                pos = int(pos)
+                break2_around_cov = len(list(bam_obj.fetch(chr_name, pos-1, pos+50)))
+                if break1_around_cov + break2_around_cov <= 10:
+                    discarded_fusion.add(fusion)
+                elif break1_around_cov + break1_around_cov <= 30:
+                    covs = [break1_around_cov, break1_around_cov]
+                    if max(covs)/min(covs) > 5:
+                        discarded_fusion.add(fusion)
+    if bam:
+        bam_obj.close()
+
+    # write out result
+    out_file = os.path.join(os.path.dirname(bed), 'InterGene.fusions.csv')
+    out_file2 = os.path.join(os.path.dirname(bed), 'IntraGene.fusions.csv')
+    with open(out_file, 'w') as f1, open(out_file2, 'w') as f2:
+        header = ['symbol-pair', 'pos-pair', 'b1_support', 'b2_support', 'id-pair', 'b1_annotate', 'b2_annotate']
+        f1.write(','.join(header)+'\n')
+        f2.write(','.join(header)+'\n')
+        for fusion in annotated_dict:
+            if fusion in discarded_fusion:
+                continue
+            b1_support, b1_match_jun, break1_info = annotated_dict[fusion]['break1']
+            b2_support, b2_match_jun, break2_info = annotated_dict[fusion]['break2']
+
+            if not break1_info:
+                break1_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
+
+            if not break2_info:
+                break2_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
+
+            for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
+                g1d = break1_info[g1]
+                g2d = break2_info[g2]
+                line = f'{g1d["gene_name"]}--{g2d["gene_name"]},'
+                line += f'{fusion},'
+                line += f'{b1_support},'
+                line += f'{b2_support},'
+                line += f'{g1}--{g2},'
+                line += f'{";".join(g1d["transcript"].values())},'
+                line += f'{";".join(g2d["transcript"].values())}\n'
+                if g1 != g2:
+                    f1.write(line)
+                else:
+                    f2.write(line)
 
 
 # if __name__ == '__main__':
