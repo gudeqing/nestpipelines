@@ -256,7 +256,7 @@ class NestedCmd(Basic):
             args['x'] = cmd_info['sorted_bam']
             cmd = cmdx.arriba(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
-                cmd=cmd, mem=1024 ** 5 * 2, cpu=5, monitor_time_step=5,
+                cmd=cmd, mem=1024 ** 3 * 5, cpu=5, monitor_time_step=5,
                 depend=step,
                 sample_name=sample,
                 outdir=outdir,
