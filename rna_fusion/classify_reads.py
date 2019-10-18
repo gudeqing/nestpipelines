@@ -118,7 +118,7 @@ def reverse_complement(seq):
 
 
 @timer
-def splitted_reads(bam_file, min_clip_size=3, max_hit_num=10):
+def splitted_reads(bam_file, min_clip_size=3, max_hit_num=20):
     bam = pysam.AlignmentFile(bam_file, "rb")
     splits = dict()
     for n, r in enumerate(bam):
@@ -530,35 +530,6 @@ def junction_from_two_pairs(split_pairs, ref_fasta, bam, min_intro_size=30, r1_o
     return dict(sorted(fusion_dict.items(), key=lambda x: x[1], reverse=True))
 
 
-def fusion_pipe(bam_file, ref_fasta, max_inner_dist=300, libtype='ISR'):
-    all_split_reads = splitted_reads(bam_file, min_clip_size=3)
-    fusion_fse = junction_from_single_end(all_split_reads, ref_fasta)
-    paired_split_reads = paired_splitted_reads(bam_file, all_split_reads)
-    fusion_fpe, fusion_type, single_support = junction_from_one_pair(
-        paired_split_reads, ref_fasta, max_inner_dist=max_inner_dist, libtype=libtype
-    )
-    # merge fusion
-    merged_fusion = dict()
-    for k, v in fusion_fpe.items():
-        merged_fusion[k] = [v, 0, 0, 0]
-        if k in fusion_fse:
-            merged_fusion[k][1] = fusion_fse.pop(k)
-    for k, v in fusion_fse.items():
-        merged_fusion[k] = [0, v, 0, 0]
-    for k, v in merged_fusion.items():
-        break1, break2 = k.split()
-        if break1 in single_support:
-            v[2] = single_support.pop(break1)
-        if break2 in single_support:
-            v[3] = single_support.pop(break2)
-    merged_fusion = dict(sorted(merged_fusion.items(), key=lambda x:sum(x[1]), reverse=True))
-    for k, v in merged_fusion.items():
-        if k in fusion_type:
-            v.append(fusion_type[k])
-        else:
-            v.append('unknown')
-    return merged_fusion, all_split_reads
-
 
 @timer
 def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=6, prefix=''):
@@ -648,23 +619,22 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                 p2_support_aln = [splits[r[0]][r[1]] for p, r in zip(break_points, read_info) if p == p2]
                 p1_support_seq_count = len({x.seq for x in p1_support_aln})
                 p2_support_seq_count = len({x.seq for x in p2_support_aln})
-                p1_primary_count = sum(not x.is_secondary and x.is_supplementary for x in p1_support_aln)
-                p2_primary_count = sum(not x.is_secondary and x.is_supplementary for x in p2_support_aln)
+                p1_primary_count = sum(not x.is_secondary and not x.is_supplementary for x in p1_support_aln)
+                p2_primary_count = sum(not x.is_secondary and not x.is_supplementary for x in p2_support_aln)
                 supports = [p1_support_seq_count, p2_support_seq_count]
                 if (p1_support_seq_count > 1
                         and p2_support_seq_count > 1
-                        and p1_primary_count > 1
-                        and p2_primary_count > 1
+                        and p1_primary_count + p2_primary_count > 1
                         and max(supports)/min(supports) < 20
                         and (not filter_by_seq_similarity(masked_ref, p1[0], p1[1], p2[0], p2[1]))
                 ):
-                    # 方向的确定可能仍然有问题,当融合的点附近存在突变时，如果用完全匹配，肯定是有问题的
+                    # 方向的确定可能仍然不够精确
                     b1_up_seq = ref.fetch(p1[0], max([p1[1] - min_clip, 0]), p1[1]).upper()
                     b2_up_seq = ref.fetch(p2[0], max([p2[1] - min_clip, 0]), p2[1]).upper()
                     jun_seq_half = jun_seq[:len(jun_seq)//2+1]
                     score = similarity(None, b1_up_seq, jun_seq_half).ratio()
                     score2 = similarity(None, b2_up_seq, jun_seq_half).ratio()
-                    if ((score > score2 and score > 0.7)
+                    if ((score > score2 and score > 0.8)
                         or (similarity(None, reverse_complement(b1_up_seq), jun_seq_half).ratio() >
                             similarity(None, reverse_complement(b2_up_seq), jun_seq_half).ratio())
                     ):
@@ -678,7 +648,7 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                 if fusion not in break_pairs:
                     break_pairs[fusion] = counts
                 else:
-                    logger.info('不同jun_seq:推出了同一个断点?')
+                    logger.info(f'不同jun_seq:推出了同一个断点{fusion}')
                     break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
         else:
             logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
@@ -686,7 +656,10 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
 
     break_pairs = {k: v for k, v in break_pairs.items() if max(v)/min(v) < 20}
     break_pairs = sorted(break_pairs.items(), key=lambda x: sum(x[1]), reverse=True)
-    annotate_bed = set_logger('for_annotate.bed')
+    log_name ='for_annotate.bed'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    annotate_bed = set_logger(log_name)
     for fusion, counts in break_pairs:
         chr_name, pos = fusion.split()[0].split(':')
         chr_name2, pos2 = fusion.split()[1].split(':')
@@ -762,7 +735,7 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                     else:
                         if line[transcript_id] not in tmp['transcript']:
                             tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|intron'
-                    if exon_number in line:
+                    if line['feature'] == "exon":
                         # 当出现在外显子上，则把intron改成外显子number
                         tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|'+line[exon_number]
                     if line['feature'] == "CDS":
@@ -788,21 +761,27 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
         for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
             if b1_match_jun and b2_match_jun and g1 == g2:
                 discarded_fusion.add(fusion)
+                continue
             elif g1 == g2 == 'None':
                 discarded_fusion.add(fusion)
+                continue
             if bam:
                 chr_name, pos = fusion.split()[0].split(':')
                 pos = int(pos)
-                break1_around_cov = len(list(bam_obj.fetch(chr_name, pos-50, pos+1)))
+                break1_around_cov = len(list(bam_obj.fetch(chr_name, pos-50, pos+3)))
                 chr_name, pos = fusion.split()[1].split(':')
                 pos = int(pos)
-                break2_around_cov = len(list(bam_obj.fetch(chr_name, pos-1, pos+50)))
+                break2_around_cov = len(list(bam_obj.fetch(chr_name, pos-3, pos+50)))
+                covs = [break1_around_cov, break1_around_cov]
                 if break1_around_cov + break2_around_cov <= 10:
                     discarded_fusion.add(fusion)
                 elif break1_around_cov + break1_around_cov <= 30:
-                    covs = [break1_around_cov, break1_around_cov]
                     if max(covs)/min(covs) > 5:
                         discarded_fusion.add(fusion)
+                elif max(covs)/min(covs) > 100:
+                    discarded_fusion.add(fusion)
+                elif break1_around_cov - int(b1_support) < 3 or break2_around_cov - int(b2_support) < 3:
+                    discarded_fusion.add(fusion)
     if bam:
         bam_obj.close()
 
