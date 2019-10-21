@@ -768,6 +768,7 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             paired_gene_dict.setdefault(g2, set()).add(g1)
             if b1_match_jun and b2_match_jun and g1 == g2:  # 符合该条件则不考虑其他的基因组合
                 discarded_fusion.add(fusion)
+                discarded_fusion.add(' '.join(fusion.split()[::-1]))
                 logger.info(f'{fusion} was discarded: 断点均为同一个基因的已知外显子边界')
                 break
             elif g1 == g2 == 'None':
@@ -853,7 +854,7 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                 break2_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
 
             for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
-                if len(paired_gene_dict[g1]) >= 4 or len(paired_gene_dict[g1]) >=4:
+                if len(paired_gene_dict[g1]) >= 4 or len(paired_gene_dict[g1]) >= 4:
                     logger.info(f'{fusion} was discarded: 一个基因对应超过3个融合')
                     continue
                 g1d = break1_info[g1]
@@ -876,3 +877,4 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
 #     xcmds.xcmds(locals(), include=['get_clipped_reads','get_suspicious_reads', 'single_junction_pos'])
 #
 #
+# 过滤假基因或反义基因造成的融合
