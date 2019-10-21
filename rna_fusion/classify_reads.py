@@ -176,7 +176,7 @@ def determine_fusion_type(a, a2, libtype='ISR'):
     return break_type
 
 
-def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True, reverse=False,
+def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True,
                              cutoff=0.8, extend_up=60, extend_down=60):
     up_seq = max(0, break1-extend_up)
     up_seq2 = max(0, break2-extend_up)
@@ -202,25 +202,12 @@ def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=Tru
             return True
 
     # 判断两个断点附近的序列是否非常相似或者包含的参考序列N太多
-    if reverse:
-        seq = reverse_complement(seq)
-    ratio = similarity(None, seq.lower(), seq2.lower()).ratio()
+    ratio1 = similarity(None, seq.lower(), seq2.lower()).ratio()
+    seq_reverse = reverse_complement(seq)
+    ratio2 = similarity(None, seq_reverse.lower(), seq2.lower()).ratio()
+    ratio = max([ratio1, ratio2])
     if ratio > cutoff or seq.upper().count('N') > len(seq)*0.1 or seq2.upper().count('N') > len(seq2)*0.1:
         return True
-
-
-def filter_by_coverage(bam_obj, chr_name, start, direction='keep_up', extend=23):
-    # 判断断点上游或下游是否有reads覆盖，如果几乎没有read覆盖，则极有可能是一个假的断点
-    try:
-        if direction == 'keep_up':
-            cov = len(list(bam_obj.fetch(chr_name, min([start-extend, 0]), start-3)))
-        else:
-            cov = len(list(bam_obj.fetch(chr_name, start+3, max([start+extend]))))
-        if cov < 4:
-            return True
-    except KeyError:
-        return True
-    return False
 
 
 def get_overlap(seq, seq2, min_overlap=6, maximum=True):
@@ -532,7 +519,7 @@ def junction_from_two_pairs(split_pairs, ref_fasta, bam, min_intro_size=30, r1_o
 
 
 @timer
-def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=6, prefix=''):
+def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=10, prefix='', max_bp_num=10):
     """good！"""
     # 1. setting logger
     log_name = prefix+'warn.log'
@@ -612,15 +599,15 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
             )
             single_break.info(jun_seq+':'+str(break_point_set))
             continue
-        elif len(break_point_set) < 10:
+        elif len(break_point_set) <= max_bp_num:
             candidates = dict()
             for p1, p2 in itertools.combinations(break_point_set, 2):
                 p1_support_aln = [splits[r[0]][r[1]] for p, r in zip(break_points, read_info) if p == p1]
                 p2_support_aln = [splits[r[0]][r[1]] for p, r in zip(break_points, read_info) if p == p2]
                 p1_support_seq_count = len({x.seq for x in p1_support_aln})
                 p2_support_seq_count = len({x.seq for x in p2_support_aln})
-                p1_primary_count = sum(not x.is_secondary and not x.is_supplementary for x in p1_support_aln)
-                p2_primary_count = sum(not x.is_secondary and not x.is_supplementary for x in p2_support_aln)
+                p1_primary_count = sum(not x.is_secondary for x in p1_support_aln)
+                p2_primary_count = sum(not x.is_secondary for x in p2_support_aln)
                 supports = [p1_support_seq_count, p2_support_seq_count]
                 if (p1_support_seq_count > 1
                         and p2_support_seq_count > 1
@@ -654,9 +641,18 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
             logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
             logger.info(str(jad[jun_seq]))
 
-    break_pairs = {k: v for k, v in break_pairs.items() if max(v)/min(v) < 20}
-    break_pairs = sorted(break_pairs.items(), key=lambda x: sum(x[1]), reverse=True)
-    log_name ='for_annotate.bed'
+    # 过滤掉两个断点所支持的reads数目严重不平衡的
+    after_filter_pairs = dict()
+    for k,v in break_pairs.items():
+        ratio = max(v)/min(v)
+        if ratio >= 20:
+            logger.info(f'{k} was discarded: support ratio={max(v)}/{min(v)}>=20')
+            continue
+        after_filter_pairs[k] = v
+
+    break_pairs = sorted(after_filter_pairs.items(), key=lambda x: sum(x[1]), reverse=True)
+
+    log_name = 'for_annotate.bed'
     if os.path.exists(log_name):
         os.remove(log_name)
     annotate_bed = set_logger(log_name)
@@ -705,6 +701,10 @@ def parse_gtf_annotated_bed(file_obj, sep='\t'):
 def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='exon_number',
                             gene_name='gene_name', transcript_id='transcript_id',
                             bedtools="bedtools"):
+    log_name = 'annotate.log'
+    if os.path.exists(log_name):
+        os.remove(log_name)
+    logger = set_logger(log_name, logger_id='annotate')
     # bedtools intersect
     cmd = f"{bedtools} intersect -loj "
     cmd += f"-a {bed} "
@@ -731,7 +731,7 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                     tmp['gene_name'] = line[gene_name]
                 if transcript_id in line:
                     if 'transcript' not in tmp:
-                        tmp['transcript'] = {line[transcript_id]: 'intron'}
+                        tmp['transcript'] = {line[transcript_id]: line[transcript_id]+'|intron'}
                     else:
                         if line[transcript_id] not in tmp['transcript']:
                             tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|intron'
@@ -749,39 +749,87 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
     discarded_fusion = set()
     if bam:
         bam_obj = pysam.AlignmentFile(bam)
+    else:
+        bam_obj = None
+    paired_gene_dict = dict()
     for fusion in annotated_dict:
         if fusion in discarded_fusion:
             continue
         b1_support, b1_match_jun, break1_info = annotated_dict[fusion]['break1']
         b2_support, b2_match_jun, break2_info = annotated_dict[fusion]['break2']
-        if not break1_info:
+        if not break1_info:  # 没有基因注释, 可以认为是在基因间区
             break1_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
         if not break2_info:
-            break2_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
+            break2_info['None'] = dict(gene_name=fusion.split()[1], transcript={'None': 'None'})
+
+        # 根据注释信息过滤
         for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
-            if b1_match_jun and b2_match_jun and g1 == g2:
+            paired_gene_dict.setdefault(g1, set()).add(g2)
+            paired_gene_dict.setdefault(g2, set()).add(g1)
+            if b1_match_jun and b2_match_jun and g1 == g2:  # 符合该条件则不考虑其他的基因组合
                 discarded_fusion.add(fusion)
-                continue
+                logger.info(f'{fusion} was discarded: 断点均为同一个基因的已知外显子边界')
+                break
             elif g1 == g2 == 'None':
                 discarded_fusion.add(fusion)
-                continue
-            if bam:
-                chr_name, pos = fusion.split()[0].split(':')
-                pos = int(pos)
-                break1_around_cov = len(list(bam_obj.fetch(chr_name, pos-50, pos+3)))
-                chr_name, pos = fusion.split()[1].split(':')
-                pos = int(pos)
-                break2_around_cov = len(list(bam_obj.fetch(chr_name, pos-3, pos+50)))
-                covs = [break1_around_cov, break1_around_cov]
-                if break1_around_cov + break2_around_cov <= 10:
-                    discarded_fusion.add(fusion)
-                elif break1_around_cov + break1_around_cov <= 30:
-                    if max(covs)/min(covs) > 5:
-                        discarded_fusion.add(fusion)
-                elif max(covs)/min(covs) > 100:
-                    discarded_fusion.add(fusion)
-                elif break1_around_cov - int(b1_support) < 3 or break2_around_cov - int(b2_support) < 3:
-                    discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: 两个断点均无基因注释')
+                break
+        if fusion in discarded_fusion:
+            continue
+
+        # 根据覆盖度分析和过滤
+        if bam:
+            # 获得断点1的信息
+            chr_name, pos = fusion.split()[0].split(':')
+            pos = int(pos)
+            break1_around_cov = 0
+            break1_around_primary = 0
+            break1_around_uniq_seqs = set()
+            for aln in bam_obj.fetch(chr_name, pos - 50, pos + 3):
+                break1_around_cov += 1
+                if not aln.is_secondary:
+                    break1_around_primary += 1
+                break1_around_uniq_seqs.add(aln.seq)
+            break1_around_uniq_seq_num = len(break1_around_uniq_seqs)
+
+            # 获得断点2的信息
+            chr_name, pos = fusion.split()[1].split(':')
+            pos = int(pos)
+            break2_around_cov = 0
+            break2_around_primary = 0
+            break2_around_uniq_seqs = set()
+            for aln in bam_obj.fetch(chr_name, pos - 50, pos + 3):
+                break2_around_cov += 1
+                if not aln.is_secondary:
+                    break2_around_primary += 1
+                break2_around_uniq_seqs.add(aln.seq)
+            break2_around_uniq_seq_num = len(break2_around_uniq_seqs)
+
+            # 整合断点1和断点2的信息进行过滤
+            uniq_covs = [break1_around_uniq_seq_num, break2_around_uniq_seq_num]
+            if break1_around_primary / break1_around_cov < 0.1:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break1_around_primary/break1_around_cov < 0.1')
+            elif break2_around_primary / break2_around_cov < 0.1:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break2_around_primary/break2_around_cov < 0.1')
+            elif break1_around_uniq_seq_num - int(b1_support) < 3:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break1_around_uniq_seq_num-int(b1_support) < 3')
+            elif break2_around_uniq_seq_num - int(b2_support) < 3:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break2_around_uniq_seq_num-int(b2_support) < 3')
+            elif break1_around_cov + break2_around_cov <= 10:
+                logger.info(f'{fusion} was discarded: break1_around_cov + break2_around_cov <= 10')
+                discarded_fusion.add(fusion)
+            elif break1_around_cov + break1_around_cov <= 30 and max(uniq_covs) / min(uniq_covs) > 5:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break1_around_cov+break1_around_cov<=30 and max(covs)/min(covs)>5')
+            elif max(uniq_covs) / min(uniq_covs) > 100:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: max(covs)/min(covs)={uniq_covs[0]}/{uniq_covs[1]} > 100')
+            else:
+                pass
     if bam:
         bam_obj.close()
 
@@ -805,6 +853,9 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                 break2_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
 
             for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
+                if len(paired_gene_dict[g1]) >= 4 or len(paired_gene_dict[g1]) >=4:
+                    logger.info(f'{fusion} was discarded: 一个基因对应超过3个融合')
+                    continue
                 g1d = break1_info[g1]
                 g2d = break2_info[g2]
                 line = f'{g1d["gene_name"]}--{g2d["gene_name"]},'
