@@ -21,7 +21,7 @@ from difflib import SequenceMatcher as similarity
 import statistics
 import time
 from subprocess import check_call
-
+import json
 
 def timer(func):
     def inner(*args, **kw):
@@ -214,6 +214,7 @@ def junction_around_dict(splits, min_clip=6):
                 if jun_seq_reverse != jun_seq:
                     info = jad.pop(jun_seq_reverse)
                     jad[jun_seq].extend(info)
+    return jad
 
 
 @timer
@@ -596,7 +597,7 @@ def junction_from_two_pairs(split_pairs, ref_fasta, bam, min_intro_size=30, r1_o
 
 
 @timer
-def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=10, prefix='', max_bp_num=10):
+def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=12, prefix='', max_bp_num=5):
     """good！"""
     # 1. setting logger
     log_name = prefix+'warn.log'
@@ -625,7 +626,7 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
     single_break = set_logger(log_name, logger_id='66')
 
     # 2. get {junction—around-seq: [support-alignments]}
-    jad = junction_around_dict(splits, min_clip=6)
+    jad = junction_around_dict(splits, min_clip=min_clip)
 
     # 3. 提取断点信息
     single_break_info = dict()
@@ -655,9 +656,9 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
             single_break.info(jun_seq+':'+str(break_point_set))
             continue
         elif len(break_point_set) <= max_bp_num:
-            if len(break_point_set) > 1:
-                logger.info('junction_around_seq: '+jun_seq)
-                logger.info('\n'.join(str(x) for x in jad[jun_seq]))
+            # if len(break_point_set) > 1:
+            #     logger.info('junction_around_seq: '+jun_seq)
+            #     logger.info('\n'.join(str(x) for x in jad[jun_seq]))
 
             candidates = dict()
             for p1, p2 in itertools.combinations(break_point_set, 2):
@@ -677,25 +678,28 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                     # 方向的确定可能仍然不够精确
                     b1_up_seq = ref.fetch(p1[0], max([p1[1] - min_clip, 0]), p1[1]).upper()
                     b2_up_seq = ref.fetch(p2[0], max([p2[1] - min_clip, 0]), p2[1]).upper()
-                    jun_seq_half = jun_seq[:len(jun_seq)//2+1]
+                    jun_seq_half = jun_seq[:len(jun_seq)//2]
                     score = similarity(None, b1_up_seq, jun_seq_half).ratio()
                     score2 = similarity(None, b2_up_seq, jun_seq_half).ratio()
-                    if ((score > score2 and score > 0.8)
-                        or (similarity(None, reverse_complement(b1_up_seq), jun_seq_half).ratio() >
-                            similarity(None, reverse_complement(b2_up_seq), jun_seq_half).ratio())
-                    ):
+                    if score > score2 and score > 0.8:
                         fusion = p1[0] + ':' + str(p1[1]) + ' ' + p2[0] + ':' + str(p2[1])
                         candidates[fusion] = (p1_support_seq_count, p2_support_seq_count)
                     else:
-                        fusion = p2[0] + ':' + str(p2[1]) + ' ' + p1[0] + ':' + str(p1[1])
-                        candidates[fusion] = (p2_support_seq_count, p1_support_seq_count)
+                        score = similarity(None, reverse_complement(b1_up_seq), jun_seq_half).ratio()
+                        score2 = similarity(None, reverse_complement(b2_up_seq), jun_seq_half).ratio()
+                        if score > score2 and score > 0.8:
+                            fusion = p1[0] + ':' + str(p1[1]) + ' ' + p2[0] + ':' + str(p2[1])
+                            candidates[fusion] = (p1_support_seq_count, p2_support_seq_count)
+                        else:
+                            fusion = p2[0] + ':' + str(p2[1]) + ' ' + p1[0] + ':' + str(p1[1])
+                            candidates[fusion] = (p2_support_seq_count, p1_support_seq_count)
             if candidates:
-                fusion, counts = sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]
-                if fusion not in break_pairs:
-                    break_pairs[fusion] = counts
-                else:
-                    logger.info(f'不同jun_seq:推出了同一个断点{fusion}')
-                    break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
+                for fusion, counts in sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]:
+                    if fusion not in break_pairs:
+                        break_pairs[fusion] = counts
+                    else:
+                        logger.info(f'不同jun_seq:推出了同一个断点{fusion}')
+                        break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
         else:
             logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
             # logger.info('\n'.join(str(x) for x in jad[jun_seq]))
@@ -781,11 +785,15 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                 # 判断断点都是已知的外显子边界的
                 if abs(int(break_pos) - int(line['start'])) < 3 or abs(int(break_pos) - int(line['end'])) < 3:
                     match_boundary = True
-
+            if break_pos == '67975958':
+                print(line, match_boundary)
             fusion_info = annotated_dict.setdefault(line['fusion'], dict())
-            detail = fusion_info.setdefault(line['fusion_partner'], [line['support'], match_boundary, dict()])
+            detail = fusion_info.setdefault(line['fusion_partner'], [line['support'], dict()])
             if gene_id in line:
-                tmp = detail[2].setdefault(line[gene_id], dict())
+                tmp = detail[1].setdefault(line[gene_id], dict(match_boundary=False))
+                if not tmp['match_boundary']:
+                    # 只要有一次匹配则该值永远为真
+                    tmp['match_boundary'] = match_boundary
                 if gene_name in line:
                     tmp['gene_name'] = line[gene_name]
                 if transcript_id in line:
@@ -802,6 +810,8 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                     if line['feature'] == 'UTR':
                         tmp['transcript'][line[transcript_id]] += '|UTR'
 
+    with open('annotate.dict', 'w') as f:
+        json.dump(annotated_dict, f, indent=2)
     # 有时候断点对应两个基因，无法确定真实对应哪一个基因
     # 如果一个两个断点刚好对应两个已知的junction，则以这两个junction对应的基因为准
     # 如果两个断点都没有对应的基因注释，那么也过滤掉
@@ -814,8 +824,8 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
     for fusion in annotated_dict:
         if fusion in discarded_fusion:
             continue
-        b1_support, b1_match_jun, break1_info = annotated_dict[fusion]['break1']
-        b2_support, b2_match_jun, break2_info = annotated_dict[fusion]['break2']
+        b1_support, break1_info = annotated_dict[fusion]['break1']
+        b2_support, break2_info = annotated_dict[fusion]['break2']
         if not break1_info:  # 没有基因注释, 可以认为是在基因间区
             break1_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
         if not break2_info:
@@ -825,9 +835,9 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
         for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
             paired_gene_dict.setdefault(g1, set()).add(g2)
             paired_gene_dict.setdefault(g2, set()).add(g1)
-            if b1_match_jun and b2_match_jun and g1 == g2:  # 符合该条件则不考虑其他的基因组合
+            if break1_info[g1]['match_boundary'] and break2_info[g2]['match_boundary'] and g1 == g2:
+                # 符合该条件则不考虑其他的基因组合
                 discarded_fusion.add(fusion)
-                discarded_fusion.add(' '.join(fusion.split()[::-1]))
                 logger.info(f'{fusion} was discarded: 断点均为同一个基因的已知外显子边界')
                 break
             elif g1 == g2 == 'None':
@@ -893,6 +903,9 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
     if bam:
         bam_obj.close()
 
+    for fusion in list(discarded_fusion):
+        discarded_fusion.add(' '.join(fusion.split()[::-1]))
+
     # write out result
     out_file = os.path.join(os.path.dirname(bed), 'InterGene.fusions.csv')
     out_file2 = os.path.join(os.path.dirname(bed), 'IntraGene.fusions.csv')
@@ -903,8 +916,8 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
         for fusion in annotated_dict:
             if fusion in discarded_fusion:
                 continue
-            b1_support, b1_match_jun, break1_info = annotated_dict[fusion]['break1']
-            b2_support, b2_match_jun, break2_info = annotated_dict[fusion]['break2']
+            b1_support, break1_info = annotated_dict[fusion]['break1']
+            b2_support, break2_info = annotated_dict[fusion]['break2']
 
             if not break1_info:
                 break1_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
