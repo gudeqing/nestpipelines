@@ -725,8 +725,10 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
         break_pair_txt.info(fusion + '\t' + str(counts[0]) + '\t' + str(counts[1]))
         break_nearby_bed.info(chr_name + '\t' + str(int(pos) - 50) + '\t' + pos)
         break_nearby_bed.info(chr_name2 + '\t' + pos2 + '\t' + str(int(pos2) + 50))
-        annotate_bed.info(chr_name+'\t'+pos+'\t'+pos+'\t'+fusion+'\t'+str(counts[0]))
-        annotate_bed.info(chr_name2+'\t'+pos2+'\t'+pos2+'\t'+fusion+'\t'+str(counts[1]))
+        # 允许3个碱基的误差
+        err = 5
+        annotate_bed.info(chr_name+'\t'+str(int(pos)-err)+'\t'+str(int(pos)+err)+'\t'+fusion+'\t'+str(counts[0]))
+        annotate_bed.info(chr_name2+'\t'+str(int(pos2)-err)+'\t'+str(int(pos2)+err)+'\t'+fusion+'\t'+str(counts[1]))
 
     ref.close()
     masked_ref.close()
@@ -780,15 +782,16 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
     with open(bed+'.gtf.annotated', 'r') as fr:
         for line in parse_gtf_annotated_bed(fr):
             chr_name, break_pos = line['break_point']
+            break_pos = int(break_pos) + 5
             match_boundary = False
             if chr_name == line['chr']:
                 # 判断断点都是已知的外显子边界的
-                if abs(int(break_pos) - int(line['start'])) < 3 or abs(int(break_pos) - int(line['end'])) < 3:
+                if abs(break_pos - int(line['start'])) <= 5 or abs(break_pos - int(line['end'])) <= 5:
                     match_boundary = True
             fusion_info = annotated_dict.setdefault(line['fusion'], dict())
             detail = fusion_info.setdefault(line['fusion_partner'], [line['support'], dict()])
             if gene_id in line:
-                tmp = detail[1].setdefault(line[gene_id], dict(match_boundary=False))
+                tmp = detail[1].setdefault(line[gene_id], {match_boundary:False})
                 if not tmp['match_boundary']:
                     # 只要有一次匹配则该值永远为真
                     tmp['match_boundary'] = match_boundary
