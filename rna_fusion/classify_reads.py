@@ -785,8 +785,6 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                 # 判断断点都是已知的外显子边界的
                 if abs(int(break_pos) - int(line['start'])) < 3 or abs(int(break_pos) - int(line['end'])) < 3:
                     match_boundary = True
-            if break_pos == '67975958':
-                print(line, match_boundary)
             fusion_info = annotated_dict.setdefault(line['fusion'], dict())
             detail = fusion_info.setdefault(line['fusion_partner'], [line['support'], dict()])
             if gene_id in line:
