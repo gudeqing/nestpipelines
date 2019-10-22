@@ -118,7 +118,8 @@ def reverse_complement(seq):
 
 
 @timer
-def splitted_reads(bam_file, min_clip_size=3, max_hit_num=20):
+def splitted_reads(bam_file, min_clip_size=3, max_hit_num=10, logger_name='soft_clipped.pos.list'):
+    break_points = dict()
     bam = pysam.AlignmentFile(bam_file, "rb")
     splits = dict()
     for n, r in enumerate(bam):
@@ -129,14 +130,90 @@ def splitted_reads(bam_file, min_clip_size=3, max_hit_num=20):
             continue
         cigar_tuples = r.cigartuples
         left_clip = cigar_tuples[0][0] == 4 and cigar_tuples[0][1] > min_clip_size
+        if left_clip:
+            point = r.reference_name + ':' + str(r.reference_start)
+            break_points.setdefault(point, 0)
+            break_points[point] += 1
         right_clip = cigar_tuples[-1][0] == 4 and cigar_tuples[-1][1] > min_clip_size
+        if right_clip:
+            point = r.reference_name + ':' + str(r.reference_end)
+            break_points.setdefault(point, 0)
+            break_points[point] += 1
         if left_clip or right_clip:
             record = splits.setdefault(r.query_name + '_' + str(int(r.is_read1)), [])
             # record[r.get_tag('HI')] = r  # 不能作为多重比对的唯一索引，尤其chimeric alignment
             record.append(r)
-    else:
-        bam.close()
-    return {k: v for k, v in splits.items() if len(v) < max_hit_num}
+    bam.close()
+    with open(logger_name, 'w') as f:
+        _ = [f.write(k+'\t'+v+'\n') for k, v in break_points.items()]
+    return {k: v for k, v in splits.items() if len(v) <= max_hit_num}
+
+
+@timer
+def hard_clipped_reads(splits, bam_file, max_hit_num=10, logger_name='hard_clipped.pos.list'):
+    break_points = dict()
+    bam = pysam.AlignmentFile(bam_file, "rb")
+    hard_splits = dict()
+    for n, r in enumerate(bam):
+        if not r.is_paired or r.is_duplicate or (not r.cigarstring):
+            continue
+        cigar_tuples = r.cigartuples
+        if cigar_tuples[0][0] == 5 or cigar_tuples[-1][0] == 5:
+            record = r.query_name + '_' + str(int(r.is_read1))
+            if record in splits:
+                soft_aln = splits[record][0]
+                if soft_aln.is_reverse == r.is_reverse:
+                    r.seq = soft_aln.seq
+                    r.query_sequence = soft_aln.query_sequence
+                    r.query_qualities = soft_aln.query_qualities
+                else:
+                    seq = reverse_complement(soft_aln.query_sequence)
+                    r.seq = seq
+                    r.query_sequence = seq
+                    r.query_qualities = soft_aln.query_qualities[::-1]
+                if cigar_tuples[0][0] == 5:
+                    point = r.reference_name + ':' + str(r.reference_start)
+                    break_points.setdefault(point, 0)
+                    break_points[point] += 1
+                else:
+                    point = r.reference_name + ':' + str(r.reference_end)
+                    break_points.setdefault(point, 0)
+                    break_points[point] += 1
+                hard_splits.setdefault(record, []).append(r)
+    bam.close()
+    with open(logger_name, 'w') as f:
+        _ = [f.write(k+'\t'+v+'\n') for k, v in break_points.items()]
+    return {k: v for k, v in hard_splits.items() if len(v) <= max_hit_num}
+
+
+@timer
+def junction_around_dict(splits, min_clip=6):
+    # 2. get {junction—around-seq: [support-alignments]}
+    jad = dict()
+    for read, alignments in splits.items():
+        for ind, a in enumerate(alignments):
+            # start index of the aligned query portion of the sequence (0-based, inclusive)
+            # end index of the aligned query portion of the sequence (0-based, exclusive)
+            if a.cigartuples[-1][0] == 4 and a.cigartuples[-1][1] >= min_clip:
+                if a.query_alignment_end > min_clip:
+                    jun_seq = a.seq[a.query_alignment_end - min_clip:a.query_alignment_end + min_clip]
+                    if len(set(jun_seq)) > 2:  # 如果jun_seq是高度重复序列则去掉
+                        jad.setdefault(jun_seq, list()).append((read, ind, a.reference_name, a.reference_end))
+            if a.cigartuples[0][0] == 4 and a.cigartuples[0][1] >= min_clip:
+                if a.query_alignment_start+min_clip < a.query_length:
+                    jun_seq = a.seq[a.query_alignment_start - min_clip:a.query_alignment_start + min_clip]
+                    if len(set(jun_seq)) > 2:
+                        jad.setdefault(jun_seq, list()).append((read, ind, a.reference_name, a.reference_start))
+
+    # 3. 如果jun_seq之间反向互补则认为他们包含同一个断点
+    for jun_seq in list(jad.keys()):
+        if jun_seq in jad:
+            jun_seq_reverse = reverse_complement(jun_seq)
+            if jun_seq_reverse in jad:
+                # 回文序列反向互补为其本尊
+                if jun_seq_reverse != jun_seq:
+                    info = jad.pop(jun_seq_reverse)
+                    jad[jun_seq].extend(info)
 
 
 @timer
@@ -548,31 +625,9 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
     single_break = set_logger(log_name, logger_id='66')
 
     # 2. get {junction—around-seq: [support-alignments]}
-    jad = dict()
-    for read, alignments in splits.items():
-        for ind, a in enumerate(alignments):
-            # start index of the aligned query portion of the sequence (0-based, inclusive)
-            # end index of the aligned query portion of the sequence (0-based, exclusive)
-            if a.cigartuples[-1][0] == 4 and a.cigartuples[-1][1] >= min_clip:
-                jun_seq = a.seq[a.query_alignment_end - min_clip:a.query_alignment_end + min_clip]
-                if len(set(jun_seq)) > 2:  # 如果jun_seq是高度重复序列则去掉
-                    jad.setdefault(jun_seq, list()).append((read, ind, a.reference_name, a.reference_end))
-            if a.cigartuples[0][0] == 4 and a.cigartuples[0][1] >= min_clip:
-                jun_seq = a.seq[a.query_alignment_start-min_clip:a.query_alignment_start+min_clip]
-                if len(set(jun_seq)) > 2:
-                    jad.setdefault(jun_seq, list()).append((read, ind, a.reference_name, a.reference_start))
+    jad = junction_around_dict(splits, min_clip=6)
 
-    # 3. 如果jun_seq之间反向互补则认为他们包含同一个断点
-    for jun_seq in list(jad.keys()):
-        if jun_seq in jad:
-            jun_seq_reverse = reverse_complement(jun_seq)
-            if jun_seq_reverse in jad:
-                # 回文序列反向互补为其本尊
-                if jun_seq_reverse != jun_seq:
-                    info = jad.pop(jun_seq_reverse)
-                    jad[jun_seq].extend(info)
-
-    # 4. 提取断点信息
+    # 3. 提取断点信息
     single_break_info = dict()
     single_break_points = dict()
     break_pairs = dict()
@@ -600,6 +655,10 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
             single_break.info(jun_seq+':'+str(break_point_set))
             continue
         elif len(break_point_set) <= max_bp_num:
+            if len(break_point_set) > 1:
+                logger.info('junction_around_seq: '+jun_seq)
+                logger.info('\n'.join(str(x) for x in jad[jun_seq]))
+
             candidates = dict()
             for p1, p2 in itertools.combinations(break_point_set, 2):
                 p1_support_aln = [splits[r[0]][r[1]] for p, r in zip(break_points, read_info) if p == p1]
@@ -639,7 +698,7 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                     break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
         else:
             logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
-            logger.info(str(jad[jun_seq]))
+            # logger.info('\n'.join(str(x) for x in jad[jun_seq]))
 
     # 过滤掉两个断点所支持的reads数目严重不平衡的
     after_filter_pairs = dict()
@@ -854,8 +913,8 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                 break2_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
 
             for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
-                if len(paired_gene_dict[g1]) >= 4 or len(paired_gene_dict[g1]) >= 4:
-                    logger.info(f'{fusion} was discarded: 一个基因对应超过3个融合')
+                if len(paired_gene_dict[g1]) >= 5 or len(paired_gene_dict[g1]) >= 5:
+                    logger.info(f'{fusion} was discarded: 一个基因对>=5个融合')
                     continue
                 g1d = break1_info[g1]
                 g2d = break2_info[g2]
