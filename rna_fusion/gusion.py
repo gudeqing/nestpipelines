@@ -23,6 +23,7 @@ import time
 from subprocess import check_call
 import json
 
+
 def timer(func):
     def inner(*args, **kw):
         start_time = time.time()
