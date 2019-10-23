@@ -145,7 +145,7 @@ def splitted_reads(bam_file, min_clip_size=3, max_hit_num=10, logger_name='soft_
             record.append(r)
     bam.close()
     with open(logger_name, 'w') as f:
-        _ = [f.write(k+'\t'+v+'\n') for k, v in break_points.items()]
+        _ = [f.write(k+'\t'+str(v)+'\n') for k, v in break_points.items()]
     return {k: v for k, v in splits.items() if len(v) <= max_hit_num}
 
 
@@ -254,19 +254,18 @@ def determine_fusion_type(a, a2, libtype='ISR'):
     return break_type
 
 
-def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True,
-                             cutoff=0.8, extend_up=60, extend_down=60):
-    up_seq = max(0, break1-extend_up)
-    up_seq2 = max(0, break2-extend_up)
+def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True, cutoff=0.75):
+    up_seq = max(0, break1-70)
+    up_seq2 = max(0, break2-30)
     try:
-        seq = ref_obj.fetch(chr1, up_seq, break1+extend_down)
-        seq2 = ref_obj.fetch(chr2, up_seq2, break2+extend_down)
+        seq = ref_obj.fetch(chr1, up_seq, break1+30)
+        seq2 = ref_obj.fetch(chr2, up_seq2, break2+70)
     except KeyError:
         chr1 = chr1[3:]
         chr2 = chr2[3:]
         try:
-            seq = ref_obj.fetch(chr1, up_seq, break1 + extend_down)
-            seq2 = ref_obj.fetch(chr2, up_seq2, break2 + extend_down)
+            seq = ref_obj.fetch(chr1, up_seq, break1 + 30)
+            seq2 = ref_obj.fetch(chr2, up_seq2, break2 + 70)
         except KeyError:
             return True
         except ValueError:
@@ -595,6 +594,32 @@ def junction_from_two_pairs(split_pairs, ref_fasta, bam, min_intro_size=30, r1_o
     return dict(sorted(fusion_dict.items(), key=lambda x: x[1], reverse=True))
 
 
+def parse_gtf_line(file_obj, sep='\t') -> dict:
+    tmp_dict = dict()
+    for line in file_obj:
+        if line.startswith("#"):
+            continue
+        tmp_list = line.rstrip().split(sep)
+        tmp_dict['chr'] = tmp_list[0]
+        tmp_dict['feature'] = tmp_list[2]
+        tmp_dict['start'] = tmp_list[3]
+        tmp_dict['end'] = tmp_list[4]
+        tmp_dict['strand'] = tmp_list[6]
+        # parse the column 9
+        col_9 = tmp_list[8].strip().split(";")
+        for each in col_9[:-1]:
+            name = each.split()[0].strip()
+            value = each.split()[1].strip().strip('"')
+            tmp_dict[name] = value
+        yield tmp_dict
+
+
+def junction_dict_from_gtf(gtf, exon='exon'):
+    result = dict()
+    with open(gtf) as f:
+        for line in parse_gtf_line(f):
+            if line['feature'] == 'exon':
+                pos = line['chr']+':'+line['start']
 
 @timer
 def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=12, prefix='', max_bp_num=5):
@@ -656,9 +681,9 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
             single_break.info(jun_seq+':'+str(break_point_set))
             continue
         elif len(break_point_set) <= max_bp_num:
-            # if len(break_point_set) > 1:
-            #     logger.info('junction_around_seq: '+jun_seq)
-            #     logger.info('\n'.join(str(x) for x in jad[jun_seq]))
+            if len(break_point_set) > 1:
+                logger.info('junction_around_seq: '+jun_seq)
+                logger.info('\n'.join(str(x) for x in jad[jun_seq]))
 
             candidates = dict()
             for p1, p2 in itertools.combinations(break_point_set, 2):
@@ -666,6 +691,8 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                 p2_support_aln = [splits[r[0]][r[1]] for p, r in zip(break_points, read_info) if p == p2]
                 p1_support_seq_count = len({x.seq for x in p1_support_aln})
                 p2_support_seq_count = len({x.seq for x in p2_support_aln})
+                p1_support_max_aln_len = max(x.query_alignment_length for x in p1_support_aln)
+                p2_support_max_aln_len = max(x.query_alignment_length for x in p2_support_aln)
                 p1_primary_count = sum(not x.is_secondary for x in p1_support_aln)
                 p2_primary_count = sum(not x.is_secondary for x in p2_support_aln)
                 supports = [p1_support_seq_count, p2_support_seq_count]
@@ -673,6 +700,8 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                         and p2_support_seq_count > 1
                         and p1_primary_count + p2_primary_count > 1
                         and max(supports)/min(supports) < 20
+                        and p1_support_max_aln_len > 35
+                        and p2_support_max_aln_len > 35
                         and (not filter_by_seq_similarity(masked_ref, p1[0], p1[1], p2[0], p2[1]))
                 ):
                     # 方向的确定可能仍然不够精确
@@ -694,12 +723,12 @@ def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_cl
                             fusion = p2[0] + ':' + str(p2[1]) + ' ' + p1[0] + ':' + str(p1[1])
                             candidates[fusion] = (p2_support_seq_count, p1_support_seq_count)
             if candidates:
-                for fusion, counts in sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]:
-                    if fusion not in break_pairs:
-                        break_pairs[fusion] = counts
-                    else:
-                        logger.info(f'不同jun_seq:推出了同一个断点{fusion}')
-                        break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
+                fusion, counts = sorted(candidates.items(), key=lambda x: sum(x[1]), reverse=True)[0]
+                if fusion not in break_pairs:
+                    break_pairs[fusion] = counts
+                else:
+                    logger.info(f'不同jun_seq:推出了同一个断点{fusion}')
+                    break_pairs[fusion] = (break_pairs[fusion][0]+counts[0], break_pairs[fusion][1]+counts[1])
         else:
             logger.info(f'{jun_seq}对应{len(jad[jun_seq])}断点, 而阈值是10, 因此放弃它！具体如下:')
             # logger.info('\n'.join(str(x) for x in jad[jun_seq]))
@@ -742,6 +771,7 @@ def parse_gtf_annotated_bed(file_obj, sep='\t'):
             continue
         tmp_list = line.rstrip().split(sep)
         tmp_dict['fusion'] = tmp_list[3]
+        tmp_list[1] = str(int((int(tmp_list[1]) + int(tmp_list[2]))/2))
         tmp_dict['break_point'] = tmp_list[:2]
         partner = 'break1'
         if tmp_dict['fusion'].split()[1] == ":".join(tmp_list[:2]):
@@ -782,34 +812,34 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
     with open(bed+'.gtf.annotated', 'r') as fr:
         for line in parse_gtf_annotated_bed(fr):
             chr_name, break_pos = line['break_point']
-            break_pos = int(break_pos) + 5
+            break_pos = int(break_pos)
             match_boundary = False
             if chr_name == line['chr']:
                 # 判断断点都是已知的外显子边界的
-                if abs(break_pos - int(line['start'])) <= 5 or abs(break_pos - int(line['end'])) <= 5:
-                    match_boundary = True
+                if abs(break_pos - int(line['start'])) <= 5:
+                    match_boundary = chr_name+':'+line['start']
+                elif abs(break_pos - int(line['end'])) <= 5:
+                    match_boundary = chr_name+':'+line['end']
             fusion_info = annotated_dict.setdefault(line['fusion'], dict())
             detail = fusion_info.setdefault(line['fusion_partner'], [line['support'], dict()])
             if gene_id in line:
-                tmp = detail[1].setdefault(line[gene_id], {match_boundary:False})
-                if not tmp['match_boundary']:
+                tmp = detail[1].setdefault(line[gene_id], {'match_boundary': False})
+                tmp['strand'] = line['strand']
+                if (not tmp['match_boundary']) and match_boundary:
                     # 只要有一次匹配则该值永远为真
                     tmp['match_boundary'] = match_boundary
                 if gene_name in line:
                     tmp['gene_name'] = line[gene_name]
                 if transcript_id in line:
-                    if 'transcript' not in tmp:
-                        tmp['transcript'] = {line[transcript_id]: line[transcript_id]+'|intron'}
-                    else:
-                        if line[transcript_id] not in tmp['transcript']:
-                            tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|intron'
+                    trans_info = tmp.setdefault('transcript', dict())
+                    trans_info[line[transcript_id]] = line[transcript_id]
                     if line['feature'] == "exon":
                         # 当出现在外显子上，则把intron改成外显子number
-                        tmp['transcript'][line[transcript_id]] = line[transcript_id]+'|'+line[exon_number]
+                        trans_info[line[transcript_id]] = line[transcript_id]+'|'+line[exon_number]
                     if line['feature'] == "CDS":
-                        tmp['transcript'][line[transcript_id]] += '|CDS'
+                        trans_info[line[transcript_id]] += '|CDS'
                     if line['feature'] == 'UTR':
-                        tmp['transcript'][line[transcript_id]] += '|UTR'
+                        trans_info[line[transcript_id]] += '|UTR'
 
     with open('annotate.dict', 'w') as f:
         json.dump(annotated_dict, f, indent=2)
@@ -831,7 +861,11 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             break1_info['None'] = dict(gene_name=fusion.split()[0], transcript={'None': 'None'})
         if not break2_info:
             break2_info['None'] = dict(gene_name=fusion.split()[1], transcript={'None': 'None'})
-
+        # 如果两个断点可以注释到的基因是一样的, 而且超过两个, 则过滤掉这个融合
+        if len(break1_info) >= 2 and not(set(break1_info.keys()) - set(break2_info.keys())):
+            discarded_fusion.add(fusion)
+            logger.info(f'{fusion} was discarded: 两个断点可以注释到的基因是一样的, 而且超过两个')
+            continue
         # 根据注释信息过滤
         for g1, g2 in itertools.product(break1_info.keys(), break2_info.keys()):
             paired_gene_dict.setdefault(g1, set()).add(g2)
@@ -856,11 +890,14 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             break1_around_cov = 0
             break1_around_primary = 0
             break1_around_uniq_seqs = set()
+            break1_max_aln_len = 0
             for aln in bam_obj.fetch(chr_name, pos - 50, pos + 3):
                 break1_around_cov += 1
                 if not aln.is_secondary:
                     break1_around_primary += 1
                 break1_around_uniq_seqs.add(aln.seq)
+                if aln.query_alignment_length > break1_max_aln_len:
+                    break1_max_aln_len = aln.query_alignment_length
             break1_around_uniq_seq_num = len(break1_around_uniq_seqs)
 
             # 获得断点2的信息
@@ -869,11 +906,14 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             break2_around_cov = 0
             break2_around_primary = 0
             break2_around_uniq_seqs = set()
+            break2_max_aln_len = 0
             for aln in bam_obj.fetch(chr_name, pos - 50, pos + 3):
                 break2_around_cov += 1
                 if not aln.is_secondary:
                     break2_around_primary += 1
                 break2_around_uniq_seqs.add(aln.seq)
+                if aln.query_alignment_length > break2_max_aln_len:
+                    break2_max_aln_len = aln.query_alignment_length
             break2_around_uniq_seq_num = len(break2_around_uniq_seqs)
 
             # 整合断点1和断点2的信息进行过滤
@@ -884,6 +924,12 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             elif break2_around_primary / break2_around_cov < 0.1:
                 discarded_fusion.add(fusion)
                 logger.info(f'{fusion} was discarded: break2_around_primary/break2_around_cov < 0.1')
+            elif break1_max_aln_len < 50:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break1_max_aln_len < 50')
+            elif break2_max_aln_len < 50:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: break2_max_aln_len < 50')
             elif break1_around_uniq_seq_num - int(b1_support) < 3:
                 discarded_fusion.add(fusion)
                 logger.info(f'{fusion} was discarded: break1_around_uniq_seq_num-int(b1_support) < 3')
@@ -899,6 +945,12 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             elif max(uniq_covs) / min(uniq_covs) > 100:
                 discarded_fusion.add(fusion)
                 logger.info(f'{fusion} was discarded: max(covs)/min(covs)={uniq_covs[0]}/{uniq_covs[1]} > 100')
+            elif int(b1_support)/break1_around_uniq_seq_num < 0.002:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: int(b1_support)/break1_around_uniq_seq_num < 0.001')
+            elif int(b2_support) / break2_around_uniq_seq_num < 0.002:
+                discarded_fusion.add(fusion)
+                logger.info(f'{fusion} was discarded: int(b2_support)/break2_around_uniq_seq_num < 0.001')
             else:
                 pass
     if bam:
@@ -950,4 +1002,3 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
 #     xcmds.xcmds(locals(), include=['get_clipped_reads','get_suspicious_reads', 'single_junction_pos'])
 #
 #
-# 过滤假基因或反义基因造成的融合
