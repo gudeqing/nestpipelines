@@ -254,18 +254,18 @@ def determine_fusion_type(a, a2, libtype='ISR'):
     return break_type
 
 
-def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True, cutoff=0.75):
-    up_seq = max(0, break1-70)
-    up_seq2 = max(0, break2-30)
+def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=True, cutoff=0.85, extend=50):
+    up_seq = max(0, break1-extend)
+    up_seq2 = max(0, break2-extend)
     try:
-        seq = ref_obj.fetch(chr1, up_seq, break1+30)
-        seq2 = ref_obj.fetch(chr2, up_seq2, break2+70)
+        seq = ref_obj.fetch(chr1, up_seq, break1+extend)
+        seq2 = ref_obj.fetch(chr2, up_seq2, break2+extend)
     except KeyError:
         chr1 = chr1[3:]
         chr2 = chr2[3:]
         try:
-            seq = ref_obj.fetch(chr1, up_seq, break1 + 30)
-            seq2 = ref_obj.fetch(chr2, up_seq2, break2 + 70)
+            seq = ref_obj.fetch(chr1, up_seq, break1 + extend)
+            seq2 = ref_obj.fetch(chr2, up_seq2, break2 + extend)
         except KeyError:
             return True
         except ValueError:
@@ -279,12 +279,20 @@ def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=Tru
             return True
 
     # 判断两个断点附近的序列是否非常相似或者包含的参考序列N太多
-    ratio1 = similarity(None, seq.lower(), seq2.lower()).ratio()
-    seq_reverse = reverse_complement(seq)
-    ratio2 = similarity(None, seq_reverse.lower(), seq2.lower()).ratio()
-    ratio = max([ratio1, ratio2])
-    if ratio > cutoff or seq.upper().count('N') > len(seq)*0.1 or seq2.upper().count('N') > len(seq2)*0.1:
+    seq = seq.upper()
+    seq2 = seq2.upper()
+    if seq.count('N') > len(seq)*0.1 or seq2.count('N') > len(seq2)*0.1:
         return True
+    # 可以过滤掉假基因或相似基因的融合候选
+    for seq in [seq, reverse_complement(seq)]:
+        if similarity(None, seq[:extend], seq2[:extend]).ratio() > cutoff:
+            return True
+        elif similarity(None, seq[:extend], seq2[extend:]).ratio() > cutoff:
+            return True
+        elif similarity(None, seq[extend:], seq2[:extend]).ratio() > cutoff:
+            return True
+        elif similarity(None, seq[extend:], seq2[extend:]).ratio() > cutoff:
+            return True
 
 
 def get_overlap(seq, seq2, min_overlap=6, maximum=True):
@@ -945,12 +953,12 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
             elif max(uniq_covs) / min(uniq_covs) > 100:
                 discarded_fusion.add(fusion)
                 logger.info(f'{fusion} was discarded: max(covs)/min(covs)={uniq_covs[0]}/{uniq_covs[1]} > 100')
-            elif int(b1_support)/break1_around_uniq_seq_num < 0.002:
+            elif int(b1_support)/break1_around_uniq_seq_num < 0.0001:
                 discarded_fusion.add(fusion)
-                logger.info(f'{fusion} was discarded: int(b1_support)/break1_around_uniq_seq_num < 0.001')
-            elif int(b2_support) / break2_around_uniq_seq_num < 0.002:
+                logger.info(f'{fusion} was discarded: int(b1_support)/break1_around_uniq_seq_num < 0.0001')
+            elif int(b2_support) / break2_around_uniq_seq_num < 0.0001:
                 discarded_fusion.add(fusion)
-                logger.info(f'{fusion} was discarded: int(b2_support)/break2_around_uniq_seq_num < 0.001')
+                logger.info(f'{fusion} was discarded: int(b2_support)/break2_around_uniq_seq_num < 0.0001')
             else:
                 pass
     if bam:
