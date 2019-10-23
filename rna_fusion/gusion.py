@@ -274,8 +274,8 @@ def filter_by_seq_similarity(ref_obj, chr1, break1, chr2, break2, ref_masked=Tru
 
     # 通过大小写判断是否在重复区域附近
     if ref_masked:
-        seq_in_repeat = sum(x.islower() for x in seq) / len(seq) >= 0.35
-        seq2_in_repeat = sum(x.islower() for x in seq2) / len(seq2) >= 0.35
+        seq_in_repeat = sum(x.islower() for x in seq) / len(seq) >= 0.5
+        seq2_in_repeat = sum(x.islower() for x in seq2) / len(seq2) >= 0.5
         if seq_in_repeat or seq2_in_repeat:
             return True
 
