@@ -424,3 +424,104 @@ def arriba(**kwargs):
     if kwargs['known_fusion']:
         cmd += '-k '.format(kwargs['known_fusion'])
     return cmd
+
+
+def FastqToSam(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += 'F1={} '.format(kwargs['fq'])
+    cmd += 'F2={} '.format(kwargs['fq2'])
+    cmd += 'O={} '.format(kwargs['out'])
+    cmd += 'SM={} '.format(kwargs['sample_name'])
+    cmd += 'PL={} '.format(kwargs['PL'])
+    cmd += 'READ_GROUP_NAME={} '.format(kwargs['sample_name'])
+    cmd += 'LIBRARY_NAME={} '.format(kwargs['sample_name'])
+    return cmd
+
+
+def MergeBamAlignment(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += 'ALIGNED={} '.format(kwargs['ALIGNED'])
+    cmd += 'UNMAPPED={} '.format(kwargs['UNMAPPED'])
+    cmd += 'O={} '.format(kwargs['out'])
+    cmd += 'R={} '.format(kwargs['genome_fasta'])
+    cmd += 'INCLUDE_SECONDARY_ALIGNMENTS={} '.format(kwargs['INCLUDE_SECONDARY_ALIGNMENTS'])
+    cmd += 'VALIDATION_STRINGENCY={} '.format(kwargs['VALIDATION_STRINGENCY'])
+    return cmd
+
+
+def MarkDuplicates(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += 'I={} '.format(kwargs['input'])
+    cmd += 'O={} '.format(kwargs['output'])
+    cmd += 'M={} '.format(kwargs['metrics'])
+    cmd += 'VALIDATION_STRINGENCY={} '.format(kwargs['VALIDATION_STRINGENCY'])
+    cmd += 'CREATE_INDEX={}  '.format(kwargs['CREATE_INDEX'])
+    return cmd
+
+
+def SplitNCigarReads(**kwargs):
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '-I {} '.format(kwargs['input'])
+    cmd += '-O {} '.format(kwargs['output'])
+    cmd += '-R {} '.format(kwargs['genome_fasta'])
+    return cmd
+
+
+def BaseRecalibrator(**kwargs):
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '--use-original-qualities {} '.format(kwargs['use-original-qualities'])
+    cmd += '-I {} '.format(kwargs['input'])
+    cmd += '-O {} '.format(kwargs['output'])
+    cmd += '-R {} '.format(kwargs['genome_fasta'])
+    for each in kwargs['known_sites'].split():
+        cmd += '--known-sites {} '.format(each)
+    return cmd
+
+
+def ApplyBQSR(**kwargs):
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '--use-original-qualities {} '.format(kwargs['use-original-qualities'])
+    cmd += '-I {} '.format(kwargs['input'])
+    cmd += '--bqsr-recal-file {} '.format(kwargs['bqsr-recal-file'])
+    cmd += '-O {} '.format(kwargs['output'])
+    cmd += '-R {} '.format(kwargs['genome_fasta'])
+    return cmd
+
+
+def HaplotypeCaller(**kwargs):
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '-I {} '.format(kwargs['input'])
+    cmd += '-O {} '.format(kwargs['output'])
+    cmd += '-R {} '.format(kwargs['genome_fasta'])
+    cmd += '--dbsnp {} '.format(kwargs['dbsnp'])
+    cmd += '--dont-use-soft-clipped-bases {} '.format(kwargs['dont-use-soft-clipped-bases'])
+    cmd += '--standard-min-confidence-threshold-for-calling {} '.format(kwargs['standard-min-confidence-threshold-for-calling'])
+    if kwargs['intervals'] != 'null':
+        for each in kwargs['intervals'].split():
+            cmd += '--intervals {} '.format(each)
+
+    return cmd
+
+def VariantFiltration(**kwargs):
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '-V {} '.format(kwargs['vcf'])
+    cmd += '-O {} '.format(kwargs['out'])
+    cmd += '-R {} '.format(kwargs['genome_fasta'])
+    cmd += '-cluster {} '.format(kwargs['-cluster'])
+    cmd += '-window {} '.format(kwargs['-window'])
+    cmd += '--filter-name FS '
+    cmd += '--filter-expression "{}" '.format(kwargs['FS'])
+    cmd += '--filter-name QD '
+    cmd += '--filter-expression "{}" '.format(kwargs['QD'])
+    return cmd

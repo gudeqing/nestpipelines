@@ -10,7 +10,7 @@ if os.path.islink(script_path):
     script_path = os.readlink(script_path)
 sys.path.append(os.path.dirname(os.path.dirname(script_path)))
 
-from rnaseq_pipeline.rna_tools import NestedCmd
+from rnaseq_pipeline.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
 parser = basic_arg_parser()
@@ -61,15 +61,25 @@ def pipeline():
         arriba_align_cmds = nc.star_align_with_rawdata_cmds(
             fastq_info_dict, index_cmd=star_indexing, step_name='ArribaAlign', chimeric_in_bam=True
         )
+        fastq2sam_cmds = nc.RawFastqToSam_cmds(fastq_info_dict)
     else:
         align_cmds = nc.star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align')
         arriba_align_cmds = nc.star_align_cmds(
             trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='ArribaAlign', chimeric_in_bam=True
         )
-    
+        fastq2sam_cmds = nc.FastqToSam_cmds(trim_cmds)
     bam_indexing_cmds = nc.bam_index_cmds(align_cmds, step_name='IndexBam')
     fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='Fusion')
     arriba_cmds = nc.arriba_cmds(arriba_align_cmds, step_name='ArribaFusion')
+
+    # variant_calling
+    merge_bam_cmds = nc.MergeBamAlignment_cmds(bam_indexing_cmds, fastq2sam_cmds)
+    markdup_cmds = nc.MarkDuplicates_cmds(merge_bam_cmds)
+    split_cigar_cmds = nc.SplitNCigarReads_cmds(markdup_cmds)
+    recal_cmds = nc.BaseRecalibrator_cmds(split_cigar_cmds)
+    apply_cmds = nc.ApplyBQSR_cmds(split_cigar_cmds, recal_cmds)
+    call_var_cmds = nc.HaplotypeCaller_cmds(apply_cmds)
+    filter_vcf_cmds = nc.VariantFiltration_cmds(call_var_cmds)
 
     # run some RseQC cmds
     gbc_cmds = nc.gene_body_coverage_cmds(bam_indexing_cmds, step_name='GeneBodyCoverage')

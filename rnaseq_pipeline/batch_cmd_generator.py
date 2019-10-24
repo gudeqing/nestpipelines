@@ -838,3 +838,225 @@ class NestedCmd(Basic):
             )
         self.workflow.update(commands)
         return commands
+
+    def FastqToSam_cmds(self, trimming_cmds, step_name='FastqToSam'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        samples = set(trimming_cmds[x]['sample_name'] for x in trimming_cmds)
+        for sample in samples:
+            trimmed_fq1_list = list()
+            trimmed_fq2_list = list()
+            depends = list()
+            for step, cmd_info in trimming_cmds.items():
+                if cmd_info['sample_name'] == sample:
+                    depends.append(step)
+                    trimmed_fq1_list.append(cmd_info['trimmed_fq1'])
+                    if 'trimmed_fq2' in cmd_info:
+                        trimmed_fq2_list.append(cmd_info['trimmed_fq2'])
+            if len(trimmed_fq1_list) > 1 or len(trimmed_fq2_list) > 1:
+                raise Exception('目前不支持一个样本的原始数据对应多个fastq这种情况，你可以分析前合并fastq')
+            args = dict(self.arg_pool['FastqToSam'])
+            args['fq'] = trimmed_fq1_list[0]
+            args['fq2'] = trimmed_fq2_list[0]
+            args['sample_name'] = sample
+            args['out'] = os.path.join(outdir, f'{sample}.ubam')
+            cmd = cmdx.FastqToSam(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=depends[0],
+                out=args['out'],
+                sample_name=sample,
+                mem=1024 ** 3 * 2,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def RawFastqToSam_cmds(self, fastq_info_dict, step_name='FastqToSam'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        for sample, fq_list in fastq_info_dict.items():
+            fq1_list = fq_list[0]
+            fq2_list = fq_list[1]
+            if len(fq1_list) > 1 or len(fq2_list) > 1:
+                raise Exception('目前不支持一个样本的原始数据对应多个fastq这种情况，你可以分析前合并fastq')
+            args = dict(self.arg_pool['FastqToSam'])
+            args['fq'] = fq1_list[0]
+            args['fq2'] = fq2_list[0]
+            args['sample_name'] = sample
+            args['out'] = os.path.join(outdir, f'{sample}.ubam')
+            cmd = cmdx.FastqToSam(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                out=args['out'],
+                sample_name=sample,
+                mem=1024 ** 3 * 2,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def MergeBamAlignment_cmds(self, index_star_bam_cmds, fastq2bam_cmds, step_name='MergeBamAlignment'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['MergeBamAlignment'])
+        for step, cmd_info in index_star_bam_cmds.items():
+            sample = cmd_info['sample_name']
+            args['ALIGNED'] = cmd_info['sorted_bam']
+            another_step = [x for x in fastq2bam_cmds if x.endswith(sample)][0]
+            args['UNMAPPED'] = fastq2bam_cmds[another_step]['out']
+            args['out'] = os.path.join(out_dir, sample+'.merged.bam')
+            cmd = cmdx.MergeBamAlignment(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=','.join([step, another_step]),
+                out=args['out'],
+                sample_name=sample,
+                mem=1024 ** 3 * 2,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def MarkDuplicates_cmds(self, merge_bam_cmds, step_name='MarkDuplicates'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['MarkDuplicates'])
+        for step, cmd_info in merge_bam_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['out']
+            args['output'] = os.path.join(out_dir, sample+'.markdup.bam')
+            args['metrics'] = os.path.join(out_dir, sample+'.mark_duplicated.txt')
+            cmd = cmdx.MarkDuplicates(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['output'],
+                sample_name=sample,
+                mem=1024 ** 3 * 3,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def SplitNCigarReads_cmds(self, mark_dup_cmds, step_name='SplitNCigarReads'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['SplitNCigarReads'])
+        for step, cmd_info in mark_dup_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['output']
+            args['output'] = os.path.join(out_dir, sample+'.SplitNCigar.bam')
+            cmd = cmdx.SplitNCigarReads(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['output'],
+                sample_name=sample,
+                mem=1024 ** 3 * 3,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def BaseRecalibrator_cmds(self, split_cmds, step_name='BaseRecalibrator'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['BaseRecalibrator'])
+        for step, cmd_info in split_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['output']
+            args['output'] = os.path.join(out_dir, sample+'.recal.table')
+            cmd = cmdx.BaseRecalibrator(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['output'],
+                sample_name=sample,
+                mem=1024 ** 3 * 3,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def ApplyBQSR_cmds(self, split_cmds, recal_cmds, step_name='ApplyBQSR'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['ApplyBQSR'])
+        for step, cmd_info in split_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['output']
+            annother_step = [x for x in recal_cmds if x.endswith(sample)]
+            args['bqsr-recal-file'] = recal_cmds[annother_step]['output']
+            args['output'] = os.path.join(out_dir, sample+'.ready.bam')
+            cmd = cmdx.ApplyBQSR(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=','.join([step, annother_step]),
+                output=args['output'],
+                sample_name=sample,
+                mem=1024 ** 3 * 4,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def HaplotypeCaller_cmds(self, bqsr_cmds, step_name='HaplotypeCaller'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['HaplotypeCaller'])
+        for step, cmd_info in bqsr_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['output']
+            args['output'] = os.path.join(out_dir, sample+'.raw.vcf.gz')
+            cmd = cmdx.HaplotypeCaller(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['output'],
+                sample_name=sample,
+                mem=1024 ** 3 * 6,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+    def VariantFiltration_cmds(self, calling_cmds, step_name='VariantFiltration'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['VariantFiltration'])
+        for step, cmd_info in calling_cmds.items():
+            sample = cmd_info['sample_name']
+            args['vcf'] = cmd_info['output']
+            args['out'] = os.path.join(out_dir, sample+'.filtered.vcf.gz')
+            cmd = cmdx.VariantFiltration(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['out'],
+                sample_name=sample,
+                mem=1024 ** 3 * 3,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
+
+
