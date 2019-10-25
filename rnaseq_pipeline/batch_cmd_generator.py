@@ -999,13 +999,13 @@ class NestedCmd(Basic):
         for step, cmd_info in split_cmds.items():
             sample = cmd_info['sample_name']
             args['input'] = cmd_info['output']
-            annother_step = [x for x in recal_cmds if x.endswith(sample)]
-            args['bqsr-recal-file'] = recal_cmds[annother_step]['output']
+            another_step = [x for x in recal_cmds if x.endswith(sample)][0]
+            args['bqsr-recal-file'] = recal_cmds[another_step]['output']
             args['output'] = os.path.join(out_dir, sample+'.ready.bam')
             cmd = cmdx.ApplyBQSR(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                depend=','.join([step, annother_step]),
+                depend=','.join([step, another_step]),
                 output=args['output'],
                 sample_name=sample,
                 mem=1024 ** 3 * 4,

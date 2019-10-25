@@ -518,8 +518,8 @@ def VariantFiltration(**kwargs):
     cmd += '-V {} '.format(kwargs['vcf'])
     cmd += '-O {} '.format(kwargs['out'])
     cmd += '-R {} '.format(kwargs['genome_fasta'])
-    cmd += '-cluster {} '.format(kwargs['-cluster'])
-    cmd += '-window {} '.format(kwargs['-window'])
+    cmd += '-cluster {} '.format(kwargs['cluster'])
+    cmd += '-window {} '.format(kwargs['window'])
     cmd += '--filter-name FS '
     cmd += '--filter-expression "{}" '.format(kwargs['FS'])
     cmd += '--filter-name QD '
