@@ -1059,4 +1059,63 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
+    def MapSplice_cmds(self, trimming_cmds, step_name='MapSplice'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        samples = set(trimming_cmds[x]['sample_name'] for x in trimming_cmds)
+        for sample in samples:
+            trimmed_fq1_list = list()
+            trimmed_fq2_list = list()
+            depends = list()
+            for step, cmd_info in trimming_cmds.items():
+                if cmd_info['sample_name'] == sample:
+                    depends.append(step)
+                    trimmed_fq1_list.append(cmd_info['trimmed_fq1'])
+                    if 'trimmed_fq2' in cmd_info:
+                        trimmed_fq2_list.append(cmd_info['trimmed_fq2'])
+            if len(trimmed_fq1_list) > 1 or len(trimmed_fq2_list) > 1:
+                raise Exception('目前不支持一个样本的原始数据对应多个fastq这种情况，你可以分析前合并fastq')
+            args = dict(self.arg_pool['MapSplice'])
+            args['fq'] = trimmed_fq1_list[0]
+            args['fq2'] = trimmed_fq2_list[0]
+            args['sample_name'] = sample
+            args['outdir'] = os.path.join(outdir, sample)
+            cmd = cmdx.MapSplice(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=depends[0],
+                outdir=args['outdir'],
+                sample_name=sample,
+                mem=1024 ** 3 * 5,
+                cpu=4,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
 
+    def RawDataMapSplice_cmds(self, fastq_info_dict, step_name='MapSplice'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        for sample, fq_list in fastq_info_dict.items():
+            fq1_list = fq_list[0]
+            fq2_list = fq_list[1]
+            if len(fq1_list) > 1 or len(fq2_list) > 1:
+                raise Exception('目前不支持一个样本的原始数据对应多个fastq这种情况，你可以分析前合并fastq')
+            args = dict(self.arg_pool['MapSplice'])
+            args['fq'] = fq1_list[0]
+            args['fq2'] = fq2_list[0]
+            args['sample_name'] = sample
+            args['outdir'] = os.path.join(outdir, sample)
+            cmd = cmdx.MapSplice(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                out=args['out'],
+                sample_name=sample,
+                mem=1024 ** 3 * 5,
+                cpu=4,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands

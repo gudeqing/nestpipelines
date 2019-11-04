@@ -512,6 +512,7 @@ def HaplotypeCaller(**kwargs):
 
     return cmd
 
+
 def VariantFiltration(**kwargs):
     cmd = '{} '.format(kwargs['gatk'])
     cmd += '{} '.format(kwargs['tool'])
@@ -525,3 +526,34 @@ def VariantFiltration(**kwargs):
     cmd += '--filter-name QD '
     cmd += '--filter-expression "{}" '.format(kwargs['QD'])
     return cmd
+
+
+def MapSplice(**kwargs):
+    cmd = '{} '.format(kwargs['python2'])
+    cmd += '{} '.format(kwargs['mapsplice'])
+    cmd += '-c {} '.format(kwargs['chromosomes'])
+    cmd += '-1 {} '.format(kwargs['fq'])
+    if kwargs['fq2']:
+        cmd += '-2 {} '.format(kwargs['fq2'])
+    cmd += '--gene-gtf {} '.format(kwargs['gtf'])
+    cmd += '-p {} '.format(kwargs['threads'])
+    cmd += '--qual-scale {} '.format(kwargs['qual-scale'])
+    cmd += '--seglen {} '.format(kwargs['seglen'])
+    cmd += '--min-map-len {} '.format(kwargs['min-map-len'])
+    cmd += '-k {} '.format(kwargs['max-hits'])
+    cmd += '-I {} '.format(kwargs['max-intron'])
+    cmd += '-i {} '.format(kwargs['min-intron'])
+    if kwargs['non-canonical-double-anchor'] == 'yes':
+        cmd += '--non-canonical-double-anchor '
+    if kwargs['non-canonical-single-anchor'] == 'yes':
+        cmd += '--non-canonical-single-anchor '
+    cmd += '--ins {} '.format(kwargs['max_insert'])
+    cmd += '--del {} '.format(kwargs['max_deletion'])
+    cmd += '--min-fusion-distance {} '.format(kwargs['min-fusion-distance'])
+    if kwargs['out_bam'] == 'yes':
+        cmd += '--bam '
+    cmd += '-o {} '.format(kwargs['outdir'])
+    if kwargs['fusion'] == 'yes':
+        cmd += '--fusion '
+    return cmd
+

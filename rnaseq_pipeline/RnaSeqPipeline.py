@@ -62,12 +62,16 @@ def pipeline():
             fastq_info_dict, index_cmd=star_indexing, step_name='ArribaAlign', chimeric_in_bam=True
         )
         fastq2sam_cmds = nc.RawFastqToSam_cmds(fastq_info_dict)
+        # map splice
+        mapsplice_cmds = nc.RawDataMapSplice_cmds(fastq_info_dict)
     else:
         align_cmds = nc.star_align_cmds(trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='Align')
         arriba_align_cmds = nc.star_align_cmds(
             trimming_cmds=trim_cmds, index_cmd=star_indexing, step_name='ArribaAlign', chimeric_in_bam=True
         )
         fastq2sam_cmds = nc.FastqToSam_cmds(trim_cmds)
+        # map splice
+        mapsplice_cmds = nc.MapSplice_cmds(trim_cmds)
     bam_indexing_cmds = nc.bam_index_cmds(align_cmds, step_name='IndexBam')
     fusion_cmds = nc.star_fusion_cmds(align_cmds, step_name='Fusion')
     arriba_cmds = nc.arriba_cmds(arriba_align_cmds, step_name='ArribaFusion')
