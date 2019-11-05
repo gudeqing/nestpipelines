@@ -28,7 +28,7 @@ class NestedCmd(Basic):
             raise Exception('please provide valid cmd_name, refer --list_cmd_names')
         exec("print(cmdx.{}(**self.arg_pool['{}']))".format(cmd_name, cmd_name))
 
-    def CalcBasicStats_cmds(self, step_name='1.BasicStats', main_step_name='1.BasicStats'):
+    def CalcBasicStats_cmds(self, step_name='1.BasicStat', main_step_name='1.BasicStats'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)

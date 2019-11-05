@@ -237,6 +237,25 @@ class Basic(object):
                 self.logger.warning("Warning: the following steps are also skipped for depending relationship")
                 self.logger.warning(set(x.split('_', 1)[0] for x in total_deduced_skips))
 
+            # 删除由于跳过一些步骤产生的无用目录, 但由于目录组织结构由编写pipeline的人决定,
+            # 下面的代码不一定能删除所有无用的目录, 甚至有可能删除必要的目录
+            for each in (skip_steps + total_deduced_skips):
+                if '_' not in each:
+                    possible_dir = os.path.join(self.project_dir, each)
+                else:
+                    parent, child = each.split('_', 1)
+                    possible_dir = os.path.join(self.project_dir, parent, child)
+                if not os.listdir(possible_dir):
+                    os.rmdir(possible_dir)
+                else:
+                    has_no_file = True
+                    for root, dirs, files in os.walk(possible_dir):
+                        if files:
+                            has_no_file = False
+                            break
+                    if has_no_file:
+                        shutil.rmtree(possible_dir)
+
     def run(self):
         self.skip_some_steps()
         commands = self.workflow
