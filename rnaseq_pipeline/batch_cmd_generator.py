@@ -577,10 +577,13 @@ class NestedCmd(Basic):
         commands = dict()
         step_name = step_name + level.capitalize()
         out_dir = os.path.join(self.project_dir, step_name)
+        depend = list(merge_cmd.keys())[0]
+        depend_info = merge_cmd[depend]
+        if ',' not in depend_info['depend']:
+            self.logger.warning(f'Skip {level} expression analysis for there is only one sample!')
+            return commands
         self.mkdir(out_dir)
         args = dict(self.arg_pool['exp_analysis'])
-        depend = list(merge_cmd.keys())[0]
-        depend_info = list(merge_cmd.values())[0]
         if level == 'gene':
             args['out_prefix'] = os.path.join(out_dir, 'gene.tpm')
             args['matrix'] = depend_info['gene_tpm_matrix']
