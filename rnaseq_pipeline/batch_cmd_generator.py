@@ -83,8 +83,8 @@ class NestedCmd(Basic):
                 for ind, (fq1, fq2) in enumerate(zip(fq1_list, fq2_list)):
                     if ind >= 1:
                         sample = sample + '_' + str(ind)
-                    trimmed_fq1 = os.path.join(outdir, sample + '_clean_R1.fq.gz')
-                    trimmed_fq2 = os.path.join(outdir, sample + '_clean_R2.fq.gz')
+                    trimmed_fq1 = os.path.join(outdir, sample + '_clean_R1.fq')
+                    trimmed_fq2 = os.path.join(outdir, sample + '_clean_R2.fq')
                     unpaired_fq1 = os.path.join(outdir, sample + '_unpaired_clean_R1.fq.gz')
                     unpaired_fq2 = os.path.join(outdir, sample + '_unpaired_clean_R2.fq.gz')
                     args = dict(self.arg_pool['trimmomatic'])

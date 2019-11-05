@@ -532,12 +532,12 @@ def MapSplice(**kwargs):
     cmd = '{} '.format(kwargs['python2'])
     cmd += '{} '.format(kwargs['mapsplice'])
     cmd += '-c {} '.format(kwargs['chromosomes'])
+    cmd += '-x {} '.format(kwargs['bowtie_index'])
     cmd += '-1 {} '.format(kwargs['fq'])
     if kwargs['fq2']:
         cmd += '-2 {} '.format(kwargs['fq2'])
     cmd += '--gene-gtf {} '.format(kwargs['gtf'])
     cmd += '-p {} '.format(kwargs['threads'])
-    cmd += '--qual-scale {} '.format(kwargs['qual-scale'])
     cmd += '--seglen {} '.format(kwargs['seglen'])
     cmd += '--min-map-len {} '.format(kwargs['min-map-len'])
     cmd += '-k {} '.format(kwargs['max-hits'])
