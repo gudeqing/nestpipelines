@@ -71,8 +71,7 @@ def pipeline():
                 nc.workflow[each_step]['depend'] = depend
         markdup_cmds = nc.MarkDuplicates_cmds(merge_bam_cmds)
     else:
-        merge_bam_cmds = faked_index_bam_cmds
-        markdup_cmds = nc.MarkDuplicates_cmds(merge_bam_cmds)
+        markdup_cmds = nc.MarkDuplicates_cmds(faked_index_bam_cmds)
         # 修改对faked_index_bam_cmd的依赖为空
         for each_step in nc.workflow:
             if each_step.startswith('MarkDuplicates_'):
