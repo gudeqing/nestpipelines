@@ -213,8 +213,10 @@ class Basic(object):
                                    password=self.workflow_arguments.password,
                                    outdir=project_dir, logger=self.logger,
                                    timeout=self.workflow_arguments.wait_resource_time)
+            skip_detail = list()
             for each in skip_steps:
                 skips = [x for x in commands if x == each or x.startswith(each + '_')]
+                skip_detail.extend(skips)
                 if not skips:
                     exit('Step {} was Not found, please refer --only_show_steps or --only_show_detail_steps'.format(
                         each))
@@ -239,7 +241,8 @@ class Basic(object):
 
             # 删除由于跳过一些步骤产生的无用目录, 但由于目录组织结构由编写pipeline的人决定,
             # 下面的代码不一定能删除所有无用的目录, 甚至有可能删除必要的目录
-            for each in (skip_steps + total_deduced_skips):
+            all_skipped_detail = skip_detail + total_deduced_skips
+            for each in all_skipped_detail:
                 if '_' not in each:
                     possible_dir = os.path.join(self.project_dir, each)
                 else:
@@ -256,6 +259,13 @@ class Basic(object):
                                 break
                         if has_no_file:
                             shutil.rmtree(possible_dir)
+            # 删除跳过的具体步骤所需的目录后，检查大步骤所需的目录是否为空，如果为空，也要删除
+            all_skipped_main = set(x.split('_', 1)[0] for x in all_skipped_detail)
+            for each in all_skipped_main:
+                possible_dir = os.path.join(self.project_dir, each)
+                if os.path.exists(possible_dir):
+                    if not os.listdir(possible_dir):
+                        os.rmdir(possible_dir)
 
     def run(self):
         self.skip_some_steps()
