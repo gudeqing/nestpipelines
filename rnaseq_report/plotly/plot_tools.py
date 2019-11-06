@@ -1125,4 +1125,4 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
 
 if __name__ == '__main__':
     from xcmds import xcmds
-    xcmds.xcmds(locals())
+    xcmds.xcmds(locals(), log=False)
