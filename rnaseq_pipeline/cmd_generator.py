@@ -70,7 +70,8 @@ def star_align(**kwargs):
     cmd += '--outFileNamePrefix {} '.format(kwargs['outFileNamePrefix'])
     cmd += '--outSAMtype {} '.format(kwargs['outSAMtype'])
     cmd += '--outSAMunmapped {} '.format(kwargs['outSAMunmapped'])
-    cmd += '--readFilesCommand {} '.format(kwargs['readFilesCommand'])
+    if kwargs['readFilesIn'].strip().endswith('.gz'):
+        cmd += '--readFilesCommand zcat '
     cmd += '--twopassMode {} '.format(kwargs['twopassMode'])
     cmd += '--outFilterMultimapNmax {} '.format(kwargs['outFilterMultimapNmax'])
     cmd += '--alignSJoverhangMin {} '.format(kwargs['alignSJoverhangMin'])
