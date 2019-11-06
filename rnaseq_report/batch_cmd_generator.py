@@ -14,6 +14,7 @@ class NestedCmd(Basic):
             exit(0)
         # ----------------------------------------------------
         self.slider_dir = os.path.join(self.project_dir, 'Summary')
+        self.mkdir(self.slider_dir)
         self.script_dir = os.path.dirname(self.workflow_arguments.script_path)
         if self.arg_pool:
             self.arg_pool['make_slider']['template'] = os.path.join(self.script_dir, 'templates', 'slide.jinja2')
@@ -33,9 +34,10 @@ class NestedCmd(Basic):
             raise Exception('please provide valid cmd_name, refer --list_cmd_names')
         exec("print(cmdx.{}(**self.arg_pool['{}']))".format(cmd_name, cmd_name))
 
-    def gene_body_coverage_cmd(self, files:list, step_name='GeneBodyCoverage'):
+    def gene_body_coverage_cmd(self, files:list, step_name='GeneBodyCoverage', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(os.path.join(self.project_dir, parent_dir))
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
         self.mkdir(outdir)
         args = dict(self.arg_pool['gene_body_coverage'])
         args['files'] = ' '.join(files)
@@ -48,9 +50,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def fragment_length_cmd(self, files:list, step_name='FragmentLength'):
+    def fragment_length_cmd(self, files:list, step_name='FragmentLength', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(os.path.join(self.project_dir, parent_dir))
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
         self.mkdir(outdir)
         args = dict(self.arg_pool['fragment_length'])
         args['files'] = ' '.join(files)
@@ -63,10 +66,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def inner_distance_cmd(self, files:list, step_name='InnerDistance'):
+    def inner_distance_cmd(self, files:list, step_name='InnerDistance', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['inner_distance'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -78,10 +81,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def read_distribution_cmd(self, files:list, step_name='ReadDistribution'):
+    def read_distribution_cmd(self, files:list, step_name='ReadDistribution', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['read_distribution'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -93,10 +96,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def read_duplication_cmd(self, files:list, step_name='ReadDuplication'):
+    def read_duplication_cmd(self, files:list, step_name='ReadDuplication', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['read_duplication'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -108,10 +111,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def chromosome_read_distribution_cmd(self, files:list, step_name='ChrReadDistribution'):
+    def chromosome_read_distribution_cmd(self, files:list, step_name='ChrReadDistribution', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['chromosome_read_distribution'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -123,10 +126,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def exp_saturation_cmd(self, files:list, step_name='ExpSaturation'):
+    def exp_saturation_cmd(self, files:list, step_name='ExpSaturation', parent_dir='QC-Figures'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['exp_saturation'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -138,10 +141,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def exp_pca_cmd(self, exp_table, step_name='ExpPCA'):
+    def exp_pca_cmd(self, exp_table, step_name='ExpPCA', parent_dir='ExpAnalysis'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['exp_pca'])
         args['exp_table'] = exp_table
         args['group_dict'] = self.workflow_arguments.group_dict
@@ -154,10 +157,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def exp_density_cmd(self, exp_table, step_name='ExpDensity'):
+    def exp_density_cmd(self, exp_table, step_name='ExpDensity', parent_dir='ExpAnalysis'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['exp_density'])
         args['exp_table'] = exp_table
         # args['group_dict'] = self.workflow_arguments.group_dict
@@ -170,10 +173,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def sample_correlation_cmd(self, exp_table, step_name='SampleCorrelation'):
+    def sample_correlation_cmd(self, exp_table, step_name='SampleCorrelation', parent_dir='ExpAnalysis'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['sample_correlation'])
         args['data_file'] = exp_table
         args['sample_group'] = self.workflow_arguments.group_dict
@@ -186,10 +189,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CollectAlignmentSummaryMetrics(self, files:list, step_name='CollectAlignmentSummaryMetrics'):
+    def CollectAlignmentSummaryMetrics(self, files:list, step_name='CollectAlignmentSummaryMetrics', parent_dir='QC-Tables'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['CollectAlignmentSummaryMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -201,10 +204,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CollectInsertSizeMetrics(self, files:list, step_name='CollectInsertSizeMetrics'):
+    def CollectInsertSizeMetrics(self, files:list, step_name='CollectInsertSizeMetrics', parent_dir='QC-Tables'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['CollectInsertSizeMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -216,10 +219,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CollectRnaSeqMetrics(self, files:list, step_name='CollectRnaSeqMetrics'):
+    def CollectRnaSeqMetrics(self, files:list, step_name='CollectRnaSeqMetrics', parent_dir='QC-Tables'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['CollectRnaSeqMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
@@ -231,10 +234,10 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CollectTargetedPcrMetrics(self, files:list, step_name='CollectTargetedPcrMetrics'):
+    def CollectTargetedPcrMetrics(self, files:list, step_name='CollectTargetedPcrMetrics', parent_dir='QC-Tables'):
         commands = dict()
-        outdir = os.path.join(self.project_dir, step_name)
-        self.mkdir(outdir)
+        outdir = os.path.join(self.project_dir, parent_dir, step_name)
+        os.makedirs(outdir, exist_ok=True)
         args = dict(self.arg_pool['CollectTargetedPcrMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
