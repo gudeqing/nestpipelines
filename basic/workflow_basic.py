@@ -245,16 +245,17 @@ class Basic(object):
                 else:
                     parent, child = each.split('_', 1)
                     possible_dir = os.path.join(self.project_dir, parent, child)
-                if not os.listdir(possible_dir):
-                    os.rmdir(possible_dir)
-                else:
-                    has_no_file = True
-                    for root, dirs, files in os.walk(possible_dir):
-                        if files:
-                            has_no_file = False
-                            break
-                    if has_no_file:
-                        shutil.rmtree(possible_dir)
+                if os.path.exists(possible_dir):
+                    if not os.listdir(possible_dir):
+                        os.rmdir(possible_dir)
+                    else:
+                        has_no_file = True
+                        for root, dirs, files in os.walk(possible_dir):
+                            if files:
+                                has_no_file = False
+                                break
+                        if has_no_file:
+                            shutil.rmtree(possible_dir)
 
     def run(self):
         self.skip_some_steps()
