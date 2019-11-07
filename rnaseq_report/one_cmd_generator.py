@@ -9,6 +9,7 @@ def gene_body_coverage(**kwargs):
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
     cmd += '-file_from {} '.format(kwargs['file_from'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -24,6 +25,7 @@ def fragment_length(**kwargs):
     cmd += '-width {} '.format(kwargs['width'])
     cmd += '-min_len {} '.format(kwargs['min_len'])
     cmd += '-max_len {} '.format(kwargs['max_len'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -39,6 +41,7 @@ def inner_distance(**kwargs):
     cmd += '-width {} '.format(kwargs['width'])
     cmd += '-min_dist {} '.format(kwargs['min_dist'])
     cmd += '-max_dist {} '.format(kwargs['max_dist'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -52,6 +55,7 @@ def read_distribution(**kwargs):
     cmd += '-scale {} '.format(kwargs['scale'])
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -66,6 +70,7 @@ def read_duplication(**kwargs):
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
     cmd += '-max_dup {} '.format(kwargs['max_dup'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -80,6 +85,7 @@ def chromosome_read_distribution(**kwargs):
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
     cmd += '-top {} '.format(kwargs['top'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -94,6 +100,7 @@ def exp_saturation(**kwargs):
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
     cmd += '-outlier_limit {} '.format(kwargs['outlier_limit'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -113,6 +120,7 @@ def exp_pca(**kwargs):
     cmd += '-scale {} '.format(kwargs['scale'])
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -128,6 +136,7 @@ def exp_density(**kwargs):
     cmd += '-scale {} '.format(kwargs['scale'])
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-desc "{}" '.format(kwargs['desc'])
     return cmd
 
 
@@ -137,10 +146,6 @@ def CollectAlignmentSummaryMetrics(**kwargs):
     cmd += 'CollectAlignmentSummaryMetrics '
     cmd += '-files {} '.format(kwargs['files'])
     cmd += '-outdir {} '.format(kwargs['outdir'])
-    cmd += '-formats {} '.format(kwargs['formats'])
-    cmd += '-scale {} '.format(kwargs['scale'])
-    cmd += '-height {} '.format(kwargs['height'])
-    cmd += '-width {} '.format(kwargs['width'])
     return cmd
 
 
@@ -150,10 +155,6 @@ def CollectInsertSizeMetrics(**kwargs):
     cmd += 'CollectInsertSizeMetrics '
     cmd += '-files {} '.format(kwargs['files'])
     cmd += '-outdir {} '.format(kwargs['outdir'])
-    cmd += '-formats {} '.format(kwargs['formats'])
-    cmd += '-scale {} '.format(kwargs['scale'])
-    cmd += '-height {} '.format(kwargs['height'])
-    cmd += '-width {} '.format(kwargs['width'])
     return cmd
 
 
@@ -163,10 +164,6 @@ def CollectRnaSeqMetrics(**kwargs):
     cmd += 'CollectRnaSeqMetrics '
     cmd += '-files {} '.format(kwargs['files'])
     cmd += '-outdir {} '.format(kwargs['outdir'])
-    cmd += '-formats {} '.format(kwargs['formats'])
-    cmd += '-scale {} '.format(kwargs['scale'])
-    cmd += '-height {} '.format(kwargs['height'])
-    cmd += '-width {} '.format(kwargs['width'])
     return cmd
 
 
@@ -176,10 +173,6 @@ def CollectTargetedPcrMetrics(**kwargs):
     cmd += 'CollectTargetedPcrMetrics '
     cmd += '-files {} '.format(kwargs['files'])
     cmd += '-outdir {} '.format(kwargs['outdir'])
-    cmd += '-formats {} '.format(kwargs['formats'])
-    cmd += '-scale {} '.format(kwargs['scale'])
-    cmd += '-height {} '.format(kwargs['height'])
-    cmd += '-width {} '.format(kwargs['width'])
     return cmd
 
 

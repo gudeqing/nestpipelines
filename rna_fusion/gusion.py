@@ -1,15 +1,4 @@
 """
-1. 从非clipped reads中中挑选可能包含junction位点或者融合断点的reads。
-符合下述任何一个条件的read将作为2获得的junction位点或断点的辅助证据。
-尤其，当spanning reads没有对应的split reads组合，他们就是主要证据。
-    a. 从左到右增加窗口大小，窗口大小起始值4，从1开始计数，每增加一次，判断错配个数大于等于窗口增长次数，则停止滑动，收录该reads。
-    b. 同上，从右向左滑窗
-2. 挑选 split read即clipped reads，这些reads极有可能包含junction位点或者融合断点的reads
-3. 定义spanning reads：r1和r2比对到junction或者断点两边的reads
-4. 如果spanning reads比对到不同的基因，可以认为是支持基因间融合的reads
-5. 如果spanning reads比对到同一个基因内，可以认为是支持某种可变剪接的reads
-
-已知junction位点应该用两个坐标表示
 
 """
 import os
@@ -603,32 +592,6 @@ def junction_from_two_pairs(split_pairs, ref_fasta, bam, min_intro_size=30, r1_o
     return dict(sorted(fusion_dict.items(), key=lambda x: x[1], reverse=True))
 
 
-def parse_gtf_line(file_obj, sep='\t') -> dict:
-    tmp_dict = dict()
-    for line in file_obj:
-        if line.startswith("#"):
-            continue
-        tmp_list = line.rstrip().split(sep)
-        tmp_dict['chr'] = tmp_list[0]
-        tmp_dict['feature'] = tmp_list[2]
-        tmp_dict['start'] = tmp_list[3]
-        tmp_dict['end'] = tmp_list[4]
-        tmp_dict['strand'] = tmp_list[6]
-        # parse the column 9
-        col_9 = tmp_list[8].strip().split(";")
-        for each in col_9[:-1]:
-            name = each.split()[0].strip()
-            value = each.split()[1].strip().strip('"')
-            tmp_dict[name] = value
-        yield tmp_dict
-
-
-def junction_dict_from_gtf(gtf, exon='exon'):
-    result = dict()
-    with open(gtf) as f:
-        for line in parse_gtf_line(f):
-            if line['feature'] == 'exon':
-                pos = line['chr']+':'+line['start']
 
 @timer
 def junction_from_clipped_reads(splits, ref_fasta, masked_ref_fasta=None, min_clip=12, prefix='', max_bp_num=5):
@@ -1006,8 +969,6 @@ def annotate_break_position(bed, gtf, bam=None, gene_id='gene_id', exon_number='
                     f2.write(line)
 
 
-# if __name__ == '__main__':
-#     from xcmds import xcmds
-#     xcmds.xcmds(locals(), include=['get_clipped_reads','get_suspicious_reads', 'single_junction_pos'])
-#
-#
+if __name__ == '__main__':
+    from xcmds import xcmds
+    xcmds.xcmds(locals(), include=['extract_novel_mapsplice_junction', 'annotate_break_position'])

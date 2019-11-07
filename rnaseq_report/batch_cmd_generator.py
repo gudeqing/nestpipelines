@@ -42,6 +42,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['gene_body_coverage'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'gene_body_coverage' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['gene_body_coverage']
         cmd = cmdx.gene_body_coverage(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -58,6 +60,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['fragment_length'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'fragment_length' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['fragment_length']
         cmd = cmdx.fragment_length(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -73,6 +77,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['inner_distance'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'inner_distance' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['inner_distance']
         cmd = cmdx.inner_distance(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -88,6 +94,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['read_distribution'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'read_distribution' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['read_distribution']
         cmd = cmdx.read_distribution(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -103,6 +111,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['read_duplication'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'read_duplication' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['read_duplication']
         cmd = cmdx.read_duplication(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -118,6 +128,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['chromosome_read_distribution'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'chromosome_read_distribution' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['chromosome_read_distribution']
         cmd = cmdx.chromosome_read_distribution(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -133,6 +145,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['exp_saturation'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'exp_saturation' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['exp_saturation']
         cmd = cmdx.exp_saturation(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -149,6 +163,8 @@ class NestedCmd(Basic):
         args['exp_table'] = exp_table
         args['group_dict'] = self.workflow_arguments.group_dict
         args['outdir'] = outdir
+        if 'exp_pca' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['exp_pca']
         cmd = cmdx.exp_pca(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -165,6 +181,8 @@ class NestedCmd(Basic):
         args['exp_table'] = exp_table
         # args['group_dict'] = self.workflow_arguments.group_dict
         args['outdir'] = outdir
+        if 'exp_density' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['exp_density']
         cmd = cmdx.exp_density(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -181,6 +199,8 @@ class NestedCmd(Basic):
         args['data_file'] = exp_table
         args['sample_group'] = self.workflow_arguments.group_dict
         args['out_prefix'] = os.path.join(outdir, 'CorrelationCluster')
+        if 'sample_correlation' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['sample_correlation']
         cmd = cmdx.sample_correlation(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -196,6 +216,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['CollectAlignmentSummaryMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'CollectAlignmentSummaryMetrics' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['CollectAlignmentSummaryMetrics']
         cmd = cmdx.CollectAlignmentSummaryMetrics(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -211,6 +233,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['CollectInsertSizeMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'CollectInsertSizeMetrics' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['CollectInsertSizeMetrics']
         cmd = cmdx.CollectInsertSizeMetrics(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -226,6 +250,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['CollectRnaSeqMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'CollectRnaSeqMetrics' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['CollectRnaSeqMetrics']
         cmd = cmdx.CollectRnaSeqMetrics(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -241,6 +267,8 @@ class NestedCmd(Basic):
         args = dict(self.arg_pool['CollectTargetedPcrMetrics'])
         args['files'] = ' '.join(files)
         args['outdir'] = outdir
+        if 'CollectTargetedPcrMetrics' in self.arg_pool['image_description']:
+            args['desc'] = self.arg_pool['image_description']['CollectTargetedPcrMetrics']
         cmd = cmdx.CollectTargetedPcrMetrics(**args)
         commands[step_name] = self.cmd_dict(
             cmd=cmd,
@@ -249,200 +277,200 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def make_gene_body_cov_slider(self, depend_cmd:dict, step_name='GeneBodyCovSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'GeneBodyCoverage.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['gene_body_coverage']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_fragment_size_slider(self, depend_cmd:dict, step_name='FragmentSizeSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'FragmentSize.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['fragment_length']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_inner_distance_slider(self, depend_cmd:dict, step_name='InnerDistanceSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'InnerDistance.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['inner_distance']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_read_distribution_slider(self, depend_cmd:dict, step_name='ReadDistributionSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'ReadDistribution.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['read_distribution']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_read_duplication_slider(self, depend_cmd:dict, step_name='ReadDuplicationSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'ReadDuplication.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['read_duplication']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_exp_saturation_slider(self, depend_cmd:dict, step_name='ExpSaturationSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'ExpSaturation.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['exp_saturation']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_chr_read_distribution_slider(self, depend_cmd:dict, step_name='ChrReadDistributionSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'ChrReadDistribution.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['chromosome_read_distribution']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_exp_distribution_slider(self, depend_cmd:dict, step_name='ExpDistributionSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'ExpressionDistribution.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['exp_density']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_corr_cluster_slider(self, depend_cmd:dict, step_name='CorrelationClusterSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'CorrelationCluster.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['sample_correlation']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_pca_slider(self, depend_cmd:dict, step_name='PCASlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'PCA.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['exp_pca']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_AlignmentSummary_slider(self, depend_cmd:dict, step_name='AlignmentSummarySlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'CollectAlignmentSummaryMetrics.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['CollectAlignmentSummaryMetrics']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_InsertSizeSlider_slider(self, depend_cmd:dict, step_name='InsertSizeSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'CollectInsertSizeMetrics.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['CollectInsertSizeMetrics']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_RnaSeqMetrics_slider(self, depend_cmd:dict, step_name='RnaSeqMetricsSlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'CollectRnaSeqMetrics.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['CollectRnaSeqMetrics']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
-
-    def make_TargetedSummary_slider(self, depend_cmd:dict, step_name='TargetedSummarySlider'):
-        commands = dict()
-        slider_dir = self.slider_dir
-        args = dict(self.arg_pool['make_slider'])
-        for step, cmd_info in depend_cmd.items():
-            args['out'] = os.path.join(slider_dir, 'TargetedSummaryMetrics.html')
-            args['images'] = os.path.join(cmd_info['outdir'], '*.html')
-            args['image_ids'] = None
-            args['image_desc'] = self.arg_pool['image_description']['CollectTargetedPcrMetrics']
-            cmd = cmdx.make_slider(**args)
-            commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
-        self.workflow.update(commands)
-        return commands
+    # def make_gene_body_cov_slider(self, depend_cmd:dict, step_name='GeneBodyCovSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'GeneBodyCoverage.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['gene_body_coverage']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_fragment_size_slider(self, depend_cmd:dict, step_name='FragmentSizeSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'FragmentSize.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['fragment_length']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_inner_distance_slider(self, depend_cmd:dict, step_name='InnerDistanceSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'InnerDistance.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['inner_distance']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_read_distribution_slider(self, depend_cmd:dict, step_name='ReadDistributionSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'ReadDistribution.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['read_distribution']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_read_duplication_slider(self, depend_cmd:dict, step_name='ReadDuplicationSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'ReadDuplication.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['read_duplication']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_exp_saturation_slider(self, depend_cmd:dict, step_name='ExpSaturationSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'ExpSaturation.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['exp_saturation']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_chr_read_distribution_slider(self, depend_cmd:dict, step_name='ChrReadDistributionSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'ChrReadDistribution.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['chromosome_read_distribution']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_exp_distribution_slider(self, depend_cmd:dict, step_name='ExpDistributionSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'ExpressionDistribution.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['exp_density']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_corr_cluster_slider(self, depend_cmd:dict, step_name='CorrelationClusterSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'CorrelationCluster.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['sample_correlation']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_pca_slider(self, depend_cmd:dict, step_name='PCASlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'PCA.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['exp_pca']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_AlignmentSummary_slider(self, depend_cmd:dict, step_name='AlignmentSummarySlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'CollectAlignmentSummaryMetrics.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['CollectAlignmentSummaryMetrics']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_InsertSizeSlider_slider(self, depend_cmd:dict, step_name='InsertSizeSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'CollectInsertSizeMetrics.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['CollectInsertSizeMetrics']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_RnaSeqMetrics_slider(self, depend_cmd:dict, step_name='RnaSeqMetricsSlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'CollectRnaSeqMetrics.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['CollectRnaSeqMetrics']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
+    #
+    # def make_TargetedSummary_slider(self, depend_cmd:dict, step_name='TargetedSummarySlider'):
+    #     commands = dict()
+    #     slider_dir = self.slider_dir
+    #     args = dict(self.arg_pool['make_slider'])
+    #     for step, cmd_info in depend_cmd.items():
+    #         args['out'] = os.path.join(slider_dir, 'TargetedSummaryMetrics.html')
+    #         args['images'] = os.path.join(cmd_info['outdir'], '*.html')
+    #         args['image_ids'] = None
+    #         args['image_desc'] = self.arg_pool['image_description']['CollectTargetedPcrMetrics']
+    #         cmd = cmdx.make_slider(**args)
+    #         commands[step_name] = self.cmd_dict(depend=step, cmd=cmd, outdir=slider_dir)
+    #     self.workflow.update(commands)
+    #     return commands
 
 
