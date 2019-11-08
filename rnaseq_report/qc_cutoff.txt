@@ -1,0 +1,48 @@
+Field	Description	unit	type	lower_limit	upper_limit
+Number of input reads	总paired-read数目	read	int	none	none
+MappingRate	总体比对率	percent	float	0.8	1
+Average input read length	平均paired-read长度	base	int	none	none
+Uniquely mapped reads number	能唯一比对到基因组的read数目	read	int	none	none
+Uniquely mapped reads %	能唯一比对到基因组的read占总reads的比例	percent	float	0.7	1
+Number of reads mapped to multiple loci	多重比对（<=20) paired-reads数目	read	int	none	none
+% of reads mapped to multiple loci	多重比对paired-reads总占比	percent	float	0	0.35
+Number of reads mapped to too many loci	能比对到基因组的位置数超过20的read数	read	int	none	none
+% of reads mapped to too many loci	能比对到基因组的位置数超过20的read总占比	percent	float	0	0.15
+% of reads unmapped: too many mismatches	由于错配太多而无法比对到基因组的read总占比	percent	float	none	none
+% of reads unmapped: too short	由于太短而无法比对到参考基因组的read总占比	percent	float	none	none
+% of reads unmapped: other	由于其他原因而不能比对到参考基因组的read总占比	percent	float	none	none
+Average mapped length	能比对到基因组的paired-read的平均长度	base	int	none	none
+STRAND_BALANCE	比对平衡率，比对到正链的reads的总占比	percent	float	0.45	0.55
+Duplication_rate	重复reads总占比，如果两条reads比对到基因组的位置是一样的，则认为是重复(duplication)的	percent	float	0	0.7
+PF_ALIGNED_BASES	The total number of aligned PF bases. Non-primary alignments are not counted. Bases in aligned reads that do not correspond to reference (e.g. soft clips, insertions) are not counted.	base	int	none	none
+PCT_RIBOSOMAL_BASES	Fraction of PF_ALIGNED_BASES that mapped to regions encoding ribosomal RNA, RIBOSOMAL_BASES/PF_ALIGNED_BASES	percent	float	0	0.3
+PCT_CODING_BASES	Fraction of PF_ALIGNED_BASES that mapped to protein coding regions of genes, CODING_BASES/PF_ALIGNED_BASES	percent	float	0.4	1
+PCT_INTERGENIC_BASES	Fraction of PF_ALIGNED_BASES that mapped to intergenic regions of genomic DNA, INTERGENIC_BASES/PF_ALIGNED_BASES	percent	float	none	none
+PCT_INTRONIC_BASES	Fraction of PF_ALIGNED_BASES that correspond to gene introns, INTRONIC_BASES/PF_ALIGNED_BASES	percent	float	none	none
+PCT_UTR_BASES	Fraction of PF_ALIGNED_BASES that mapped to untranslated regions (UTR) of genes, UTR_BASES/PF_ALIGNED_BASES	percent	float	0	0.6
+PCT_MRNA_BASES	Sum of bases mapped to regions corresponding to UTRs and coding regions of mRNA transcripts, PCT_UTR_BASES + PCT_CODING_BASES	percent	float	0.6	1
+MEDIAN_3PRIME_BIAS	The median 3 prime bias of the 1000 most highly expressed transcripts, where 3 prime bias is calculated per transcript as: mean coverage of the 3 prime-most 100 bases divided by the mean coverage of the whole transcript.	bias	float	0	0.2
+MEDIAN_5PRIME_BIAS	The median 5 prime bias of the 1000 most highly expressed transcripts. The 5 prime bias is calculated per transcript as: mean coverage of the 5 prime-most 100 bases divided by the mean coverage of the whole transcript.	bias	float	0	0.2
+PCT_R1_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model where R1 is on the strand of transcription and R2 is on the opposite strand. For unpaired reads, it is the fraction of reads that are on the transcription strand (out of all the reads).	percent	float	none	none
+PCT_R2_TRANSCRIPT_STRAND_READS	The fraction of reads that support the model where R2 is on the strand of transcription and R1 is on the opposite strand. For unpaired reads, it is the fraction of reads that are on opposite strand than that of the the transcription strand (out of all the reads).	percent	float	none	none
+PCT_AMPLIFIED_BASES	比对到amplicon上或附近的read占比, 可称之为上靶率 (ON_AMPLICON_BASES + NEAR_AMPLICON_BASES)/PF_BASES_ALIGNED.	percent	float	0.6	1
+ON_TARGET_BASES	比对到目标捕获基因区域的碱基数	base	int	none	none
+ZERO_CVG_TARGETS_PCT	The fraction of targets that did not reach coverage=1 over any base.	percent	float	0	0.3
+MEAN_TARGET_COVERAGE	The mean read coverage of all target regions in an experiment.	read	int	50	none
+PCT_TARGET_BASES_2X	The fraction of all target bases achieving 2X or greater coverage depth.	percent	float	none	none
+PCT_TARGET_BASES_10X	The fraction of all target bases achieving 10X or greater coverage depth.	percent	float	none	none
+PCT_TARGET_BASES_20X	The fraction of all target bases achieving 20X or greater coverage depth.	percent	float	none	none
+PCT_TARGET_BASES_30X	The fraction of all target bases achieving 30X or greater coverage depth.	percent	float	none	none
+Mismatch rate per base, %	碱基错配率	percent	float	none	none
+Deletion rate per base	碱基删除率	percent	float	none	none
+Deletion average length	平均deletion长度	base	int	none	none
+Insertion rate per base	碱基插入率	percent	float	none	none
+Insertion average length	平均insertion长度	base	int	none	none
+Number of chimeric reads	chimeric reads数目，chimeric read通常来源于基因组发生异常重排/基因融合/基因翻转/基因转座等区域，因而它们不能按照预期的方式比对到参考基因组	read	int	none	none
+% of chimeric reads	chimeric reads总占比	percent	float	0	0.15
+Number of splices: Total	剪接位点总数	splice	int	none	none
+Number of splices: Annotated (sjdb)	有注释的剪接位点数	splice	int	none	none
+Number of splices: GT/AG	属于GT-AG模式的剪接位点数	splice	int	none	none
+Number of splices: GC/AG	属于GC-AG模式的剪接位点数	splice	int	none	none
+Number of splices: AT/AC	属于AT-AC模式的剪接位点数	splice	int	none	none
+Number of splices: Non-canonical	非经典模式的剪接位点数	splice	int	none	none

@@ -757,7 +757,7 @@ def MergeMetrics(project_outdir, filter_ref, outdir=os.getcwd(), formats=('html'
     raw = pd.concat([x.transpose() for x in metric_dfs], sort=False)
     raw.columns = [name_dict[x] if x in name_dict else x for x in raw.columns]
     raw.index.name = 'Metrics'
-    raw.to_csv(os.path.join('MergedMetrics.csv'))
+    raw.to_csv(os.path.join(outdir, 'MergedMetrics.txt'))
 
     # filter and annotate metrics
     ref = pd.read_table(filter_ref, index_col=0, header=0)

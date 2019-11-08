@@ -275,7 +275,7 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=5
 
 
 def make_report(cfg_from, report_dir=None, link_images=False, exclude_dirs:list=None,
-                image_formats:tuple=('html', 'png', 'xls', 'svg')):
+                image_formats:tuple=('html', 'png', 'xls', 'csv', 'svg')):
     """
     make html slider
     :param cfg_from: 结果目录或生成报告的配置文件, 如果提供结果目录, 则自动从结果目录生成Report configuration文件
