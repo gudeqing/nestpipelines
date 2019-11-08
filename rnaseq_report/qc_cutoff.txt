@@ -11,7 +11,6 @@ Number of reads mapped to too many loci	能比对到基因组的位置数超过2
 % of reads unmapped: too many mismatches	由于错配太多而无法比对到基因组的read总占比	percent	float	none	none
 % of reads unmapped: too short	由于太短而无法比对到参考基因组的read总占比	percent	float	none	none
 % of reads unmapped: other	由于其他原因而不能比对到参考基因组的read总占比	percent	float	none	none
-Average mapped length	能比对到基因组的paired-read的平均长度	base	int	none	none
 STRAND_BALANCE	比对平衡率，比对到正链的reads的总占比	percent	float	0.45	0.55
 Duplication_rate	重复reads总占比，如果两条reads比对到基因组的位置是一样的，则认为是重复(duplication)的	percent	float	0	0.7
 PF_ALIGNED_BASES	The total number of aligned PF bases. Non-primary alignments are not counted. Bases in aligned reads that do not correspond to reference (e.g. soft clips, insertions) are not counted.	base	int	none	none
