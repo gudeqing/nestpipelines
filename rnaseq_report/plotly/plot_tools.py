@@ -144,6 +144,7 @@ def gene_body_coverage(files:list, outdir=os.getcwd(), file_from='RSeQC', desc=N
                        formats=('html',), height:int=None, width:int=None, scale=3):
     layout = go.Layout(title="geneBodyCoverage")
     all_fig = go.Figure(layout=layout)
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
         fig = go.Figure(layout=go.Layout(title='{}'.format(sample)))
@@ -171,6 +172,7 @@ def fragment_length(files:list, outdir=os.getcwd(), min_len=50, max_len=600, des
         yaxis=dict(title='Probability'),
     )
     all_fig = go.Figure(layout=layout)
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
         data = pd.read_table(each, header=0, index_col=0)
@@ -211,6 +213,7 @@ def inner_distance(files:list, outdir, min_dist=-250, max_dist=250, desc=None,
         yaxis=dict(title='Probability'),
     )
     all_fig = go.Figure(layout=layout)
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
         data = pd.read_table(each, header=None, index_col=0)
@@ -238,6 +241,7 @@ def read_distribution(files:list, outdir, formats=('html',), height:int=None, wi
     if name_dict:
         name_dict = dict(x.strip().split()[:2] for x in open(name_dict))
     all_data = list()
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
         if sample in name_dict:
@@ -270,10 +274,16 @@ def read_distribution(files:list, outdir, formats=('html',), height:int=None, wi
 def read_duplication(files:list, outdir=os.getcwd(), max_dup=500,
                      formats=('html',), height:int=None, width:int=None, scale=3, desc=None):
     traces = list()
-    for each in files:
-        sample = os.path.basename(each).split('.', 1)[0].decode()
+    duplication_rates = list()
+    ordered_files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
+    for each in ordered_files:
+        sample = os.path.basename(each).split('.', 1)[0]
         data = pd.read_table(each, header=0, index_col=None)
         duplication_rate = 1 - data['UniqReadNumber'][0]/data['UniqReadNumber'].sum()
+        dup_info = dict()
+        dup_info['sample'] = sample
+        dup_info['duplication_rate'] = duplication_rate
+        duplication_rates.append(dup_info)
         data = data[data.iloc[:, 0] <= max_dup]
         trace = go.Scatter(x=data.iloc[:, 0], y=data.iloc[:, 1], name=sample, mode='markers')
         traces.append(trace)
@@ -294,7 +304,8 @@ def read_duplication(files:list, outdir=os.getcwd(), max_dup=500,
     fig = go.Figure(traces, layout=layout)
     prefix = "{}.ReadDuplication".format('samples')
     draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=desc)
-
+    dup_rate = pd.DataFrame(duplication_rates).set_index('sample')
+    return dup_rate
 
 def exp_saturation(files:list, outdir=os.getcwd(), outlier_limit=5, exp_lower=0.5,
                    formats=('html',), height:int=None, width:int=None, scale=3, desc=None):
@@ -308,6 +319,7 @@ def exp_saturation(files:list, outdir=os.getcwd(), outlier_limit=5, exp_lower=0.
         ),
         shared_xaxes=False
     )
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     color_pool = get_color_pool(len(files))
     for exp_file, sample_color in zip(files, color_pool):
         sample = os.path.basename(exp_file).split('.', 1)[0]
@@ -539,44 +551,8 @@ def exp_density(exp_table, outdir=os.getcwd(), row_sum_cutoff=0.1, exp_cutoff=0.
     draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=desc)
 
 
-def alignment_summary_table(files:list, outdir=os.getcwd(), formats=('html',), height:int=None, width:int=None, scale=3, desc=None):
-    summary_dict_list = [json.load(open(x), object_pairs_hook=OrderedDict) for x in files]
-    sample_list = [os.path.basename(x).split('.', 1)[0] for x in files]
-    df = pd.DataFrame(summary_dict_list, index=sample_list).round(2)
-    df.index.name = 'sample'
-    out_table = os.path.join(outdir, 'alignment_summary.txt')
-    df.to_csv(out_table, index=True, header=True, sep='\t')
-    # header = ['<br>'.join(textwrap.wrap(x, width=10)) for x in [df.index.name] + list(df.columns)]
-    # df = df.reset_index()
-    # df.columns = header
-    # colorscale = [[0, '#4d004c'], [.5, '#f2e5ff'], [1, '#ffffff']]
-    # table = ff.create_table(df, colorscale=colorscale)
-    # fig = go.Figure(data=table)
-    # out_name = os.path.join(outdir, 'AlignmentSummaryTable.html')
-    # plt(fig, filename=out_name)
-
-    df.reset_index(inplace=True)
-    header_values = ['<b>' + '<br>'.join(textwrap.wrap(x, width=10)) + '</b>' for x in list(df.columns)]
-    trace = go.Table(
-        # columnwidth=[max(len(str(x)) for x in df[y]) for y in df.columns],
-        header=dict(values=header_values,
-                    fill=dict(color='#C2D4FF'),
-                    align=['left'] * df.shape[1]),
-        cells=dict(values=[df[x] for x in df.columns],
-                   fill=dict(color='#F5F8FF'),
-                   align=['left'] * df.shape[1]))
-    layout = dict(
-        title='Alignment Summary',
-        autosize=True,
-        margin=dict(t=25, l=10, r=10, b=10),
-        showlegend=False,
-    )
-    fig = go.Figure(data=[trace], layout=layout)
-    prefix = "AlignmentSummaryTable"
-    draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=desc)
-
-
 def target_region_depth_distribution(files:list, outdir=os.getcwd(), formats=('html',), height:int=None, width:int=None, scale=3, desc=None):
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     data_dict = [json.load(open(x), object_pairs_hook=OrderedDict) for x in files]
     sample_list = [os.path.basename(x).split('.', 1)[0] for x in files]
     for distr_dict, sample in zip(data_dict, sample_list):
@@ -596,6 +572,7 @@ def target_region_depth_distribution(files:list, outdir=os.getcwd(), formats=('h
 def chromosome_read_distribution(files:list, outdir=os.getcwd(), top=30, formats=('html',), height:int=None, width:int=None, scale=3, desc=None):
     all_data = list()
     samples = list()
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
     for each in files:
         sample = os.path.basename(each).split('.', 1)[0]
         data = pd.read_table(each, header=None, index_col=0).iloc[:-1, :]
@@ -631,7 +608,22 @@ def chromosome_read_distribution(files:list, outdir=os.getcwd(), top=30, formats
     draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=desc)
 
 
-def CollectAlignmentSummaryMetrics(files:list, outdir=os.getcwd()):
+def CollectDupRateMetrics(files:list):
+    duplication_rates = list()
+    files = sorted(files, key=lambda x: os.path.basename(x).split('.', 1)[0])
+    for each in files:
+        sample = os.path.basename(each).split('.', 1)[0]
+        data = pd.read_table(each, header=0, index_col=None)
+        duplication_rate = 1 - data['UniqReadNumber'][0] / data['UniqReadNumber'].sum()
+        dup_info = dict()
+        dup_info['sample'] = sample
+        dup_info['Duplication_rate'] = duplication_rate
+        duplication_rates.append(dup_info)
+    dup_rate = pd.DataFrame(duplication_rates).set_index('sample')
+    return dup_rate
+
+
+def CollectAlignmentSummaryMetrics(files:list):
     if type(files) == str:
         files = glob(files)
     data = list()
@@ -644,13 +636,13 @@ def CollectAlignmentSummaryMetrics(files:list, outdir=os.getcwd()):
         summary.index = [sample]
         data.append(summary)
     data = pd.concat(data, axis=0).dropna(axis=1).drop('PCT_ADAPTER', axis=1).round(4)
-    data = data.transpose()
-    out_table = os.path.join(outdir, 'AlignmentSummaryMetrics.xls')
-    data.to_csv(out_table, index=True, header=True, sep='\t')
+    # data = data.transpose()
+    # out_table = os.path.join(outdir, 'AlignmentSummaryMetrics.xls')
+    # data.to_csv(out_table, index=True, header=True, sep='\t')
     return data
 
 
-def CollectInsertSizeMetrics(files:list, outdir=os.getcwd()):
+def CollectInsertSizeMetrics(files:list):
     if type(files) == str:
         files = glob(files)
     data = list()
@@ -663,13 +655,13 @@ def CollectInsertSizeMetrics(files:list, outdir=os.getcwd()):
         summary.index = [sample]
         data.append(summary)
     data = pd.concat(data, axis=0).dropna(axis=1).round(4)
-    data = data.transpose()
-    out_table = os.path.join(outdir, 'InsertSizeMetrics.xls')
-    data.to_csv(out_table, index=True, header=True, sep='\t')
+    # data = data.transpose()
+    # out_table = os.path.join(outdir, 'InsertSizeMetrics.xls')
+    # data.to_csv(out_table, index=True, header=True, sep='\t')
     return data
 
 
-def CollectRnaSeqMetrics(files:list, outdir=os.getcwd()):
+def CollectRnaSeqMetrics(files:list):
     if type(files) == str:
         files = glob(files)
         if not files:
@@ -685,13 +677,13 @@ def CollectRnaSeqMetrics(files:list, outdir=os.getcwd()):
         data.append(summary)
     data = pd.concat(data, axis=0).dropna(axis=1).round(4)
     data = data.drop(['CORRECT_STRAND_READS', 'INCORRECT_STRAND_READS', 'IGNORED_READS', 'PCT_CORRECT_STRAND_READS'], axis=1)
-    data = data.transpose()
-    out_table = os.path.join(outdir, 'RnaSeqMetrics.xls')
-    data.to_csv(out_table, index=True, header=True, sep='\t')
+    # data = data.transpose()
+    # out_table = os.path.join(outdir, 'RnaSeqMetrics.xls')
+    # data.to_csv(out_table, index=True, header=True, sep='\t')
     return data
 
 
-def CollectTargetedPcrMetrics(files:list, outdir=os.getcwd()):
+def CollectTargetedPcrMetrics(files:list):
     if type(files) == str:
         files = glob(files)
         if not files:
@@ -706,27 +698,87 @@ def CollectTargetedPcrMetrics(files:list, outdir=os.getcwd()):
         summary.index = [sample]
         data.append(summary)
     data = pd.concat(data, axis=0).dropna(axis=1).round(4)
-    data = data.transpose()
-    out_table = os.path.join(outdir, 'TargetedPcrMetrics.xls')
-    data.to_csv(out_table, index=True, header=True, sep='\t')
+    # data = data.transpose()
+    # out_table = os.path.join(outdir, 'TargetedPcrMetrics.xls')
+    # data.to_csv(out_table, index=True, header=True, sep='\t')
     return data
 
 
-def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',),
-                     height:int=None, width:int=None, scale=3, failed_cutoff=1, name_dict=''):
+def CollectStarAlignmentMetrics(log_files: list, outdir=os.getcwd()):
+    results = list()
+    for logfile in log_files:
+        sample = os.path.basename(logfile).split('.', 1)[0]
+        with open(logfile) as fr:
+            _ = [fr.readline() for i in range(5)]
+            result = dict(sample=sample)
+            for line in fr:
+                if '|' in line:
+                    desc, value = line.split('|')
+                    desc = desc.strip()
+                    value = value.strip()
+                    result[desc] = value
+            uniq_map = float(result['Uniquely mapped reads %'][:-1])
+            multi_map = float(result['% of reads mapped to multiple loci'][:-1])
+            too_many_map = float(result['% of reads mapped to too many loci'][:-1])
+            result['MappingRate'] =  uniq_map + multi_map + too_many_map
+            results.append(result)
+    df = pd.DataFrame(results).set_index('sample')
+    outfile = os.path.join(outdir, 'star_alignment_stat.csv')
+    df.to_csv(outfile)
+    return df
+
+
+def MergeMetrics(project_outdir, filter_ref, outdir=os.getcwd(), formats=('html',),
+                 height:int=None, width:int=None, scale=3, failed_cutoff=1, name_dict=''):
     if name_dict:
         name_dict = dict(x.strip().split()[:2] for x in open(name_dict))
     else:
         name_dict = dict()
-    raw = pd.concat([pd.read_table(x, index_col=0, header=0) for x in files], sort=False)
+    rna_metric = glob(os.path.join(project_outdir, 'CollectRnaSeqMetrics', '*.xls'))
+    rna_metric = sorted(rna_metric, key=lambda x: os.path.basename(x).split('.', 1)[0])
+    pcr_metric = glob(os.path.join(project_outdir, 'CollectTargetedPcrMetrics', '*.xls'))
+    pcr_metric = sorted(pcr_metric, key=lambda x: os.path.basename(x).split('.', 1)[0])
+    star_metric = glob(os.path.join(project_outdir, 'Align', '*', '*.Log.final.out'))
+    star_metric = sorted(star_metric, key=lambda x: os.path.basename(x).split('.', 1)[0])
+    dup_metric = glob(os.path.join(project_outdir, 'ReadDuplication', '*.pos.DupRate.xls'))
+    dup_metric = sorted(dup_metric, key=lambda x: os.path.basename(x).split('.', 1)[0])
+    metric_dfs = list()
+    if rna_metric:
+        metric_dfs.append(CollectRnaSeqMetrics(rna_metric))
+    if pcr_metric:
+        metric_dfs.append(CollectTargetedPcrMetrics(pcr_metric))
+    if star_metric:
+        metric_dfs.append(CollectStarAlignmentMetrics(star_metric))
+    if dup_metric:
+        metric_dfs.append(CollectDupRateMetrics(dup_metric))
+    if not metric_dfs:
+        print('Found no qc file to merge!')
+        return
+    raw = pd.concat([x.transpose() for x in metric_dfs], sort=False)
     raw.columns = [name_dict[x] if x in name_dict else x for x in raw.columns]
-    # raw = pd.read_table(raw_table, index_col=0, header=0)
-    ref = pd.read_table(ref_table, index_col=0, header=0)
+    raw.index.name = 'Metrics'
+    raw.to_csv(os.path.join('MergedMetrics.csv'))
+
+    # filter and annotate metrics
+    ref = pd.read_table(filter_ref, index_col=0, header=0)
+    target_metrics = [x for x in ref.index if x in raw.index]
+    ref = ref.loc[target_metrics]
     data_type_dict = dict(zip(ref.index, [eval(x) for x in ref['type']]))
-    out_table = raw.loc[ref.index, :].transpose().astype(float).round(4).astype(data_type_dict)
-    out_table = out_table.transpose().reset_index().drop_duplicates().set_index('index')
-    lower_limit = [-np.inf if x.lower()=="none" else float(x) for x in ref['lower_limit']]
-    upper_limit = [np.inf if x.lower()=="none" else float(x) for x in ref['upper_limit']]
+    out_table = raw.loc[target_metrics]
+    out_table = out_table[~out_table.index.duplicated()]
+
+    def str2float(x):
+        if type(x) == str:
+            if x.endswith('%'):
+                return float(x[:-1])/100
+            else:
+                return float(x)
+        else:
+            return x
+
+    out_table = out_table.transpose().applymap(str2float).round(4).astype(data_type_dict).transpose()
+    lower_limit = [-np.inf if x.lower() == "none" else float(x) for x in ref['lower_limit']]
+    upper_limit = [np.inf if x.lower() == "none" else float(x) for x in ref['upper_limit']]
     pass_lower = out_table.apply(lambda x: x >= lower_limit, axis=0)
     pass_upper = out_table.apply(lambda x: x <= upper_limit, axis=0)
     pass_state = pass_lower & pass_upper
@@ -744,10 +796,10 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
             print('  ',metric, '=', metric_value, 'out of range [{x[0]}, {x[1]}]'.format(x=list(limit)), file=out_log)
     out_log.close()
     # plot
-    pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x]
+    pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x or '%' in x]
     orders = ['ZERO_CVG_TARGETS_PCT'] + sorted(list(set(pct_cols)-{'ZERO_CVG_TARGETS_PCT'}))
     pct_data = out_table.loc[pct_cols, :].sort_values(by=orders, axis=1)
-    pct_data.to_csv(os.path.join(outdir, 'pct_metrics.xls'), index=True, header=True, sep='\t')
+    pct_data.to_csv(os.path.join(outdir, 'pct_metrics.csv'), encoding='utf_8_sig')
     traces = list()
     colors = get_color_pool(pct_data.shape[0])
     for metric, color in zip(pct_data.index, colors):
@@ -767,31 +819,33 @@ def merge_qc_metrics(files:list, ref_table, outdir=os.getcwd(), formats=('html',
     for sample, score in sorted(zip(pass_state.columns, pass_state.sum()), key=lambda x:x[1], reverse=True):
         if score > ref.shape[0]-failed_cutoff:
             passed_samples.append(sample)
-    pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x]
-    orders = ['ZERO_CVG_TARGETS_PCT'] + sorted(list(set(pct_cols) - {'ZERO_CVG_TARGETS_PCT'}))
-    pct_data = out_table.loc[pct_cols, passed_samples].sort_values(by=orders, axis=1)
-    pct_data.to_csv(os.path.join(outdir, 'filtered.pct_metrics.xls'), index=True, header=True, sep='\t')
-    traces = list()
-    colors = get_color_pool(pct_data.shape[0])
-    for metric, color in zip(pct_data.index, colors):
-        trace = go.Scatter(
-            x=pct_data.columns,
-            y=pct_data.loc[metric],
-            mode='lines',
-            name=metric,
-            marker=dict(color=color)
-        )
-        traces.append(trace)
-    fig = go.Figure(data=traces)
-    draw(fig, prefix="filtered_qc_percent_metric", outdir=outdir, formats=formats, height=height, width=width, scale=scale)
+    if passed_samples:
+        pct_cols = [x for x in out_table.index if '_PCT' in x or 'PCT_' in x or '%' in x]
+        orders = ['ZERO_CVG_TARGETS_PCT'] + sorted(list(set(pct_cols) - {'ZERO_CVG_TARGETS_PCT'}))
+        pct_data = out_table.loc[pct_cols, passed_samples].sort_values(by=orders, axis=1)
+        pct_data.to_csv(os.path.join(outdir, 'filtered.pct_metrics.xls'), index=True, header=True, sep='\t')
+        traces = list()
+        colors = get_color_pool(pct_data.shape[0])
+        for metric, color in zip(pct_data.index, colors):
+            trace = go.Scatter(
+                x=pct_data.columns,
+                y=pct_data.loc[metric],
+                mode='lines',
+                name=metric,
+                marker=dict(color=color)
+            )
+            traces.append(trace)
+        fig = go.Figure(data=traces)
+        draw(fig, prefix="filtered_qc_percent_metric", outdir=outdir,
+             formats=formats, height=height, width=width, scale=scale)
 
     # save result
     out_table.loc['Pass'] = 'Yes'
     out_table.loc['Pass', pass_state.sum() < ref.shape[0]-failed_cutoff+1] = 'No'
     out_table['describe'] = list(ref['Description']) + ['Pass QC filter']
     out_table.set_index('describe', inplace=True, append=True)
-    out_name = os.path.join(outdir, 'qc_summary.xls')
-    out_table.to_csv(out_name, index=True, header=True, sep='\t')
+    out_name = os.path.join(outdir, 'QC_Summary.csv')
+    out_table.to_csv(out_name, encoding='utf_8_sig')
 
 
 def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, limit=5, height:int=None, width:int=None, scale=3, desc=None):

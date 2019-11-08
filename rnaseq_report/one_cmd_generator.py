@@ -13,22 +13,6 @@ def gene_body_coverage(**kwargs):
     return cmd
 
 
-def fragment_length(**kwargs):
-    cmd = '{} '.format(kwargs['python'])
-    cmd += '{} '.format(kwargs['script'])
-    cmd += 'fragment_length '
-    cmd += '-files {} '.format(kwargs['files'])
-    cmd += '-outdir {} '.format(kwargs['outdir'])
-    cmd += '-formats {} '.format(kwargs['formats'])
-    cmd += '-scale {} '.format(kwargs['scale'])
-    cmd += '-height {} '.format(kwargs['height'])
-    cmd += '-width {} '.format(kwargs['width'])
-    cmd += '-min_len {} '.format(kwargs['min_len'])
-    cmd += '-max_len {} '.format(kwargs['max_len'])
-    cmd += '-desc "{}" '.format(kwargs['desc'])
-    return cmd
-
-
 def inner_distance(**kwargs):
     cmd = '{} '.format(kwargs['python'])
     cmd += '{} '.format(kwargs['script'])
@@ -140,42 +124,6 @@ def exp_density(**kwargs):
     return cmd
 
 
-def CollectAlignmentSummaryMetrics(**kwargs):
-    cmd = '{} '.format(kwargs['python'])
-    cmd += '{} '.format(kwargs['script'])
-    cmd += 'CollectAlignmentSummaryMetrics '
-    cmd += '-files {} '.format(kwargs['files'])
-    cmd += '-outdir {} '.format(kwargs['outdir'])
-    return cmd
-
-
-def CollectInsertSizeMetrics(**kwargs):
-    cmd = '{} '.format(kwargs['python'])
-    cmd += '{} '.format(kwargs['script'])
-    cmd += 'CollectInsertSizeMetrics '
-    cmd += '-files {} '.format(kwargs['files'])
-    cmd += '-outdir {} '.format(kwargs['outdir'])
-    return cmd
-
-
-def CollectRnaSeqMetrics(**kwargs):
-    cmd = '{} '.format(kwargs['python'])
-    cmd += '{} '.format(kwargs['script'])
-    cmd += 'CollectRnaSeqMetrics '
-    cmd += '-files {} '.format(kwargs['files'])
-    cmd += '-outdir {} '.format(kwargs['outdir'])
-    return cmd
-
-
-def CollectTargetedPcrMetrics(**kwargs):
-    cmd = '{} '.format(kwargs['python'])
-    cmd += '{} '.format(kwargs['script'])
-    cmd += 'CollectTargetedPcrMetrics '
-    cmd += '-files {} '.format(kwargs['files'])
-    cmd += '-outdir {} '.format(kwargs['outdir'])
-    return cmd
-
-
 def sample_correlation(**kwargs):
     cmd = '{} '.format(kwargs['python'])
     cmd += '{} '.format(kwargs['script'])
@@ -202,16 +150,16 @@ def sample_correlation(**kwargs):
     return cmd
 
 
-def make_slider(**kwargs):
+def merge_qc_metrics(**kwargs):
     cmd = '{} '.format(kwargs['python'])
     cmd += '{} '.format(kwargs['script'])
-    cmd += 'make_slider '
-    cmd += '-images {} '.format(kwargs['images'])
-    if kwargs['image_ids']:
-        cmd += '-image_ids {} '.format(kwargs['image_ids'])
-    cmd += '-image_desc "{}" '.format(kwargs['image_desc'])
-    cmd += '-template {} '.format(kwargs['template'])
-    cmd += '-out {} '.format(kwargs['out'])
-    if kwargs['link_images'] != 'no' and kwargs['link_images']:
-        cmd += '--link_images {} '
+    cmd += 'MergeMetrics '
+    cmd += '-project_outdir {} '.format(kwargs['project_outdir'])
+    cmd += '-filter_ref {} '.format(kwargs['filter_ref'])
+    cmd += '-failed_cutoff {} '.format(kwargs['failed_cutoff'])
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-formats {} '.format(kwargs['formats'])
+    cmd += '-scale {} '.format(kwargs['scale'])
+    cmd += '-height {} '.format(kwargs['height'])
+    cmd += '-width {} '.format(kwargs['width'])
     return cmd

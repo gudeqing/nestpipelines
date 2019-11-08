@@ -9,7 +9,7 @@ from collections import OrderedDict as dict
 import pandas as pd
 
 
-def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls', 'svg'),
+def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 'png', 'xls', 'csv', 'svg'),
                     out='report.yml'):
     exclude_dirs = exclude_dirs if exclude_dirs else list()
     modules = os.listdir(result_dir)
@@ -44,10 +44,10 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                 continue
             else:
                 cfg_dict[module]['slider_' + str(ind)] = {'name': slide}
-            images = [x for x in images if not x.endswith(('xls'))] + [x for x in images if x.endswith(('xls'))]
+            images = [x for x in images if not x.endswith(('xls', 'csv'))] + [x for x in images if x.endswith(('xls', 'csv'))]
 
             # delete existed html for *xls
-            possible_html = [x[:-3]+'html' for x in images if x.endswith(('xls'))]
+            possible_html = [x[:-3]+'html' for x in images if x.endswith(('xls', 'csv'))]
             images = [x for x in images if x not in possible_html]
 
             cfg_dict[module]['slider_' + str(ind)]['content'] = dict()
@@ -61,7 +61,7 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                 img_info['desc'] = desc.replace('\n', '<br>')
                 img_info['path'] = join(slid_dir, slide, img)
                 img_info['frmt'] = img.rsplit('.', 1)[1]
-                if img_info['frmt'] in ['xls']:
+                if img_info['frmt'] in ['xls', 'csv']:
                     # img_info['name'] += "<object>(<a href='{}'>Download Source Table</a>)</object>".format(
                     #     path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
                     # )
@@ -218,7 +218,7 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=5
     header = 0 if header is None else [int(x) for x in header]
     index_col = 0 if index_col is None else [int(x) for x in index_col]
     for table in table_file:
-        data = pd.read_csv(table, header=header, index_col=index_col, sep='\t')
+        data = pd.read_csv(table, header=header, index_col=index_col, sep=None, engine='python')
         if transpose:
             data = data.transpose()
         use_cols = use_cols if use_cols is not None else data.columns
