@@ -82,7 +82,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def mageck_count(self, depend_cmds:dict, step_name='mageck_count'):
+    def mageck_count(self, depend_cmds:dict, step_name='MageckCount'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -114,7 +114,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def mageck_count_with_rawfastq(self, fastq_info, step_name='mageck_rawcount'):
+    def mageck_count_with_rawfastq(self, fastq_info, step_name='MageckRawCount'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -146,7 +146,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def bowtie2_index(self, step_name='bowtie2_index'):
+    def bowtie2_index(self, step_name='bowtie2Index'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -163,7 +163,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def bowtie2_align(self, depend_cmds, depend_index_cmd, step_name='bowtie2_align'):
+    def bowtie2_align(self, depend_cmds, depend_index_cmd, step_name='bowtie2Align'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
@@ -190,7 +190,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def mageck_count_with_bam(self, depend_cmds:dict, step_name='mageck_bamcount'):
+    def mageck_count_with_bam(self, depend_cmds:dict, step_name='MageckBamCount'):
         commands = dict()
         outdir = os.path.join(self.project_dir, step_name)
         self.mkdir(outdir)
