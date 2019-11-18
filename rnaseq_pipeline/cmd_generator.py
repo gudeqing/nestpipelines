@@ -529,6 +529,26 @@ def VariantFiltration(**kwargs):
     return cmd
 
 
+def annovar(**kwargs):
+    cmd = '{} '.format(kwargs['perl'])
+    cmd += '{} '.format(kwargs['annovar'])
+    cmd += '{} '.format(kwargs['input'])
+    cmd += '{} '.format(kwargs['database_path'])
+    cmd += '-buildver {} '.format(kwargs['buildver'])
+    cmd += '-outfile {} '.format(kwargs['outfile'])
+    cmd += '-nastring {} '.format(kwargs['nastring'])
+    if kwargs['remove'] == 'yes':
+        cmd += '-remove '
+    if kwargs['vcfinput'] == 'yes':
+        cmd += '-vcfinput '
+    if kwargs['polish'] == 'yes':
+        cmd += '-polish '
+    cmd += '-protocol {} '.format(kwargs['protocol'])
+    cmd += '-operation {} '.format(kwargs['operation'])
+    cmd += '-argument {} '.format(kwargs['argument'])
+    return cmd
+
+
 def MapSplice(**kwargs):
     cmd = '{} '.format(kwargs['python2'])
     cmd += '{} '.format(kwargs['mapsplice'])

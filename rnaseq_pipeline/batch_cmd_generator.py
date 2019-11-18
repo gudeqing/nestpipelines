@@ -1122,3 +1122,25 @@ class NestedCmd(Basic):
             )
         self.workflow.update(commands)
         return commands
+
+    def annovar_cmds(self, depend_cmds, step_name='AnnotateVariation'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['annovar'])
+        for step, cmd_info in depend_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['output']
+            args['outfile'] = os.path.join(out_dir, sample)
+            cmd = cmdx.annovar(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['outfile'],
+                sample_name=sample,
+                mem=1024 ** 3 * 4,
+                cpu=2,
+                monitor_time_step=5
+            )
+        self.workflow.update(commands)
+        return commands
