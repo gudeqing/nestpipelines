@@ -72,4 +72,4 @@ def tcr_venn(metadata, label_field, factor_field, outdir=None):
 
 if __name__ == '__main__':
     from xcmds import xcmds
-    xcmds.xcmds(locals(), include=['tcr_venn'])
+    xcmds.xcmds(locals(), include=['tcr_venn'], log=False)

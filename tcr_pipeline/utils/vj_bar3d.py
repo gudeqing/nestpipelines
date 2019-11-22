@@ -56,4 +56,4 @@ def bar3dplot(data, out='bar3d.png', width=12, height=9):
 
 if __name__ == '__main__':
     from xcmds import xcmds
-    xcmds.xcmds(locals(), include=['bar3dplot'])
+    xcmds.xcmds(locals(), include=['bar3dplot'], log=False)
