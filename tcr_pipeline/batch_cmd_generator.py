@@ -28,7 +28,7 @@ class NestedCmd(Basic):
             raise Exception('please provide valid cmd_name, refer --list_cmd_names')
         exec("print(cmdx.{}(**self.arg_pool['{}']))".format(cmd_name, cmd_name))
 
-    def CalcBasicStats_cmds(self, step_name='1.BasicStat', main_step_name='1.BasicStats'):
+    def CalcBasicStats_cmds(self, step_name='1.BasicStat', main_step_name='1.QC'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -50,7 +50,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CalcSegmentUsage_cmds(self, step_name='2.SegmentUsage', main_step_name='1.BasicStats'):
+    def CalcSegmentUsage_cmds(self, step_name='1.VJ-freq-heatmap', main_step_name='3.VJ-Usage'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -72,7 +72,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CalcSpectratype_cmds(self, step_name='3.Spectratype', main_step_name='1.BasicStats'):
+    def CalcSpectratype_cmds(self, step_name='Spectratype', main_step_name='OtherStats'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -94,7 +94,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def PlotFancySpectratype_cmds(self, step_name='4.PlotSpectratype', main_step_name='1.BasicStats'):
+    def PlotFancySpectratype_cmds(self, step_name='1.CDR3Distribution', main_step_name='4.CDR3Stat'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -120,7 +120,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def PlotFancyVJUsage_cmds(self, step_name='5.VJUsage', main_step_name='1.BasicStats'):
+    def PlotFancyVJUsage_cmds(self, step_name='2.VJ-pair-circos', main_step_name='3.VJ-Usage'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -147,7 +147,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def Plot3dVJUsage_cmds(self, depend_cmds, step_name='7.Bar3dVJUsage', main_step_name='1.BasicStats'):
+    def Plot3dVJUsage_cmds(self, depend_cmds, step_name='3.VJ-pair-bar3d', main_step_name='3.VJ-Usage'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -170,7 +170,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def PlotCDRVenn_cmds(self, step_name='8.PlotCDRVenn', main_step_name='1.BasicStats'):
+    def PlotCDRVenn_cmds(self, step_name='2.CDR3Overlap', main_step_name='4.CDR3Stat'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -188,7 +188,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def PlotSpectratypeV_cmds(self, step_name='6.PlotSpectratypeV', main_step_name='1.BasicStats'):
+    def PlotSpectratypeV_cmds(self, step_name='4.V-freq-bar', main_step_name='3.VJ-Usage'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -214,7 +214,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def PlotQuantileStats_cmds(self, step_name='1.PlotQuantileStats', main_step_name='2.Diversity'):
+    def PlotQuantileStats_cmds(self, step_name='PlotQuantileStats', main_step_name='OtherStats'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -262,7 +262,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CalcDiversityStats_cmds(self, step_name='3.DiversityStats', main_step_name='2.Diversity'):
+    def CalcDiversityStats_cmds(self, step_name='1.DiversitySummary', main_step_name='2.Diversity'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -284,7 +284,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CalcPairwiseDistances_cmds(self, step_name='1.PairwiseDistances', main_step_name='3.Cluster'):
+    def CalcPairwiseDistances_cmds(self, step_name='2.PairwiseDistances', main_step_name='5.Cluster'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
@@ -306,7 +306,7 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def ClusterSamples_cmds(self, depend_cmd, step_name='2.ClusterSamples', main_step_name='3.Cluster'):
+    def ClusterSamples_cmds(self, depend_cmd, step_name='1.ClusterSamples', main_step_name='5.Cluster'):
         commands = dict()
         outdir = os.path.join(self.project_dir, main_step_name)
         self.mkdir(outdir)
