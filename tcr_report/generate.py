@@ -1,4 +1,5 @@
 import os
+from glob import glob
 import pandas as pd
 import configparser
 from docx import Document
@@ -7,12 +8,16 @@ from docx.oxml.ns import qn
 from docx.enum.style import WD_STYLE_TYPE
 import fitz  # from pyMuPdf package
 from PIL import Image, ImageChops
+import time
 
-
-config = configparser.RawConfigParser()
+if not os.path.exists('content.ini'):
+    print('find no file named content.ini!')
+    print('你可以复制和修改 /data/users/dqgu/PycharmProjects/nestcmd/tcr_report/content.ini')
+    exit()
+config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 config.optionxform = str
-config.read("content.ini", encoding='utf-8')
 
+config.read("content.ini", encoding='utf-8')
 
 document = Document()
 style = document.styles['Normal']
@@ -45,7 +50,7 @@ if config['header']['text']:
     paragraph.text = config['footer']['text']
     paragraph.alignment = 1
 
-# cover
+# set cover
 subject = document.add_heading(config['cover']['subject'], 0)
 subject.alignment = 1
 fig = document.add_picture(config['cover']['logo'], width=Inches(2))
@@ -92,7 +97,7 @@ def add_table(document, data, top=None):
             data['...'] = '...'
             data = data[list(cols)[:5] + ['...'] + list(cols)[-5:]]
 
-    table = document.add_table(rows=(data.shape[0]+1), cols=data.shape[1], style='Colorful List Accent 3')
+    table = document.add_table(rows=(data.shape[0]+1), cols=data.shape[1], style='Medium Shading 1 Accent 1')
     table.alignment = 1
     table.style.font.size = Pt(8)
     table.autofit = False
@@ -121,8 +126,8 @@ for chapter in chapters:
     title = document.add_heading('', level=level).add_run(heading)
     title.font.name = u'微软雅黑'
     title._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
-
-    for i in range(1, sum(x.startswith('p') for x in content)):
+    print(f'Format section of <{chapter}>')
+    for i in range(1, 1+sum(x.startswith('p') for x in content)):
         key = 'p'+str(i)
         if key in content:
             if heading == "关键术语":
@@ -135,8 +140,9 @@ for chapter in chapters:
                 pf = p.paragraph_format
                 pf.first_line_indent = Pt(18)
             if key + '_img' in content:
-                figure = content[key+'_img']
-                if os.path.exists(figure):
+                figure = glob(content[key+'_img'])
+                if figure:
+                    figure = figure[0]
                     if figure.endswith('.pdf'):
                         figure = pdf2png(figure)
                     figure = trim_white_around(figure)
@@ -148,18 +154,22 @@ for chapter in chapters:
                     graphs.append(figure)
                     if key + '_img_caption' in content:
                         caption = '图{} '.format(len(graphs)) + content[key + '_img_caption']
+                        if '{sample_name}' in caption:
+                            sample_name = os.path.basename(figure).split('.', 1)[0]
+                            caption = caption.replace('{sample_name}', sample_name)
                         p = document.add_paragraph(caption, style='Caption')
                         p.alignment = 1
                 else:
-                    print(key+'_img of', chapter, 'will not be added for cannot find it')
+                    print(key+'_img of', chapter, 'will not be added for cannot find it', content[key+'_img'])
 
             if key+'_table' in content:
-                table = content[key+'_table']
+                table = glob(content[key+'_table'])
                 if key + '_table_title' in content:
                     title = '表{} '.format(len(tables)+1) + content[key+'_table_title']
                     p = document.add_paragraph(title, style='Caption')
                     p.alignment = 1
-                if os.path.exists(table):
+                if table:
+                    table = table[0]
                     if key+'_table_display' in content:
                         top = int(content[key+'_table_display'])
                     else:
@@ -169,6 +179,6 @@ for chapter in chapters:
                 if key+'_table_caption' in content:
                     caption = '[Note] ' + content[key + '_table_caption']
                     p = document.add_paragraph(caption, style='Caption')
-
-document.save('demo.docx')
+time_stamp = time.strftime("%Y%m%d", time.localtime())
+document.save(f'Report.{time_stamp}.docx')
 
