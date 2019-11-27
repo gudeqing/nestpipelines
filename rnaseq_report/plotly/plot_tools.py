@@ -720,7 +720,7 @@ def CollectStarAlignmentMetrics(log_files: list, outdir=os.getcwd()):
             uniq_map = float(result['Uniquely mapped reads %'][:-1])
             multi_map = float(result['% of reads mapped to multiple loci'][:-1])
             too_many_map = float(result['% of reads mapped to too many loci'][:-1])
-            result['MappingRate'] =  (uniq_map + multi_map + too_many_map)*0.01
+            result['PCT_mapped_reads'] =  (uniq_map + multi_map + too_many_map)*0.01
             results.append(result)
     df = pd.DataFrame(results).set_index('sample')
     outfile = os.path.join(outdir, 'star_alignment_stat.csv')
@@ -757,7 +757,7 @@ def MergeMetrics(project_outdir, filter_ref, outdir=os.getcwd(), formats=('html'
     raw = pd.concat([x.transpose() for x in metric_dfs], sort=False)
     raw.columns = [name_dict[x] if x in name_dict else x for x in raw.columns]
     raw.index.name = 'Metrics'
-    raw.to_csv(os.path.join(outdir, 'MergedMetrics.txt'))
+    raw.to_csv(os.path.join(outdir, 'MergedMetrics.csv'))
 
     # filter and annotate metrics
     ref = pd.read_table(filter_ref, index_col=0, header=0)
