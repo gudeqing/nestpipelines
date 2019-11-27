@@ -720,7 +720,7 @@ def CollectStarAlignmentMetrics(log_files: list, outdir=os.getcwd()):
             uniq_map = float(result['Uniquely mapped reads %'][:-1])
             multi_map = float(result['% of reads mapped to multiple loci'][:-1])
             too_many_map = float(result['% of reads mapped to too many loci'][:-1])
-            result['MappingRate'] =  uniq_map + multi_map + too_many_map
+            result['MappingRate'] =  (uniq_map + multi_map + too_many_map)*0.01
             results.append(result)
     df = pd.DataFrame(results).set_index('sample')
     outfile = os.path.join(outdir, 'star_alignment_stat.csv')
