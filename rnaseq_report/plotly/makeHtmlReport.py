@@ -66,16 +66,27 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                     #     path.relpath(path.abspath(img_info['path']), start=path.abspath(slid_dir))
                     # )
                     use_cols = None
-                    if path.exists(img_info['path']+'.describe.txt'):
-                        with open(img_info['path']+'.describe.txt') as f:
-                            desc = f.readlines()
-                        if desc[0].startswith('display_columns'):
-                            use_cols = [x.strip() for x in desc[0].split('display_columns:', 1)[1].strip().split(';')]
-                            desc = desc[1:]
+                    desc = list()
+                    search_cols = None
+                    if path.exists(desc_file):
+                        with open(desc_file) as f:
+                            for line in f:
+                                if line.startswith('#'):
+                                    if line.startswith('#display_columns:'):
+                                        cols = line.split('display_columns:', 1)[1].strip().split(';')
+                                        use_cols = [x.strip() for x in cols]
+                                    elif line.startswith('#search_columns:'):
+                                        cols = line.split('search_columns:', 1)[1].strip().split(';')
+                                        search_cols = [x.strip() for x in cols]
+                                else:
+                                    desc.append(line.strip())
+                        desc = [x for x in desc if not x.startswith('#')]
                         img_info['desc'] = '<br>'.join(desc)
+
                     table_img = table2html(
                         [img_info['path']],
                         use_cols=use_cols,
+                        search_cols=search_cols,
                         title=path.basename(img_info['path'])
                     )
                     img_info['path'] = table_img[0]
@@ -278,11 +289,19 @@ def make_report(cfg_from, report_dir=None, link_images=False, exclude_dirs:list=
                 image_formats:tuple=('html', 'png', 'xls', 'csv', 'svg')):
     """
     make html slider
-    :param cfg_from: 结果目录或生成报告的配置文件, 如果提供结果目录, 则自动从结果目录生成Report configuration文件
+    :param cfg_from: 结果目录或生成报告的配置文件. 如果提供的是结果目录, 则自动从结果目录生成需要的文件,这个过程大致如下:
+        1.要求这个目录结构类似: current_dir -> module -> section -> file
+        2.报告将使用module作为slider的章节名，而section作为小节名，展示具体的file内容
+        3.当遇到的file是图片时, 则搜索是否存在一个叫{file}.describe.txt的文件, 并将该文件的内容做为对图片的描述展示到slider中图片的下方
+        4.当遇到的file是表格时, 则搜索是否存在一个叫{file}.describe.txt的文件, 并将该文件的内容作为对表格的描述;
+            而且, 遇到类似以"#display_columns: col1;col2"开头的行时, 则从表格中提取col1和col2等列作为制作html表格的内容;
+            遇到类似"#search_columns: 0;1"开头的行时, 则允许在html中搜索第一列和第二列
+        5.如果module以'2.'等数字开头，这里面的数字将决定slider的顺序
     :param report_dir: 报告输出目录，默认为当前目录
     :param link_images: 若设置，则把图片软链接到报告目录，默认不做软链接
-    :param exclude_dirs: 排除指定目录，使其不参与报告制作，当cfg_from为结果目录时，该参数有效
-    :param image_formats: 指定可以用于制作报告的图片格式，后续将根据文件后缀是否与之匹配决定提取的图片，当cfg_from为结果目录时，该参数有效
+    :param exclude_dirs: 排除指定目录，使其不参与报告制作，仅当cfg_from为结果目录时，该参数有效
+    :param image_formats: 指定可以用于制作报告的图片或表格的格式，后续将根据文件后缀是否与之匹配决定制作报告的内容,
+        仅当cfg_from为结果目录时，该参数有效，默认为:('html', 'png', 'pdf', 'xls', 'csv', 'svg')
     :return:
     """
     report_dir = os.getcwd() if report_dir is None else report_dir
