@@ -943,12 +943,20 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
 
 
 def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), gene_annot=None, use_pval=False,
-                            color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3, desc=None):
+                            color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
     p_type = 'p_uncorrected' if use_pval else 'p_corrected'
+    descs = [
+        "富集泡泡图：图中显示属于BP(biological process) 且排名前20的显著富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n",
+        "富集泡泡图：图中显示属于CC(celluar component) 且排名前20的显著富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n",
+        "富集泡泡图：图中显示属于MF(molecular function) 且排名前20的显著富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n"
+    ]
+    table_desc = "#display_columns: NS;name;ratio_in_study;ratio_in_pop;p_fdr_bh\nGene Ontology富集分析结果表头说明：GO：GO ID；NS：当前条目的类型，有BP(biological process)和CC(celluar component)和MF(molecular function)三种；enrichment: e表示富集(enriched)，p表示未富集(purified)；name：条目名；ratio_in_study：分母表示有GO注释的差异基因数目，分子表示其中又属于当前条目的基因数；ratio_in_pop：分母表示有GO注释的所有基因，称之为背景基因，分子表示背景基因中又属于当前条目的基因数；p_uncoorected: fisher检验得到的pvalue; depth: 表示当前条目在GO层级树中所处的最低层级数，层级数越低，则描述信息越具体或功能越明确；study_count: 属于当前条目的差异基因数；p_fdr_bh：表示BH校正的后的pvalue；study_items：记录属于当前条目的基因信息，down和up分别表示上下调信息。\n"
     for table in files:
+        with open(table+'.describe.txt', 'w') as f:
+            f.write(table_desc)
         df_big = pd.read_table(table, index_col=0, header=0)
-        for each in ['BP', 'CC', 'MF']:
+        for each, desc in zip(['BP', 'CC', 'MF'], descs):
             prefix = os.path.basename(table)[:-4]
             df = df_big[df_big['NS']==each].sort_values(by=[p_type]).head(top)
             gene_number = [int(x.split('/')[0]) for x in df['ratio_in_study']]
@@ -1013,10 +1021,14 @@ def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), 
 
 
 def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, use_pval=False,
-                              gene_annot=None, color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3, desc=None):
+                              gene_annot=None, color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
+    desc = "富集泡泡图：图中显示排名前20的显著（fdr<=0.05)富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有pathway注释的差异基因中有多少比例是属于当前pathway的，而分母表示背景基因（即当前物种所有有pathway注释的基因）中有多少比例是属于当前pathway的，富集率越高，表示富集越显著；纵坐标为pathway名称；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在kegg pathway官网的信息页面，我们利用kegg提供的渲染功能对pathway中的节点背景颜色进行部分更改，其中红色背景的节点表示关联的基因全部上调，而绿色背景的节点表示其关联的基因全部下调，当某个节点关联的基因既有上调又有下调的基因时，则标注为黄色，这种情况比较少见。\n"
     p_type = 'P-Value' if use_pval else 'Corrected P-Value'
+    table_desc = '#display_columns: ID;Ratio_in_study;Ratio_in_pop;Corrected P-Value;typeII;typeI;\nKEGG pathway富集分析结果表 Term：pathway的名称；DataBase：使用通路数据库，ID：Pathway ID；Ratio_in_study：分母表示有pathway注释的差异基因数目，分子表示其中又属于当前pathway的基因数；Ratio_in_pop：分母表示有pathway注释的所有基因，称之为背景基因，分子表示背景基因中又属于当前pathway的基因数；P-Value: fisher检验得到的pvalue; Corrected Pvalue：表示BH校正的后的pvalue；Genes：记录属于当前pathway的基因信息，其中down和up分别表示上下调信息；Hyperlink：KEGG pathway链接，我们利用kegg提供的渲染功能对pathway中的节点背景颜色进行部分更改，其中红色背景的节点表示关联的基因全部上调，而绿色背景的节点表示其关联的基因全部下调，当某个节点关联的基因既有上调又有下调的基因时，则标注为黄色，这种情况比较少见；typeII：当前通路的二级分类；typeI：当前通路的一级分类，具体请参见<a href="https://www.genome.jp/kegg/pathway.html">KEGG</a>.\n'
     for table in files:
+        with open(table+'.describe.txt', 'w') as f:
+            f.write(table_desc)
         prefix = os.path.basename(table)[:-4]
         # df0 = pd.read_table(table, index_col=0, header=0, nrows=top)
         df = pd.read_table(table, index_col=0, header=0)
