@@ -24,6 +24,7 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
         print('warn: cannot determine report module order; If order needed, please add "order." before directory name')
     cfg_dict = dict()
     for module in modules:
+        print(f'Search in {module}')
         slid_dir = join(result_dir, module)
         slides = [x for x in os.listdir(slid_dir) if path.isdir(join(slid_dir, x))]
         try:
@@ -74,10 +75,10 @@ def make_report_cfg(result_dir, exclude_dirs: list=None, image_formats=('html', 
                                 if line.startswith('#'):
                                     if line.startswith('#display_columns:'):
                                         cols = line.split('display_columns:', 1)[1].strip().split(';')
-                                        use_cols = [x.strip() for x in cols]
+                                        use_cols = [x.strip() for x in cols if x.strip()]
                                     elif line.startswith('#search_columns:'):
                                         cols = line.split('search_columns:', 1)[1].strip().split(';')
-                                        search_cols = [x.strip() for x in cols]
+                                        search_cols = [x.strip() for x in cols if x.strip()]
                                 else:
                                     desc.append(line.strip())
                         desc = [x for x in desc if not x.startswith('#')]
@@ -146,6 +147,9 @@ def make_slider(images:list, image_ids:list=None, image_desc:list=None, template
     img_cls = ["slide"]*len(images)
     img_cls[0] = "slide slide--current"
     for img, img_id, desc, tag in zip(images, image_ids, image_desc, img_cls):
+        if img_id in img_info_dict:
+            print(f'{img_id} duplicated, will add "." to distinguish ')
+            img_id += '.'
         img_info_dict[img_id] = dict()
         img_info_dict[img_id]['path'] = os.path.relpath(os.path.abspath(img), start=os.path.abspath(out_dir))
         img_info_dict[img_id]['cls'] = tag
@@ -234,6 +238,9 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=5
             data = data.transpose()
         use_cols = use_cols if use_cols is not None else data.columns
         use_rows = use_rows if use_rows is not None else data.index
+        for each in use_cols:
+            if each not in data.columns:
+                raise Exception(each+' not found in columns of '+table)
         data = data.loc[use_rows, use_cols]
         top = data.shape[0] if use_rows is None else top
         df = data.iloc[:top, :]
@@ -317,6 +324,7 @@ def make_report(cfg_from, report_dir=None, link_images=False, exclude_dirs:list=
     slide_template = join(html_utils_dir, 'templates', 'slide.jinja2')
     report_dict = dict()
     for module in cfg_dict:
+        print(f'make slider for {module}')
         report_dict[module] = dict()
         for slider in cfg_dict[module]:
             slider = cfg_dict[module][slider]
