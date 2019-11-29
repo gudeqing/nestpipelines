@@ -846,6 +846,28 @@ def MergeMetrics(project_outdir, filter_ref, outdir=os.getcwd(), formats=('html'
     out_table.set_index('describe', inplace=True, append=True)
     out_name = os.path.join(outdir, 'QC_Summary.csv')
     out_table.to_csv(out_name, encoding='utf_8_sig')
+    # save result2
+    target_metrics =[
+        'Number of input reads',
+        'PCT_mapped_reads',
+        'Average input read length',
+        'Uniquely mapped reads number',
+        'Uniquely mapped reads %',
+        'Number of reads mapped to multiple loci',
+        '% of reads mapped to multiple loci',
+        'Duplication_rate',
+        'PF_ALIGNED_BASES',
+        'PCT_RIBOSOMAL_BASES',
+        'PCT_CODING_BASES',
+        'PCT_INTERGENIC_BASES',
+        'PCT_INTRONIC_BASES',
+        'PCT_UTR_BASES',
+        'PCT_MRNA_BASES',
+        'MEDIAN_3PRIME_BIAS',
+        'MEDIAN_5PRIME_BIAS'
+    ]
+    out_name = os.path.join(outdir, 'QC_ReportSummary.csv')
+    out_table.loc[target_metrics, :].to_csv(out_name, encoding='utf_8_sig')
 
 
 def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, limit=5, height:int=None, width:int=None, scale=3):
