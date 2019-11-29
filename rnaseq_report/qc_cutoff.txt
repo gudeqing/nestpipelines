@@ -9,7 +9,7 @@ Number of reads mapped to multiple loci	多重比对（<=20) paired-reads数目	
 Number of reads mapped to too many loci	能比对到基因组的位置数超过20的read数	read	int	none	none
 % of reads mapped to too many loci	能比对到基因组的位置数超过20的read总占比	percent	float	0	0.15
 % of reads unmapped: too many mismatches	由于错配太多而无法比对到基因组的read总占比	percent	float	none	none
-% of reads unmapped: too short	不能比较好地比对到参考基因组的reads总占比，一条read的比对质量差的原因主要有两种，一种是trimmed后的序列太短，第二种是read中能比对到参考基因组的部分占整条read的比例太少，如150bp的read中仅有50个碱基能比对到参考基因组。	percent	float	none	none
+% of reads unmapped: too short	不能较好地比对到参考基因组的reads总占比，一条read的比对质量差的原因主要有两种，一种是trimmed后的序列太短，第二种是read中能比对到参考基因组的部分占整条read的比例太少，如150bp的read中仅有50个碱基能比对到参考基因组。	percent	float	none	none
 % of reads unmapped: other	由于其他原因而不能比对到参考基因组的read总占比	percent	float	none	none
 STRAND_BALANCE	比对平衡率，比对到正链的reads的总占比	percent	float	0.45	0.55
 Duplication_rate	重复reads总占比，如果两条reads比对到基因组的位置是一样的，则认为是重复(duplication)的	percent	float	0	0.75
