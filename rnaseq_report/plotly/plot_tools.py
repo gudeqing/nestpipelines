@@ -870,7 +870,9 @@ def MergeMetrics(project_outdir, filter_ref, outdir=os.getcwd(), formats=('html'
     out_table.loc[target_metrics, :].to_csv(out_name, encoding='utf_8_sig')
 
 
-def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, limit=5, height:int=None, width:int=None, scale=3):
+def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None,
+                 fc_cutoff=2.0, sig_type='corrected_pvalue', pvalue_cutoff=0.05, # 用于描述,不重新筛选
+                 limit=8, height:int=None, width:int=None, scale=3):
     """
     :param files:
     :param outdir:
@@ -882,15 +884,22 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
     :return:
     """
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
-    table_desc = "#display_columns: gene_symbol;log2fc;pvalue;padjust;significant;regulate;genecards\n#search_columns: 0;1\n差异分析结果表头说明：seq_id:Ensembl gene id; log2fc：经过log2转换的差异倍数； pvalue：该值越小，表示差异越显著；	padjust：经过BH检验的pvalue；significant：表示是否显著，阈值为|log2fc|>=1且padjust<=0.05；regulate：up表示上调，down表示下调；gene_symbol：基因名简称；genecards：gene在genecards网站的链接；*_count: raw count；*_normalized：经过标准化的表达值。\n"
+    table_desc = f"#display_columns: gene_symbol;log2fc;pvalue;padjust;significant;regulate;genecards\n#search_columns: 0;1\n差异分析结果表头说明：seq_id:Ensembl gene id; log2fc：经过log2转换的差异倍数； pvalue：该值越小，表示差异越显著；	padjust：经过BH校正的pvalue, 如果该值为untested，表示该基因对应的count数目太少，统计学意义不大；significant：表示是否显著，阈值为|fc|>={fc_cutoff}且{sig_type}<={pvalue_cutoff}；regulate：up表示上调，down表示下调；gene_symbol：基因名简称；genecards：gene在genecards网站的链接；*_count: raw count；*_normalized：经过标准化的表达值。\n"
     volcano_desc = "展示差异基因分析结果的火山图:横坐标为差异倍数进行log2转换后的值，纵坐标为使用BH方法校正后的pvalue进行-log10转换后的值；红色点表示实验组/对照组的上调的基因，绿色点则表示下调的基因，灰色的点表示无显著变化的基因。图中仅展示经过差异检验的基因，不展示其他未检测到或不符合检验条件的基因。"
+    p_type = 'padjust' if sig_type != 'pvalue' else 'pvalue'
+    def pvalStr2Float(x):
+        try:
+            return float(x)
+        except:
+            return 1
     for table in files:
         with open(table + '.describe.txt', 'w') as f:
             f.write(table_desc)
         ctrl, test = re.fullmatch(r'(.*)_vs_(.*?)\..*.xls', os.path.basename(table)).groups()
         df = pd.read_table(table, index_col=0, header=0)
+        df[p_type] = df[p_type].apply(pvalStr2Float)
         exp_columns = [x for x in df.columns if x.lower().endswith(('tpm', 'fpkm', 'normalized'))]
-        target_columns = exp_columns + ['log2fc', 'padjust', 'significant', 'regulate']
+        target_columns = exp_columns + ['log2fc', p_type, 'significant', 'regulate']
         df = df.loc[:, target_columns]
         df = df[df['regulate'] != 'untested']
         if exp_columns:
@@ -900,11 +909,11 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
         fc_lower_limit = fc_desc['25%'] - (fc_desc['75%'] - fc_desc['25%'])*limit
         df.loc[(df['log2fc'] >= fc_upper_limit), ['log2fc']] = fc_upper_limit
         df.loc[(df['log2fc'] <= fc_lower_limit), ['log2fc']] = fc_lower_limit
-        df.loc[df['padjust'] == 0, 'padjust'] = df[df['padjust'] > 0]['padjust'].min()
-        df['padjust'] = -np.log10(df['padjust'])
-        p_desc = df['padjust'].describe()
+        df.loc[df[p_type] == 0, p_type] = df[df[p_type] > 0][p_type].min()
+        df[p_type] = -np.log10(df[p_type])
+        p_desc = df[p_type].describe()
         p_limit = p_desc['75%'] + (p_desc['75%'] - p_desc['25%'])*limit
-        df.loc[(df['padjust'] >= p_limit), 'padjust'] = p_limit
+        df.loc[(df[p_type] >= p_limit), p_type] = p_limit
 
         df['colors'] = 'grey'
         df.loc[((df['significant'] == 'yes') & (df['regulate'] == 'up')), 'colors'] = 'red'
@@ -914,7 +923,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
         tmp_df = df[df['colors'] == 'grey']
         trace = go.Scatter(
             x=tmp_df['log2fc'],
-            y=tmp_df['padjust'],
+            y=tmp_df[p_type],
             mode='markers',
             marker=dict(
                 color='grey',
@@ -927,7 +936,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
         tmp_df = df[df['colors'] == 'green']
         trace2 = go.Scatter(
             x=tmp_df['log2fc'],
-            y=tmp_df['padjust'],
+            y=tmp_df[p_type],
             mode='markers',
             text=[gene_annot[x] if x in gene_annot else x for x in tmp_df.index],
             hoverinfo='text+x+y',
@@ -942,7 +951,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
         tmp_df = df[df['colors'] == 'red']
         trace3 = go.Scatter(
             x=tmp_df['log2fc'],
-            y=tmp_df['padjust'],
+            y=tmp_df[p_type],
             mode='markers',
             text=[gene_annot[x] if x in gene_annot else x for x in tmp_df.index],
             hoverinfo='text+x+y',
@@ -960,7 +969,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None, li
             # margin=dict(t=25, l=10, r=10, b=10),
             showlegend=True,
             xaxis=dict(title='log2FC'),
-            yaxis=dict(title='-log10(adjusted_P-value)'),
+            yaxis=dict(title=f'-log10({sig_type})'),
             hovermode='closest',
         )
 
@@ -974,13 +983,13 @@ def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), 
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
     p_type = 'p_uncorrected' if use_pval else 'p_corrected'
     descs = [
-        "富集泡泡图：图中显示属于BP(biological process) 且排名前20的显著富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n",
-        "富集泡泡图：图中显示属于CC(celluar component) 且排名前20的显著富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n",
-        "富集泡泡图：图中显示属于MF(molecular function) 且排名前20的显著富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n"
+        "富集泡泡图：图中显示属于BP(biological process) 且排名前20的富集条目(根据pvalue排序)；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n",
+        "富集泡泡图：图中显示属于CC(celluar component) 且排名前20的富集条目(根据pvalue排序)；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n",
+        "富集泡泡图：图中显示属于MF(molecular function) 且排名前20的富集条目(根据pvalue排序)；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有GO注释的差异基因中有多少比例是属于当前条目的，而分母表示背景基因（即当前物种所有有GO注释的基因）中有多少比例是属于当前条目，富集率越高，表示富集越显著；纵坐标表示条目名；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在GO官网的信息页面。\n"
     ]
-    table_desc = "#display_columns: NS;name;ratio_in_study;ratio_in_pop;p_corrected\nGene Ontology富集分析结果表头说明：GO：GO ID；NS：当前条目的类型，有BP(biological process)和CC(celluar component)和MF(molecular function)三种；enrichment: e表示富集(enriched)，p表示未富集(purified)；name：条目名；ratio_in_study：分母表示有GO注释的差异基因数目，分子表示其中又属于当前条目的基因数；ratio_in_pop：分母表示有GO注释的所有基因，称之为背景基因，分子表示背景基因中又属于当前条目的基因数；p_uncoorected: fisher检验得到的pvalue; depth: 表示当前条目在GO层级树中所处的最低层级数，层级数越低，则描述信息越具体或功能越明确；study_count: 属于当前条目的差异基因数；p_fdr_bh：表示BH校正的后的pvalue；study_items：记录属于当前条目的基因信息，down和up分别表示上下调信息。\n"
+    table_desc = "#display_columns: NS;name;ratio_in_study;ratio_in_pop;p_corrected\nGene Ontology富集分析结果表头说明：GO：GO ID；NS：当前条目的类型，有BP(biological process)和CC(celluar component)和MF(molecular function)三种；enrichment: e表示富集(enriched)，p表示未富集(purified)；name：条目名；ratio_in_study：分母表示有GO注释的差异基因数目，分子表示其中又属于当前条目的基因数；ratio_in_pop：分母表示有GO注释的所有基因，称之为背景基因，分子表示背景基因中又属于当前条目的基因数；p_uncoorected: fisher检验得到的pvalue; depth: 表示当前条目在GO层级树中所处的最低层级数，层级数越低，则描述信息越具体或功能越明确；study_count: 属于当前条目的差异基因数；p_corrected：表示BH校正的后的pvalue；study_items：记录属于当前条目的基因信息，down和up分别表示上下调信息。\n"
     # *.dag.BP.svg
-    dag_desc = "属于{}条目且显著富集(fdr<=0.05)的前20(可能少于20）个GO条目所在的层级树，以有向无循环图（DAG）表示：矩形框记录条目信息，其中如‘Lxx’表示shortest distance from root node，‘Dxx’表示longest distance from root node；箭头指向的是层级更高(level值更小）的条目；矩形框的背景颜色与pvalue大小有关，颜色说明见图中的legend方框。\n"
+    dag_desc = "属于{}且排名前20的富集条目(根据pvalue排序)所在的层级树，以有向无循环图（DAG）表示：矩形框记录条目信息，其中如‘Lxx’表示shortest distance from root node，‘Dxx’表示longest distance from root node；箭头指向的是层级更高(level值更小）的条目；矩形框的背景颜色与pvalue大小有关，颜色说明见图中的legend方框, 通常灰色背景的表示pvalue>0.05。\n"
     bp_dag = glob(os.path.join(os.path.dirname(files[0]), '*.dag.BP.svg'))
     for dag in bp_dag:
         with open(dag+'.describe.txt', 'w') as f:
@@ -1065,9 +1074,9 @@ def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), 
 def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, use_pval=False,
                               gene_annot=None, color_scale='Rainbow', limit=5, height:int=None, width:int=None, scale=3):
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
-    desc = "富集泡泡图：图中显示排名前20的（定义fdr<=0.05时显著)富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有pathway注释的差异基因中有多少比例是属于当前pathway的，而分母表示背景基因（即当前物种所有有pathway注释的基因）中有多少比例是属于当前pathway的，富集率越高，表示富集越显著；纵坐标为pathway名称；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在kegg pathway官网的信息页面，我们利用kegg提供的渲染功能对pathway中的节点背景颜色进行部分更改，其中红色背景、蓝色边框的节点表示关联的基因全部上调，而蓝色背景、红色边框的节点表示其关联的基因全部下调，当某个节点关联的基因既有上调又有下调的基因时，则标注为黄色，这种情况比较少见。\n"
+    desc = "富集泡泡图：图中显示排名前20的（按照pvalue排序)富集条目；泡泡大小和条目关联的差异基因个数成正比；泡泡颜色表示-log10转换后的 p-value值（经BH校正过），转换后该值越大表示越显著；横坐标表示富集率，即ratio_in_study/ratio_in_pop, 分子表示有pathway注释的差异基因中有多少比例是属于当前pathway的，而分母表示背景基因（即当前物种所有有pathway注释的基因）中有多少比例是属于当前pathway的，富集率越高，表示富集越显著；纵坐标为pathway名称；使用提示：鼠标浮动在泡泡边缘时可以弹出描述信息，鼠标点击泡泡中央可以链接到当前条目在kegg pathway官网的信息页面，我们利用kegg提供的渲染功能对pathway中的节点背景颜色进行部分更改，其中红色背景、蓝色边框的节点表示关联的基因全部上调，而蓝色背景、红色边框的节点表示其关联的基因全部下调，当某个节点关联的基因既有上调又有下调的基因时，则标注为黄色，这种情况比较少见。\n"
     p_type = 'P-Value' if use_pval else 'Corrected P-Value'
-    table_desc = '#display_columns: ID;Ratio_in_study;Ratio_in_pop;Corrected P-Value;typeII;Hyperlink\nKEGG pathway富集分析结果表 Term：pathway的名称；DataBase：使用通路数据库，ID：Pathway ID；Ratio_in_study：分母表示有pathway注释的差异基因数目，分子表示其中又属于当前pathway的基因数；Ratio_in_pop：分母表示有pathway注释的所有基因，称之为背景基因，分子表示背景基因中又属于当前pathway的基因数；P-Value: fisher检验得到的pvalue; Corrected Pvalue：表示BH校正的后的pvalue；Genes：记录属于当前pathway的基因信息，其中down和up分别表示上下调信息；Hyperlink：KEGG pathway链接，我们利用kegg提供的渲染功能对pathway中的节点背景颜色进行部分更改，其中红色背景的节点表示关联的基因全部上调，而绿色背景的节点表示其关联的基因全部下调，当某个节点关联的基因既有上调又有下调的基因时，则标注为黄色，这种情况比较少见；typeII：当前通路的二级分类；typeI：当前通路的一级分类，具体请参见<a href="https://www.genome.jp/kegg/pathway.html">KEGG</a>.\n'
+    table_desc = '#display_columns: ID;Ratio_in_study;Ratio_in_pop;Corrected P-Value;typeII;Hyperlink\nKEGG pathway富集分析结果表 Term：pathway的名称；DataBase：使用通路数据库，ID：Pathway ID；Ratio_in_study：分母表示有pathway注释的差异基因数目，分子表示其中又属于当前pathway的基因数；Ratio_in_pop：分母表示有pathway注释的所有基因，称之为背景基因，分子表示背景基因中又属于当前pathway的基因数；P-Value: fisher检验得到的pvalue; Corrected Pvalue：表示BH校正的后的pvalue；Genes：记录属于当前pathway的基因信息，其中down和up分别表示上下调信息；Hyperlink：KEGG pathway链接，我们利用kegg提供的渲染功能对pathway中的节点背景颜色进行部分更改，其中红色背景、蓝色边框的节点表示关联的基因全部上调，而蓝色背景、红色边框的节点表示其关联的基因全部下调，当某个节点关联的基因既有上调又有下调的基因时，则标注为黄色，这种情况比较少见；typeII：当前通路的二级分类；typeI：当前通路的一级分类，具体请参见<a href="https://www.genome.jp/kegg/pathway.html">KEGG</a>.\n'
     for table in files:
         with open(table+'.describe.txt', 'w') as f:
             f.write(table_desc)
