@@ -84,7 +84,11 @@ def pipeline():
     apply_cmds = nc.ApplyBQSR_cmds(split_cigar_cmds, recal_cmds)
     call_var_cmds = nc.HaplotypeCaller_cmds(apply_cmds)
     filter_vcf_cmds = nc.VariantFiltration_cmds(call_var_cmds)
-    annnovar_cmds = nc.annovar_cmds(filter_vcf_cmds)
+    if 'NormVCFF' in args.skip:
+        annovar_cmds = nc.annovar_cmds(filter_vcf_cmds)
+    else:
+        norm_vcf_cmds = nc.NormVCF_cmds(filter_vcf_cmds)
+        annovar_cmds = nc.annovar_cmds(norm_vcf_cmds)
 
     # run some RseQC cmds
     gbc_cmds = nc.gene_body_coverage_cmds(bam_indexing_cmds, step_name='GeneBodyCoverage')

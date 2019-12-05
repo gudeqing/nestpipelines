@@ -529,6 +529,16 @@ def VariantFiltration(**kwargs):
     return cmd
 
 
+def NormVCF(**kwargs):
+    cmd = '{} '.format(kwargs['bcftools'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '-m {} '.format(kwargs['multiallelics'])
+    cmd += '-f {} '.format(kwargs['fasta'])
+    cmd += '-o {} '.format(kwargs['output'])
+    cmd += '{} '.format(kwargs['input'])
+    return cmd
+
+
 def annovar(**kwargs):
     cmd = '{} '.format(kwargs['perl'])
     cmd += '{} '.format(kwargs['annovar'])
