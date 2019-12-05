@@ -48,6 +48,7 @@ def pipeline():
     * step_name不能重复, 保证最后生成的步骤名不能有重复**
     """
     # fastqc and trimmomatic
+    check_pair_cmd = nc.NGSCheckMate_cmds(nc.workflow_arguments.fastq_info)
     fastq_info_dict = nc.parse_fastq_info(nc.workflow_arguments.fastq_info)
     nc.fastqc_raw_data_cmds(fastq_info_dict, step_name='RawDataQC')
     trim_cmds = nc.trimmomatic_cmds(fastq_info_dict, step_name='Trim')

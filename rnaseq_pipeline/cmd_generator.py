@@ -588,3 +588,18 @@ def MapSplice(**kwargs):
         cmd += '--fusion '
     return cmd
 
+
+def NGSCheckMate(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    if kwargs['family_cutoff'] == 'yes':
+        cmd += '-f '
+    if kwargs['nonzero'] == 'yes':
+        cmd += '-nz '
+    cmd += '-pt {} '.format(kwargs['pattern_file'])
+    cmd += '-s {} '.format(kwargs['subsampling_rate'])
+    cmd += '-p {} '.format(kwargs['threads'])
+    cmd += '-l {} '.format(kwargs['fastq_info'])
+    cmd += '-N {} '.format(kwargs['out_name'])
+    cmd += '-O {} '.format(kwargs['outdir'])
+    return cmd

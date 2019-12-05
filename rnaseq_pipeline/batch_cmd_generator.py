@@ -1166,3 +1166,28 @@ class NestedCmd(Basic):
             )
         self.workflow.update(commands)
         return commands
+
+    def NGSCheckMate_cmds(self, fastq_info, step_name='NGSCheckMate'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        reformated_fastq_list = os.path.join(self.project_dir, step_name, 'fastq.list')
+        with open(fastq_info) as fr, open(reformated_fastq_list, 'w') as fw:
+            for line in fr:
+                lst = line.strip().split()
+                new_lst = lst[1:] + [lst[0]]
+                fw.write('\t'.join(new_lst)+'\n')
+        args = dict(self.arg_pool['NGSCheckMate'])
+        args['fastq_info'] = reformated_fastq_list
+        args['out_name'] = 'check_pair'
+        args['outdir'] = out_dir
+        cmd = cmdx.NGSCheckMate(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            output=args['outdir'],
+            mem=1024 ** 3 * 4,
+            cpu=2,
+            monitor_time_step=5
+        )
+        self.workflow.update(commands)
+        return commands
