@@ -884,7 +884,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None,
     :return:
     """
     gene_annot = dict(x.strip().split('\t')[:2] for x in open(gene_annot)) if gene_annot else dict()
-    table_desc = f"#display_columns: gene_symbol;log2fc;pvalue;padjust;significant;regulate;genecards\n#search_columns: 0;1\n差异分析结果表头说明：seq_id:Ensembl gene id; log2fc：经过log2转换的差异倍数； pvalue：该值越小，表示差异越显著；	padjust：经过BH校正的pvalue, 如果该值为untested，表示该基因对应的count数目太少，统计学意义不大；significant：表示是否显著，阈值为|fc|>={fc_cutoff}且{sig_type}<={pvalue_cutoff}；regulate：up表示上调，down表示下调；gene_symbol：基因名简称；genecards：gene在genecards网站的链接；*_count: raw count；*_normalized：经过标准化的表达值。\n"
+    table_desc = f"#display_columns: gene_symbol;log2fc;pvalue;padjust;significant;regulate;genecards\n#search_columns: 0;1\n差异分析结果表头说明：seq_id:Ensembl gene id; log2fc：经过log2转换的差异倍数； pvalue：该值越小，表示差异越显著；	padjust：经过BH校正的pvalue, 如果该值为untested，表示该基因对应的count数目太少，统计学意义不大；significant：表示是否显著，阈值为|fc|>={fc_cutoff}且{sig_type}<={pvalue_cutoff}；regulate：up表示上调，down表示下调；gene_symbol：基因名简称；gene_type:基因类型，请参考https://www.gencodegenes.org/pages/biotypes.html；genecards：gene在genecards网站的链接；*_count: raw count；*_normalized：经过标准化的表达值。\n"
     volcano_desc = "展示差异基因分析结果的火山图:横坐标为差异倍数进行log2转换后的值，纵坐标为使用BH方法校正后的pvalue进行-log10转换后的值；红色点表示实验组/对照组的上调的基因，绿色点则表示下调的基因，灰色的点表示无显著变化的基因。图中仅展示经过差异检验的基因，不展示其他未检测到或不符合检验条件的基因。"
     p_type = 'padjust' if sig_type != 'pvalue' else 'pvalue'
     def pvalStr2Float(x):
