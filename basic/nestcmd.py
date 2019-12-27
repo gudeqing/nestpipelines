@@ -580,6 +580,16 @@ class RunCommands(CommandNetwork):
                 self._write_state()
                 self._draw_state()
 
+    def fake_run_for_updating_status(self):
+        """As we will only update status after one cmd finished,
+        this fake run may help to update status timely """
+        time.sleep(5)
+        with self.__LOCK__:
+            self._update_state()
+            self._update_queue()
+            self._write_state()
+            self._draw_state()
+
     def parallel_run(self):
         atexit.register(self._update_status_when_exit)
         pool_size = self.parser.getint('mode', 'threads')
@@ -588,6 +598,11 @@ class RunCommands(CommandNetwork):
             thread = threading.Thread(target=self.single_run, daemon=True)
             threads.append(thread)
             thread.start()
+        # run fake cmd
+        thread = threading.Thread(target=self.fake_run_for_updating_status, daemon=True)
+        threads.append(thread)
+        thread.start()
+
         # update state
         time.sleep(2)
         with self.__LOCK__:
