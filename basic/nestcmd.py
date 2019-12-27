@@ -1,4 +1,5 @@
 # coding=utf-8
+__author__ = 'gudeqing'
 import time
 import os
 import configparser
