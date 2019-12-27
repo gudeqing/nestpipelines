@@ -631,7 +631,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-cfg', required=True, help="pipeline configuration file")
     parser.add_argument('-outdir', required=False, default='.', help="output directory")
-    parser.add_argument('-wt', required=False, default=10, help="time to wait for enough resource to initiate a task")
+    parser.add_argument('-wt', required=False, type=float, default=10, help="time to wait for enough resource to initiate a task")
     parser.add_argument('-hostname', required=False, help="another server address, default to only use local server")
     parser.add_argument('-port', required=False, help="server port for login, default 22")
     parser.add_argument('-username', required=False, help="user name for login")
