@@ -416,6 +416,7 @@ class RunCommands(CommandNetwork):
     def __init__(self, cmd_config, outdir=os.getcwd(), timeout=10, logger=None,
                  hostname='10.60.2.133', port=22, username=None, password=None):
         super().__init__(cmd_config)
+        self.end = False
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
@@ -544,6 +545,7 @@ class RunCommands(CommandNetwork):
             name = self.queue.get(block=True)
             if name is None:
                 self.queue.put(None)
+                self.end = True
                 break
             tmp_dict = self.get_cmd_description_dict(name)
             if 'outdir' in tmp_dict:
@@ -582,13 +584,15 @@ class RunCommands(CommandNetwork):
 
     def fake_run_for_updating_status(self):
         """As we will only update status after one cmd finished,
-        this fake run may help to update status timely """
-        time.sleep(5)
-        with self.__LOCK__:
-            self._update_state()
-            self._update_queue()
-            self._write_state()
-            self._draw_state()
+        this fake run may help to update status timely"""
+        while self.end is False:
+            time.sleep(3)
+            with self.__LOCK__:
+                self._update_state()
+                self._update_queue()
+                self._write_state()
+                self._draw_state()
+            time.sleep(8)
 
     def parallel_run(self):
         atexit.register(self._update_status_when_exit)
