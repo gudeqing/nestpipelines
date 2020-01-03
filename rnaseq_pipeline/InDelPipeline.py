@@ -82,7 +82,7 @@ def pipeline():
     apply_cmds = nc.ApplyBQSR_cmds(split_cigar_cmds, recal_cmds)
     call_var_cmds = nc.HaplotypeCaller_cmds(apply_cmds)
     filter_vcf_cmds = nc.VariantFiltration_cmds(call_var_cmds)
-    if 'NormVCFF' in args.skip:
+    if 'NormVCF' in args.skip:
         annovar_cmds = nc.annovar_cmds(filter_vcf_cmds)
     else:
         norm_vcf_cmds = nc.NormVCF_cmds(filter_vcf_cmds)
