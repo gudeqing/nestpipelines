@@ -52,7 +52,9 @@ class Basic(object):
                 arg_file = os.path.join(os.path.dirname(script_path), 'arguments.ini')
                 if not arguments.only_show_steps and (not arguments.only_show_detail_steps) \
                         and (not arguments.show_cmd_example) and (not arguments.list_cmd_names):
-                    self.logger.warning("You are using unchanged configuration: {}".format(arg_file))
+                    self.logger.warning("You are using unchanged argument configuration: {}".format(arg_file))
+                    shutil.copyfile(arg_file, os.path.join(project_dir, 'arguments.ini'))
+                    arg_file = os.path.join(project_dir, 'arguments.ini')
                 arguments.arg_cfg = arg_file
 
         return arguments
