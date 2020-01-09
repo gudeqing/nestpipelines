@@ -34,7 +34,13 @@ if args.pipeline_cfg is not None:
 
 
 # 从这里开始写pipeline, 有时一个步骤有两种选择, 请在这里自行判断
+
 def pipeline():
+    """
+    注意：
+    * 为了能正常跳过一些步骤,步骤名即step_name不能包含'_'
+    * step_name不能重复, 保证最后生成的步骤名不能有重复**
+    """
     nc = NestedCmd(args)
     nc.which_cmds()
     cmds = nc.which_cmds()
