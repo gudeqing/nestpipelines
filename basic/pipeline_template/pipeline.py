@@ -32,7 +32,7 @@ if args.pipeline_cfg is not None:
     print('')
 
 
-# 从这里开始写pipeline
+# 从这里开始写pipeline, 有时一个步骤有两种选择, 请在这里自行判断
 def pipeline():
     nc.which_cmds()
     cmds = nc.which_cmds()
