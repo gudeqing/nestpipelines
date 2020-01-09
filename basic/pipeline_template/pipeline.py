@@ -12,6 +12,9 @@ sys.path.append(os.path.dirname(os.path.dirname(script_path)))
 from xxx_pipeline.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
+
+if len(sys.argv) <= 1:
+    exit('please provide at least one argument, use -h for help')
 parser = basic_arg_parser()
 # 可以增加新的流程参数
 # parser.add_argument('-new_arg', required=False)
@@ -25,8 +28,6 @@ with open("cmd." + str(time.time()) + ".txt", 'w') as f:
     for k, v in args.__dict__.items():
         f.write('{}: {}\n'.format(k, v))
 
-nc = NestedCmd(args)
-
 # 可以在这里增加对参数的判断
 if args.pipeline_cfg is not None:
     print('')
@@ -34,6 +35,7 @@ if args.pipeline_cfg is not None:
 
 # 从这里开始写pipeline, 有时一个步骤有两种选择, 请在这里自行判断
 def pipeline():
+    nc = NestedCmd(args)
     nc.which_cmds()
     cmds = nc.which_cmds()
     nc.which2_cmds(depend_cmds=cmds)
