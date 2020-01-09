@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(script_path)))
 from xxx_pipeline.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
-
+# 初始化参数
 if len(sys.argv) <= 1:
     exit('please provide at least one argument, use -h for help')
 parser = basic_arg_parser()
