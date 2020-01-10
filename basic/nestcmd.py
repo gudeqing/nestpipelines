@@ -512,8 +512,9 @@ class RunCommands(CommandNetwork):
 
     def _write_state(self):
         outfile = os.path.join(self.outdir, 'cmd_state.txt')
+        back_file = os.path.join(self.outdir, 'bak.cmd_state.txt')
         if os.path.exists(outfile):
-            os.rename(outfile, 'bak.' + outfile)
+            os.rename(outfile, back_file)
         with open(outfile, 'w') as f:
             fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
             f.write('\t'.join(fields)+'\n')
@@ -523,8 +524,9 @@ class RunCommands(CommandNetwork):
 
     def _draw_state(self):
         outfile = os.path.join(self.outdir, 'state.svg')
+        back_file = os.path.join(self.outdir, 'bak.state.svg')
         if os.path.exists(outfile):
-            os.rename(outfile, 'bak.' + outfile)
+            os.rename(outfile, back_file)
         StateGraph(self.state).draw(outfile)
 
     def _update_status_when_exit(self):
