@@ -9,6 +9,7 @@ from basic.nestcmd import RunCommands, set_logger
 class Basic(object):
     def __init__(self, workflow_arguments):
         self.logger = None
+        self.wf_state = (0, 0)
         workflow_arguments = self.arg_preprocess(workflow_arguments)
         # self.do_some_pre_judge(workflow_arguments)
         if workflow_arguments.arg_cfg:
@@ -305,7 +306,7 @@ class Basic(object):
                                username=self.workflow_arguments.username,
                                password=self.workflow_arguments.password,
                                timeout=arguments.wait_resource_time)
-        workflow.parallel_run()
+        self.wf_state = workflow.parallel_run()
 
 
 def basic_arg_parser():
