@@ -339,8 +339,11 @@ def convert2vdjtools(files:list, out_dir=os.getcwd(), group_info=None):
     """
     samples = list()
     out_path = list()
+    clone_detail_dir = os.path.join(out_dir, '3.CloneDetail')
+    os.makedirs(clone_detail_dir, exist_ok=True)
     for each in files:
         sample = os.path.basename(each).split('_', 1)[0]
+        copyfile(each, os.path.join(clone_detail_dir, f'{sample}.clone_summary.csv'))
         # samples.append(sample[:-4])
         samples.append(sample)
         out_name = os.path.join(out_dir, '{}.clone_summary.txt'.format(sample))
