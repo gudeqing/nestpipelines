@@ -171,21 +171,25 @@ for chapter in chapters:
 
             if key+'_table' in content:
                 table = glob(content[key+'_table'])
-                if key + '_table_title' in content:
-                    title = '表{} '.format(len(tables)+1) + content[key+'_table_title']
-                    p = document.add_paragraph(title, style='Caption')
-                    p.alignment = 1
                 if table:
-                    table = table[0]
-                    if key+'_table_display' in content:
-                        top = int(content[key+'_table_display'])
-                    else:
-                        top = None
-                    add_table(document, table, top=top)
-                    tables.append(table)
-                if key+'_table_caption' in content:
-                    caption = '[Note] ' + content[key + '_table_caption']
-                    p = document.add_paragraph(caption, style='Caption')
+                    if key + '_table_title' in content:
+                        title = '表{} '.format(len(tables)+1) + content[key+'_table_title']
+                        p = document.add_paragraph(title, style='Caption')
+                        p.alignment = 1
+                    if table:
+                        table = table[0]
+                        if key+'_table_display' in content:
+                            top = int(content[key+'_table_display'])
+                        else:
+                            top = None
+                        add_table(document, table, top=top)
+                        tables.append(table)
+                    if key+'_table_caption' in content:
+                        caption = '[Note] ' + content[key + '_table_caption']
+                        p = document.add_paragraph(caption, style='Caption')
+                else:
+                    print('Warn: Found no table with expression {} in chapter {}'.format(
+                        content[key+'_table'], chapter))
 time_stamp = time.strftime("%Y%m%d", time.localtime())
 document.save(f'Report.{time_stamp}.docx')
 
