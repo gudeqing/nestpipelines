@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use('agg')
 from matplotlib import pyplot as plt
 import seaborn as sns
+from shutil import copyfile
 
 
 def merge_vj_matrix(file_list:list, column_sep='D', out='merged.counts.csv', group_info:str=None):
@@ -22,7 +23,8 @@ def merge_vj_matrix(file_list:list, column_sep='D', out='merged.counts.csv', gro
     return table
 
 
-def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv', group_info:str=None, new_name_col=None):
+def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv',
+                        group_info:str=None, new_name_col=None, factor_col=None):
     """
     合并从IR（https://10.62.2.16/ir/secure/home.html）到处得结果文件*metric.csv
     :param file_list:
@@ -31,6 +33,7 @@ def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv', g
     :param out: 结果文件名
     :param group_info: 分组信息, 第一列必须是建库编号或样本名，第二列是新的样本名称，样本名称必须唯一，其他列可以是各种信息或分组信息
     :param new_name_col: 指定group_info中的一列, 作为样本别名，将放在第二列
+    :param factor_col: 指定group_info中的一列, 作为factor列，也就是分组信息, 该列信息要带入到Report.diversity.summary.csv
     :return: 输出4个文件，有metric,count, frequency， metric.report
     """
     table = pd.read_csv(file_list[0], index_col=None, header=0, sep=None, engine='python')
@@ -43,6 +46,9 @@ def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv', g
     table.index.name = 'SampleID'
     # print(table.head())
     if group_info is not None:
+        # for report
+        os.makedirs('1.SampleInfo/', exist_ok=True)
+        copyfile(group_info, '1.SampleInfo/sample.info.txt')
         group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
         table = group_df.join(table, how='right', sort=False)
         table = table.loc[list(group_df.index)]
@@ -60,20 +66,27 @@ def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv', g
             'Off_target_reads', 'Plus_strand_counts', 'Minus_strand_counts',
         ]
     # print(list(table.columns))
-    table.loc[:, target_cols].to_csv('Report.qc.summary.csv')
+    os.makedirs('2.SampleQC', exist_ok=True)
+    outfile = os.path.join('2.SampleQC', 'Report.qc.summary.csv')
+    table.loc[:, target_cols].to_csv(outfile)
 
     # clone summary for report
+    target_cols = []
+    if factor_col is not None:
+        target_cols += [factor_col]
     if new_name_col is not None:
-        target_cols =[
+        target_cols +=[
             new_name_col, 'Clones', 'Evenness', 'Reads', 'Shannon_diversity',
             'convergent_TCR_frequency', 'clone_gini_index'
         ]
     else:
-        target_cols = [
+        target_cols += [
             'Clones', 'Evenness', 'Reads', 'Shannon_diversity',
             'convergent_TCR_frequency', 'clone_gini_index'
         ]
-    table.loc[:, target_cols].to_csv('Report.diversity.summary.csv')
+    os.makedirs('1.DiversitySummary', exist_ok=True)
+    outfile = os.path.join('1.DiversitySummary', 'Report.diversity.summary.csv')
+    table.loc[:, target_cols].to_csv(outfile)
 
     # set new_name as index
     if new_name_col is not None:

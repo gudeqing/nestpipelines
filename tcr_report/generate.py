@@ -10,14 +10,21 @@ import fitz  # from pyMuPdf package
 from PIL import Image, ImageChops
 import time
 
-if not os.path.exists('content.ini'):
-    print('find no file named content.ini!')
+import sys
+if len(sys.argv) <= 1:
+    print('请输入content.ini文件, 你可以')
     print('你可以复制和修改 /data/users/dqgu/PycharmProjects/nestcmd/tcr_report/content.ini')
     exit()
+
+content_cfg = sys.argv[1]
+if not os.path.exists(content_cfg):
+    print('输入文件不存在')
+    exit()
+
 config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 config.optionxform = str
 
-config.read("content.ini", encoding='utf-8')
+config.read(content_cfg, encoding='utf-8')
 
 document = Document()
 style = document.styles['Normal']
