@@ -369,7 +369,7 @@ def convert2vdjtools(files:list, out_dir=os.getcwd(), group_info=None):
         cols = ['files', 'sample_id'] + [x for x in group_df.columns if x not in ['files', 'sample_id']]
         group_df = group_df[cols]
         group_df = group_df.loc[[x for x in ori_order if x in samples]]
-        group_df.to_csv(os.path.join(out_dir, 'metadata.txt'), sep='\t', index=False)
+        group_df.to_csv('metadata.txt', sep='\t', index=False)
 
 
 if __name__ == '__main__':
