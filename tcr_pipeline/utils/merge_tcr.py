@@ -329,7 +329,7 @@ def mean_duplicated(df, dup_col:list, target_index=None, index_col=None, out=Non
     data.to_excel(out.rsplit('.', 1)[0] + '.xlsx')
 
 
-def convert2vdjtools(files:list, out_dir=os.getcwd(), group_info=None):
+def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
     """
     输入从IR到出的*clone_summary.txt文件
     :param files:
