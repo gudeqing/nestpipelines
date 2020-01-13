@@ -421,6 +421,7 @@ class RunCommands(CommandNetwork):
         self.queue = self.__init_queue()
         self.state = self.__init_state()
         self.outdir = outdir
+        self.success = 0
         # wait resource time limit
         self.timeout = timeout
         if not logger:
@@ -489,6 +490,7 @@ class RunCommands(CommandNetwork):
                 cmd_state['cpu'] = cmd.max_cpu
                 cmd_state['pid'] = cmd.proc.pid
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
+        self.success = len(success)
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
         running_or_queueing = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
@@ -618,6 +620,8 @@ class RunCommands(CommandNetwork):
         # join threads
         _ = [x.join() for x in threads]
         self.logger.warning('Finished all tasks!')
+        self.logger.warning('Success/Total = {}/{}'.format(self.success, len(self.state)))
+        return self.success, len(self.state)
 
     def continue_run(self, steps=''):
         detail_steps = []
