@@ -167,7 +167,9 @@ for chapter in chapters:
                         p = document.add_paragraph(caption, style='Caption')
                         p.alignment = 1
                 else:
-                    print(key+'_img of', chapter, 'will not be added for cannot find it', content[key+'_img'])
+                    print('Warn: Found no such figure {} in chapter {}'.format(content[key+'_img'], chapter))
+                    p = document.add_paragraph('由于样本较少, 不能进行该项分析，当前图片为空', style='Caption')
+                    p.alignment = 1
 
             if key+'_table' in content:
                 table = glob(content[key+'_table'])
@@ -188,8 +190,7 @@ for chapter in chapters:
                         caption = '[Note] ' + content[key + '_table_caption']
                         p = document.add_paragraph(caption, style='Caption')
                 else:
-                    print('Warn: Found no table with expression {} in chapter {}'.format(
-                        content[key+'_table'], chapter))
+                    print('Warn: Found no such table {} in chapter {}'.format(content[key+'_table'], chapter))
 time_stamp = time.strftime("%Y%m%d", time.localtime())
 document.save(f'Report.{time_stamp}.docx')
 
