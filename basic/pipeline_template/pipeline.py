@@ -21,7 +21,7 @@ parser = basic_arg_parser()
 
 # 收集参数和记录命令行信息
 args = parser.parse_args()
-args.script_path = os.path.abspath(__file__)
+args.script_path = script_path
 with open("cmd." + str(time.time()) + ".txt", 'w') as f:
     f.write(' '.join(sys.argv) + '\n')
     f.write('Detail: \n')
