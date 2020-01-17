@@ -234,6 +234,7 @@ class CommandNetwork(object):
     def __init__(self, cmd_config):
         self.parser = configparser.ConfigParser()
         self.parser.read(cmd_config, encoding='utf-8')
+        self.pool_size = self.parser.getint('mode', 'threads')
 
     def names(self):
         sections = self.parser.sections()
@@ -420,6 +421,7 @@ class RunCommands(CommandNetwork):
         self.ever_queued = set()
         self.queue = self.__init_queue()
         self.state = self.__init_state()
+        self.task_number = len(self.state)
         self.outdir = outdir
         self.success = 0
         # wait resource time limit
@@ -513,7 +515,7 @@ class RunCommands(CommandNetwork):
             self.state[each]['state'] = 'outdoor'
 
     def _write_state(self):
-        outfile = os.path.join(self.outdir, 'cmd_state.txt')
+        outfile = os.path.join(self.outdir, 'cmd_state.{}.txt'.format(time.localtime().tm_hour))
         back_file = os.path.join(self.outdir, 'bak.cmd_state.txt')
         if os.path.exists(outfile):
             os.rename(outfile, back_file)
@@ -525,7 +527,7 @@ class RunCommands(CommandNetwork):
                 f.write(name+'\t'+content+'\n')
 
     def _draw_state(self):
-        outfile = os.path.join(self.outdir, 'state.svg')
+        outfile = os.path.join(self.outdir, 'state.{}.svg'.format(time.localtime().tm_hour))
         back_file = os.path.join(self.outdir, 'bak.state.svg')
         if os.path.exists(outfile):
             os.rename(outfile, back_file)
@@ -596,7 +598,17 @@ class RunCommands(CommandNetwork):
                 self._update_queue()
                 self._write_state()
                 self._draw_state()
-            time.sleep(8)
+            running_number = 0
+            for each in self.state:
+                if self.state[each]['state'] == 'running':
+                    running_number += 1
+                    if self.task_number - self.success < self.pool_size:
+                        time.sleep(188)
+                        break
+                    if running_number >= int(self.pool_size*0.7):
+                        time.sleep(666)
+                        break
+            time.sleep(12)
 
     def parallel_run(self):
         atexit.register(self._update_status_when_exit)
@@ -620,7 +632,7 @@ class RunCommands(CommandNetwork):
         # join threads
         _ = [x.join() for x in threads]
         self.logger.warning('Finished all tasks!')
-        self.logger.warning('Success/Total = {}/{}'.format(self.success, len(self.state)))
+        self.logger.warning('Success/Total = {}/{}'.format(self.success, self.task_number))
         return self.success, len(self.state)
 
     def continue_run(self, steps=''):
