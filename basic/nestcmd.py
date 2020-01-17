@@ -515,10 +515,11 @@ class RunCommands(CommandNetwork):
             self.state[each]['state'] = 'outdoor'
 
     def _write_state(self):
-        outfile = os.path.join(self.outdir, 'cmd_state.{}.txt'.format(time.localtime().tm_hour))
-        back_file = os.path.join(self.outdir, 'bak.cmd_state.txt')
-        if os.path.exists(outfile):
-            os.rename(outfile, back_file)
+        outfile = os.path.join(self.outdir, 'cmd_state.txt')
+        if time.localtime().tm_min % 5 == 0:
+            back_file = os.path.join(self.outdir, 'bak.cmd_state.txt')
+            if os.path.exists(outfile):
+                os.rename(outfile, back_file)
         with open(outfile, 'w') as f:
             fields = ['name', 'state', 'used_time', 'mem', 'cpu', 'pid', 'depend', 'cmd']
             f.write('\t'.join(fields)+'\n')
@@ -527,7 +528,7 @@ class RunCommands(CommandNetwork):
                 f.write(name+'\t'+content+'\n')
 
     def _draw_state(self):
-        outfile = os.path.join(self.outdir, 'state.{}.svg'.format(time.localtime().tm_hour))
+        outfile = os.path.join(self.outdir, 'state.svg')
         back_file = os.path.join(self.outdir, 'bak.state.svg')
         if os.path.exists(outfile):
             os.rename(outfile, back_file)
@@ -642,7 +643,11 @@ class RunCommands(CommandNetwork):
                 detail_steps += [x for x in self.names() if x == each or x.startswith(each + '_')]
 
         self.ever_queued = set()
-        with open(os.path.join(self.outdir, 'cmd_state.txt'), 'r') as f:
+        # 使用已有状态信息更新状态
+        existed_state_file = os.path.join(self.outdir, 'cmd_state.txt')
+        if not os.path.exists(existed_state_file):
+            raise Exception('We found no cmd_state.txt file in {}!'.format(self.outdir))
+        with open(existed_state_file, 'r') as f:
             _ = f.readline()
             for line in f:
                 line_lst = line.strip().split('\t')
@@ -651,7 +656,11 @@ class RunCommands(CommandNetwork):
                     if line_lst[0] in detail_steps:
                         continue
                     self.ever_queued.add(line_lst[0])
-                    self.state[line_lst[0]] = dict(zip(fields, line_lst[1:]))
+                    # 已有的depend和cmd信息不被带入到continue运行模式, 给续跑功能带来更多可能
+                    if line_lst[0] in self.state:
+                        self.state[line_lst[0]].update(dict(zip(fields[:-2], line_lst[1:])))
+                    else:
+                        self.logger.warning(line_lst[0] + ' was skipped for a modified pipeline.ini was used')
         failed = set(self.names()) - self.ever_queued
         if failed:
             self.logger.warning('Continue to run: {}'.format(failed))
