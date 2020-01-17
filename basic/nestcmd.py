@@ -599,13 +599,17 @@ class RunCommands(CommandNetwork):
                 self._update_queue()
                 self._write_state()
                 self._draw_state()
+                if self.task_number - self.success == 1:
+                    break
+
+            if 1 < self.task_number - self.success < self.pool_size:
+                time.sleep(188)
+                continue
+
             running_number = 0
             for each in self.state:
                 if self.state[each]['state'] == 'running':
                     running_number += 1
-                    if self.task_number - self.success < self.pool_size:
-                        time.sleep(188)
-                        break
                     if running_number >= int(self.pool_size*0.7):
                         time.sleep(666)
                         break
