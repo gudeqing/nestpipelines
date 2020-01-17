@@ -499,7 +499,9 @@ class NestedCmd(Basic):
             else:
                 used_sample.append(sample)
             args['tumour-sample'] = sample
+            call_mode = 'Single'
             if len(pair) >= 2:
+                call_mode = 'Paired'
                 step2 = [x for x in GatherBamFiles_cmds.keys() if x.endswith(pair[1])][0]
                 depends.append(step2)
                 args['normal_bam'] = GatherBamFiles_cmds[step2]['output']
@@ -511,11 +513,12 @@ class NestedCmd(Basic):
                 args['bam-output'] = os.path.join(out_dir, sample + '.mutect2.{}.bam'.format(ind))
                 args['f1r2-tar-gz'] = os.path.join(out_dir, sample + '.f1r2.{}.tar.gz'.format(ind))
                 cmd = cmdx.MuTect2(**args)
-                commands[step_name + '_' + sample + '_{}'.format(ind)] = self.cmd_dict(
+                commands[step_name + call_mode + '_' + sample + '_{}'.format(ind)] = self.cmd_dict(
                     cmd=cmd,
                     depend=','.join(depends),
                     output=args['output'],
                     sample_name=sample,
+                    fake_sample_name=sample+call_mode,
                     interval_ind=ind,
                     interval=interval,
                     tumour_bam=args['tumour_bam'],
@@ -524,7 +527,53 @@ class NestedCmd(Basic):
                     cpu=2,
                     monitor_time_step=5,
                     outbam=args['bam-output'],
-                    f1r2=args['f1r2-tar-gz']
+                    f1r2=args['f1r2-tar-gz'],
+                    caller_type='somatic',
+                    call_mode=call_mode
+                )
+        self.workflow.update(commands)
+        return commands
+
+    def HaplotypeCaller_cmds(self, pair_info, GatherBamFiles_cmds, split_intervals_cmds, step_name='Haplotype'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['HaplotypeCaller'])
+        # parse pair info
+        pair_info = [x.strip().split() for x in open(pair_info)]
+        used_sample = []
+        for pair in pair_info:
+            if len(pair) != 1:
+                continue
+            depends = list(split_intervals_cmds.keys())
+            step1 = [x for x in GatherBamFiles_cmds.keys() if x.endswith(pair[0])][0]
+            depends.append(step1)
+            args['input'] = GatherBamFiles_cmds[step1]['output']
+            sample = GatherBamFiles_cmds[step1]['sample_name']
+            if sample in used_sample:
+                raise Exception(f'sample id {sample} duplicated!')
+            else:
+                used_sample.append(sample)
+
+            for interval in split_intervals_cmds[depends[0]]['intervals']:
+                ind = os.path.basename(interval).split('-')[0]
+                args['intervals'] = interval
+                args['output'] = os.path.join(out_dir, sample + '.{}.vcf'.format(ind))
+                args['bamout'] = os.path.join(out_dir, sample + '.haplotype.{}.bam'.format(ind))
+                cmd = cmdx.HaplotypeCaller(**args)
+                commands[step_name + '_' + sample + '_{}'.format(ind)] = self.cmd_dict(
+                    cmd=cmd,
+                    depend=','.join(depends),
+                    output=args['output'],
+                    sample_name=sample,
+                    fake_sample_name=sample,
+                    interval_ind=ind,
+                    interval=interval,
+                    mem=1024 ** 3 * 10,
+                    cpu=2,
+                    monitor_time_step=5,
+                    outbam=args['bamout'],
+                    caller_type='germline'
                 )
         self.workflow.update(commands)
         return commands

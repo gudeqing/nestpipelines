@@ -24,6 +24,7 @@ parser.add_argument('-fastq_info', required=False,
 parser.add_argument('-pair_info', required=False,
                     help="第一列是tumour sample id, "
                          "第二列是normal sample id,如果没有则第二列为空. 注意: 第一列不能有重复")
+parser.add_argument('-germline_for_unpaired', required=False, default='no')
 # 收集参数和记录命令行信息
 args = parser.parse_args()
 args.script_path = script_path
@@ -72,6 +73,9 @@ def pipeline():
     cal_contaminate_cmds = nc.CalculateContamination_cmds(args.pair_info, get_pileup_cmds)
     filter_calls_cmds = nc.FilterMutectCalls_cmds(merge_vcf_cmds, merge_stats_cmds, lrom_cmds, cal_contaminate_cmds)
     filter_artifact_cmds = nc.FilterAlignmentArtifacts_cmds(filter_calls_cmds)
+    if args.germline_for_unpaired != 'no':
+        "加入允许call germline 突变的功能"
+        pass
     nc.run()
 
 

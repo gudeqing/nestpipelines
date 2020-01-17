@@ -340,5 +340,17 @@ def FilterAlignmentArtifacts(**kwargs):
     return cmd
 
 
-
-
+def HaplotypeCaller(**kwargs):
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += '-R {} '.format(kwargs['genome_fasta'])
+    cmd += '-I {} '.format(kwargs['input'])
+    cmd += '-O {} '.format(kwargs['output'])
+    cmd += '-ERC {} '.format(kwargs['emit-ref-confidence'])
+    cmd += '-bamout {} '.format(kwargs['bamout'])
+    cmd += '--bam-writer-type {} '.format(kwargs['bam-writer-type'])
+    cmd += '-contamination {} '.format(kwargs['contamination'])
+    cmd += '--intervals {} '.format(kwargs['intervals'])
+    for each in kwargs['annotation-group'].split():
+        cmd += '-G {} '.format(each)
+    return cmd
