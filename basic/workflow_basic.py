@@ -45,7 +45,7 @@ class Basic(object):
             os.mkdir(project_dir)
         project_dir = os.path.abspath(project_dir)
         arguments.o = project_dir
-        log_file = os.path.join(project_dir, 'pipeline.log')
+        log_file = os.path.join(project_dir, 'run.log')
         self.logger = set_logger(log_file, 'pipeline')
 
         if not arguments.arg_cfg:
