@@ -2,7 +2,7 @@
 # coding=utf-8
 import sys
 import os
-import time
+
 
 script_path = os.path.abspath(__file__)
 if os.path.islink(script_path):
