@@ -15,16 +15,10 @@ from basic.workflow_basic import basic_arg_parser
 parser = basic_arg_parser()
 args = parser.parse_args()
 args.script_path = os.path.abspath(__file__)
-with open("cmd." + str(time.time()) + ".txt", 'w') as f:
-    f.write(' '.join(sys.argv) + '\n')
-    f.write('Detail: \n')
-    for k, v in args.__dict__.items():
-        f.write('{}: {}\n'.format(k, v))
-
-nc = NestedCmd(args)
 
 
 def pipeline():
+    nc = NestedCmd(args)
     nc.CalcBasicStats_cmds()
     nc.CalcSegmentUsage_cmds()
     nc.CalcSpectratype_cmds()

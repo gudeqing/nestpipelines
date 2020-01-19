@@ -2,7 +2,6 @@
 # coding=utf-8
 import os
 import sys
-import time
 
 
 script_path = os.path.abspath(__file__)
@@ -33,12 +32,6 @@ if args.only_show_steps:
 nc = NestedCmd(args)
 if (args.pipeline_cfg is None) and (not args.bam):
     raise Exception('-bam or -pipeline_cfg is needed! Use -h for help')
-
-with open("cmd." + str(time.time()) + ".txt", 'w') as f:
-    f.write(' '.join(sys.argv) + '\n')
-    f.write('Detail: \n')
-    for k, v in args.__dict__.items():
-        f.write('{}: {}\n'.format(k, v))
 
 
 def pipeline():
