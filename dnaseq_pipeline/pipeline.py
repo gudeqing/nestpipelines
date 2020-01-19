@@ -13,8 +13,6 @@ from dnaseq_pipeline.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
 
-if len(sys.argv) <= 1:
-    exit('please provide at least one argument, use -h for help')
 parser = basic_arg_parser()
 # 可以增加新的流程参数
 parser.add_argument('-fastq_info', required=False,
@@ -30,12 +28,6 @@ parser.add_argument('--disable_markdup_spark',   default=False, action='store_tr
 # 收集参数和记录命令行信息
 args = parser.parse_args()
 args.script_path = script_path
-with open("cmd." + str(time.time()) + ".txt", 'w') as f:
-    f.write(' '.join(sys.argv) + '\n')
-    print(sys.argv)
-    f.write('Detail: \n')
-    for k, v in args.__dict__.items():
-        f.write('{}: {}\n'.format(k, v))
 
 # 可以在这里增加对参数的判断
 if args.only_show_steps and args.fastq_info is None:

@@ -318,6 +318,8 @@ class Basic(object):
 
 
 def basic_arg_parser():
+    if len(sys.argv) <= 1:
+        exit('Please provide at least one argument, use -h for help')
     parser = argparse.ArgumentParser()
     parser.add_argument('-arg_cfg', required=False, help="参数配置文件, 包含流程所有软件的需要的参数, "
                                                          "默认使用该脚本当前目录的argument.ini")
