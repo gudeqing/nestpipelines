@@ -13,20 +13,13 @@ from xxx_pipeline.batch_cmd_generator import NestedCmd
 from basic.workflow_basic import basic_arg_parser
 
 # 初始化参数
-if len(sys.argv) <= 1:
-    exit('please provide at least one argument, use -h for help')
 parser = basic_arg_parser()
 # 可以增加新的流程参数
-# parser.add_argument('-new_arg', required=False)
+parser.add_argument('-new_arg', required=False)
 
 # 收集参数和记录命令行信息
 args = parser.parse_args()
 args.script_path = script_path
-with open("cmd." + str(time.time()) + ".txt", 'w') as f:
-    f.write(' '.join(sys.argv) + '\n')
-    f.write('Detail: \n')
-    for k, v in args.__dict__.items():
-        f.write('{}: {}\n'.format(k, v))
 
 # 可以在这里增加对参数的判断
 if args.pipeline_cfg is not None:
