@@ -20,9 +20,12 @@ parser.add_argument('-fastq_info', required=False,
                          "第二列为read1的fastq路径,如有多个,需要分号分隔; "
                          "第三列为可选, read2的fastq路径,单端测序时则无第三列")
 parser.add_argument('-tumour_normal', required=False,
-                    help="第一列是tumour sample id, 第二列是normal sample id, 对配对样本call somatic mutation")
-parser.add_argument('-only_tumour', required=False, help="每一行是一个tumour sample id, 对样本call somatic mutation")
-parser.add_argument('-germline', required=False, help="每一行是一个normal sample id, 对样本call germline mutation")
+                    help="第一列是tumour sample id, "
+                         "第二列是normal sample id, 对配对样本call somatic mutation")
+parser.add_argument('-only_tumour', required=False,
+                    help="每一行是一个tumour sample id, 对样本call somatic mutation")
+parser.add_argument('-germline', required=False,
+                    help="每一行是一个normal sample id, 对样本call germline mutation")
 parser.add_argument('--disable_markdup_spark',   default=False, action='store_true',
                     help='默认使用MarkDuplicatesSpark, 如果设置该参数，则不使用')
 # 收集参数和记录命令行信息
