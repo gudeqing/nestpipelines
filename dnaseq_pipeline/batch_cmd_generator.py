@@ -284,7 +284,10 @@ class NestedCmd(Basic):
         commands = dict()
         out_dir = os.path.join(self.project_dir, step_name)
         self.mkdir(out_dir)
-        args = dict(self.arg_pool['MarkDuplicates'])
+        if self.workflow_arguments.disable_markdup_spark:
+            args = dict(self.arg_pool['MarkDuplicates'])
+        else:
+            args = dict(self.arg_pool['MarkDuplicatesSpark'])
         for step, cmd_info in merge_bam_cmds.items():
             sample = cmd_info['sample_name']
             args['input'] = cmd_info['out']
@@ -310,7 +313,10 @@ class NestedCmd(Basic):
         commands = dict()
         out_dir = os.path.join(self.project_dir, step_name)
         self.mkdir(out_dir)
-        args = dict(self.arg_pool['SortAndFixTags'])
+        if self.workflow_arguments.disable_markdup_spark:
+            args = dict(self.arg_pool['SortAndFixTags'])
+        else:
+            args = dict(self.arg_pool['FixTags'])
         for step, cmd_info in mark_dup_cmds.items():
             sample = cmd_info['sample_name']
             args['input'] = cmd_info['output']
@@ -519,7 +525,7 @@ class NestedCmd(Basic):
                 args['bam-output'] = os.path.join(out_dir, sample + '.mutect2.{}.bam'.format(ind))
                 args['f1r2-tar-gz'] = os.path.join(out_dir, sample + '.f1r2.{}.tar.gz'.format(ind))
                 cmd = cmdx.MuTect2(**args)
-                commands[step_name + call_mode + '_' + sample + '_{}'.format(ind)] = self.cmd_dict(
+                commands[step_name + '_' + sample + '_{}'.format(ind)] = self.cmd_dict(
                     cmd=cmd,
                     depend=','.join(depends),
                     output=args['output'],
@@ -540,15 +546,15 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def HaplotypeCaller_cmds(self, pair_info, GatherBamFiles_cmds, split_intervals_cmds, step_name='Haplotype'):
+    def HaplotypeCaller_cmds(self, sample_info, GatherBamFiles_cmds, split_intervals_cmds, step_name='Haplotype'):
         commands = dict()
         out_dir = os.path.join(self.project_dir, step_name)
         self.mkdir(out_dir)
         args = dict(self.arg_pool['HaplotypeCaller'])
         # parse pair info
-        pair_info = [x.strip().split() for x in open(pair_info)]
+        sample_info = [x.strip().split() for x in open(sample_info)]
         used_sample = []
-        for pair in pair_info:
+        for pair in sample_info:
             if len(pair) != 1:
                 continue
             depends = list(split_intervals_cmds.keys())
@@ -773,14 +779,14 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
-    def CalculateContamination_cmds(self, pair_info, get_pileup_cmds, step_name='CalcContamination'):
+    def CalculateContamination_cmds(self, sample_info, get_pileup_cmds, step_name='CalcContamination'):
         commands = dict()
         out_dir = os.path.join(self.project_dir, step_name)
         self.mkdir(out_dir)
         args = dict(self.arg_pool['CalculateContamination'])
         # parse pair info
-        pair_info = [x.strip().split() for x in open(pair_info)]
-        for pair in pair_info:
+        sample_info = [x.strip().split() for x in open(sample_info)]
+        for pair in sample_info:
             depends = []
             step1 = [x for x in get_pileup_cmds.keys() if x.endswith(pair[0])][0]
             depends.append(step1)

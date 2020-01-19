@@ -97,8 +97,8 @@ def MarkDuplicates(**kwargs):
 
 
 def MarkDuplicatesSpark(**kwargs):
-    cmd = '{} -jar '.format(kwargs['java'])
-    cmd += '{} '.format(kwargs['picard'])
+    cmd = '{} '.format(kwargs['gatk'])
+    cmd += '{} '.format(kwargs['tool'])
     cmd += 'I={} '.format(kwargs['input'])
     cmd += 'O={} '.format(kwargs['output'])
     cmd += 'M={} '.format(kwargs['metrics'])
