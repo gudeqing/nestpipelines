@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 from pprint import pprint
 import configparser
@@ -60,6 +61,11 @@ class Basic(object):
                     arg_file = os.path.join(project_dir, 'arguments.ini')
                 arguments.arg_cfg = arg_file
 
+        with open("cmd.{}.txt".format(time_stamp), 'w') as f:
+            f.write('python ' + ' '.join(sys.argv) + '\n')
+            # print(sys.argv)
+            f.write('>>>Argument Detail\n')
+            f.write('{}\n'.format(dict(arguments.__dict__.items())))
         return arguments
 
     def do_some_pre_judge(self, arguments):
