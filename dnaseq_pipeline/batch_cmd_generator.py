@@ -869,3 +869,26 @@ class NestedCmd(Basic):
         self.workflow.update(commands)
         return commands
 
+    def CollectHsMetrics_cmds(self, sort_cmds, step_name='CollectHsMetrics'):
+        commands = dict()
+        out_dir = os.path.join(self.project_dir, step_name)
+        self.mkdir(out_dir)
+        args = dict(self.arg_pool['CollectHsMetrics'])
+        for step, cmd_info in sort_cmds.items():
+            sample = cmd_info['sample_name']
+            args['input'] = cmd_info['output']
+            args['output'] = os.path.join(out_dir, sample + '.HsMetrics.txt')
+            args['PER_TARGET_COVERAGE'] = os.path.join(out_dir, sample + '.PerTargetCov.txt')
+            cmd = cmdx.CollectHsMetrics(**args)
+            commands[step_name + '_' + sample] = self.cmd_dict(
+                cmd=cmd,
+                depend=step,
+                output=args['output'],
+                sample_name=sample,
+                mem=1024 ** 3 * 3,
+                cpu=2,
+                monitor_time_step=5,
+                sorted_bam=args['input']
+            )
+        self.workflow.update(commands)
+        return commands

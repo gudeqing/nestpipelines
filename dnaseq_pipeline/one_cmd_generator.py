@@ -379,3 +379,21 @@ def HaplotypeCaller(**kwargs):
     for each in kwargs['annotation-group'].split():
         cmd += '-G {} '.format(each)
     return cmd
+
+
+def CollectHsMetrics(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += '{} '.format(kwargs['tool'])
+    cmd += 'R={} '.format(kwargs['genome_fasta'])
+    cmd += 'I={} '.format(kwargs['input'])
+    cmd += 'O={} '.format(kwargs['output'])
+    cmd += 'PER_TARGET_COVERAGE={} '.format(kwargs['PER_TARGET_COVERAGE'])
+    cmd += 'BAIT_INTERVALS={} '.format(kwargs['BAIT_INTERVALS'])
+    cmd += 'TARGET_INTERVALS={} '.format(kwargs['TARGET_INTERVALS'])
+    cmd += 'NEAR_DISTANCE={} '.format(kwargs['NEAR_DISTANCE'])
+    cmd += 'CLIP_OVERLAPPING_READS={} '.format(kwargs['CLIP_OVERLAPPING_READS'])
+    cmd += 'SAMPLE_SIZE={} '.format(kwargs['SAMPLE_SIZE'])
+    cmd += 'VALIDATION_STRINGENCY={} '.format(kwargs['VALIDATION_STRINGENCY'])
+    return cmd
+

@@ -54,6 +54,7 @@ def pipeline():
     merge_bam_cmds = nc.MergeBamAlignment_cmds(sam2bam_cmds, fastq2sam_cmds)
     mark_dup_cmds = nc.MarkDuplicates_cmds(merge_bam_cmds)
     sort_bam_cmds = nc.SortAndFixTags_cmds(mark_dup_cmds)
+    hs_metric_cmds = nc.CollectHsMetrics_cmds(sort_bam_cmds)
     recalibrator_cmds = nc.BaseRecalibrator_cmds(sort_bam_cmds)
     gather_report_cmds = nc.GatherBQSRReports_cmds(recalibrator_cmds)
     apply_bqsr_cmds = nc.ApplyBQSR_cmds(gather_report_cmds)
