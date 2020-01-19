@@ -4,6 +4,7 @@ from pprint import pprint
 import configparser
 import shutil
 from basic.nestcmd import RunCommands, set_logger
+import time
 
 
 class Basic(object):
@@ -45,7 +46,8 @@ class Basic(object):
             os.mkdir(project_dir)
         project_dir = os.path.abspath(project_dir)
         arguments.o = project_dir
-        log_file = os.path.join(project_dir, 'run.log')
+        time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        log_file = os.path.join(project_dir, 'run.{}.log'.format(time_stamp))
         self.logger = set_logger(log_file, 'pipeline')
 
         if not arguments.arg_cfg:
