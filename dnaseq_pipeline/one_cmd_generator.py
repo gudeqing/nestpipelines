@@ -96,6 +96,19 @@ def MarkDuplicates(**kwargs):
     return cmd
 
 
+def MarkDuplicatesSpark(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += 'I={} '.format(kwargs['input'])
+    cmd += 'O={} '.format(kwargs['output'])
+    cmd += 'M={} '.format(kwargs['metrics'])
+    cmd += '--create-output-bam-index {}  '.format(kwargs['CREATE_INDEX'])
+    cmd += '--optical-duplicate-pixel-distance {}  '.format(kwargs['OPTICAL_DUPLICATE_PIXEL_DISTANCE'])
+    for each in kwargs['conf'].split():
+        cmd += '--conf {} '.format(each)
+    return cmd
+
+
 def bwa_mem(**kwargs):
     cmd = '{} mem '.format(kwargs['bwa'])
     cmd += '-t {} '.format(kwargs['threads'])
@@ -141,6 +154,18 @@ def SortAndFixTags(**kwargs):
     cmd += '{} '.format(kwargs['picard'])
     cmd += '{} '.format('SetNmMdAndUqTags')
     cmd += 'I=/dev/stdin '
+    cmd += 'O={} '.format(kwargs['output'])
+    cmd += 'R={} '.format(kwargs['genome_fasta'])
+    cmd += 'CREATE_INDEX={} '.format(kwargs['CREATE_INDEX'])
+    cmd += 'CREATE_MD5_FILE={} '.format(kwargs['CREATE_MD5_FILE'])
+    return cmd
+
+
+def FixTags(**kwargs):
+    cmd = '{} -jar '.format(kwargs['java'])
+    cmd += '{} '.format(kwargs['picard'])
+    cmd += '{} '.format('SetNmMdAndUqTags')
+    cmd += 'I={} '.format(kwargs['input'])
     cmd += 'O={} '.format(kwargs['output'])
     cmd += 'R={} '.format(kwargs['genome_fasta'])
     cmd += 'CREATE_INDEX={} '.format(kwargs['CREATE_INDEX'])

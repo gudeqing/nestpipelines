@@ -290,7 +290,10 @@ class NestedCmd(Basic):
             args['input'] = cmd_info['out']
             args['output'] = os.path.join(out_dir, sample+'.markdup.bam')
             args['metrics'] = os.path.join(out_dir, sample+'.mark_duplicated.txt')
-            cmd = cmdx.MarkDuplicates(**args)
+            if self.workflow_arguments.disable_markdup_spark:
+                cmd = cmdx.MarkDuplicates(**args)
+            else:
+                cmd = cmdx.MarkDuplicatesSpark(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
                 depend=step,
@@ -312,7 +315,10 @@ class NestedCmd(Basic):
             sample = cmd_info['sample_name']
             args['input'] = cmd_info['output']
             args['output'] = os.path.join(out_dir, sample+'.markdup.sortedByCoord.bam')
-            cmd = cmdx.SortAndFixTags(**args)
+            if self.workflow_arguments.disable_markdup_spark:
+                cmd = cmdx.SortAndFixTags(**args)
+            else:
+                cmd = cmdx.FixTags(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
                 depend=step,

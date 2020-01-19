@@ -24,7 +24,9 @@ parser.add_argument('-fastq_info', required=False,
 parser.add_argument('-pair_info', required=False,
                     help="第一列是tumour sample id, "
                          "第二列是normal sample id,如果没有则第二列为空. 注意: 第一列不能有重复")
-parser.add_argument('-germline_for_unpaired', required=False, default='no')
+parser.add_argument('-germline_for_unpaired', default='no')
+parser.add_argument('--disable_markdup_spark',   default=False, action='store_true',
+                    help='默认使用MarkDuplicatesSpark, 如果设置该参数，则不使用')
 # 收集参数和记录命令行信息
 args = parser.parse_args()
 args.script_path = script_path
