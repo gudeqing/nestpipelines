@@ -99,9 +99,9 @@ def MarkDuplicates(**kwargs):
 def MarkDuplicatesSpark(**kwargs):
     cmd = '{} '.format(kwargs['gatk'])
     cmd += '{} '.format(kwargs['tool'])
-    cmd += 'I={} '.format(kwargs['input'])
-    cmd += 'O={} '.format(kwargs['output'])
-    cmd += 'M={} '.format(kwargs['metrics'])
+    cmd += '-I {} '.format(kwargs['input'])
+    cmd += '-O {} '.format(kwargs['output'])
+    cmd += '-M {} '.format(kwargs['metrics'])
     cmd += '--create-output-bam-index {}  '.format(kwargs['CREATE_INDEX'])
     cmd += '--optical-duplicate-pixel-distance {}  '.format(kwargs['OPTICAL_DUPLICATE_PIXEL_DISTANCE'])
     for each in kwargs['conf'].split():
