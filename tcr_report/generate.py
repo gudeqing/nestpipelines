@@ -12,7 +12,7 @@ import time
 
 import sys
 if len(sys.argv) <= 1:
-    print('请输入content.ini文件, 你可以')
+    print('请输入content.ini文件')
     print('你可以复制和修改 /data/users/dqgu/PycharmProjects/nestcmd/tcr_report/content.ini')
     exit()
 
