@@ -1,0 +1,1 @@
+1.该流程是严格按照gatk的best_practice流程来的
