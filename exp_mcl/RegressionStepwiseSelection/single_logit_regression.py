@@ -16,7 +16,7 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, prefix='
     X = df.drop(columns= y_col)
     if drop_cols:
         for each in drop_cols:
-    	    X = X.drop(columns=each)
+            X = X.drop(columns=each)
     if x_cols:
         X = df[x_cols]
 
