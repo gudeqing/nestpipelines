@@ -11,7 +11,7 @@ from scipy.cluster import hierarchy as sch
 import fastcluster as hclust
 import colorlover
 __author__ = 'gudeqing'
-__version_ = '3.6.6'
+__version_ = '3.6.7'
 
 
 class ClusterHeatMap(object):
@@ -28,8 +28,8 @@ class ClusterHeatMap(object):
                  log_base=0, log_additive=1.0, zscore_before_cluster=False,
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
                  no_gene_link:bool=None, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
-                 lower_exp_cutoff=0., pass_lower_exp_num=None,
-                 row_sum_cutoff=0., cv_cutoff=0.,
+                 lower_exp_cutoff:float=None, pass_lower_exp_num=None,
+                 row_sum_cutoff:float=None, cv_cutoff=0.,
                  target_cols=None, target_rows=None,
                  gene_names=None, sample_names=None,
                  xgap=0.05, ygap=0.05,
@@ -322,10 +322,11 @@ class ClusterHeatMap(object):
         # exp_pd = exp_pd.applymap(lambda x: x if x <=8 else 8)
         if exp_pd.shape[0] <= 1 or exp_pd.shape[1] <= 1:
             raise Exception("Data is not enough for analysis !")
-        exp_pd = exp_pd[exp_pd.sum(axis=1) > self.row_sum_cutoff]
+        if self.row_sum_cutoff is not None:
+            exp_pd = exp_pd[exp_pd.sum(axis=1) > self.row_sum_cutoff]
         exp_pd = exp_pd[(exp_pd.std(axis=1)/exp_pd.mean(axis=1)).abs() > self.cv_cutoff]
         pass_num_cutoff = int(exp_pd.shape[1] / 3) if self.pass_lower_exp_num is None else self.pass_lower_exp_num
-        if self.lower_exp_cutoff > 0:
+        if self.lower_exp_cutoff is not None:
             pass_state = exp_pd.apply(lambda x: sum(x > self.lower_exp_cutoff), axis=1)
             exp_pd = exp_pd[pass_state >= pass_num_cutoff]
         if self.logbase == 2:
