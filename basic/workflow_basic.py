@@ -12,6 +12,7 @@ class Basic(object):
     def __init__(self, workflow_arguments):
         self.logger = None
         self.wf_state = (0, 0)
+        self.new_dirs = dict()
         workflow_arguments = self.arg_preprocess(workflow_arguments)
         # self.do_some_pre_judge(workflow_arguments)
         if workflow_arguments.arg_cfg:
@@ -132,10 +133,22 @@ class Basic(object):
             args.update(kwargs)
         return args
 
-    @staticmethod
-    def mkdir(path):
-        if not os.path.exists(path):
-            os.mkdir(path)
+    # @staticmethod
+    def mkdir(self, path, delay=False, step_name=None):
+        # 为了避免非必要（比如skip导致的）的目录创建过程，增加推迟创建目录的功能delay
+        # step_name的参数是为了跳过步骤时使用
+        # 为了兼容以前的流程，这里的delay默认只能为False, 以后写流程需要显示指定为True
+        if not delay:
+            if not os.path.exists(path):
+                os.makedirs(path, exist_ok=True)
+        else:
+            # 延迟创建目录时,要求带入所属步骤名, 且每个步骤只能对应一个需要创建的目录，这个目录通常是该步骤的结果目录
+            if step_name is None:
+                raise Exception('必须输入有效的step_name')
+            if step_name not in self.new_dirs:
+                self.new_dirs[step_name] = path
+            else:
+                raise Exception(f'出现了一个步骤{step_name}需要创建多个目录的需求?')
 
     @staticmethod
     def parse_fastq_info(fastq_info_file) -> dict:
@@ -253,6 +266,8 @@ class Basic(object):
             # 删除由于跳过一些步骤产生的无用目录, 但由于目录组织结构由编写pipeline的人决定,
             # 下面的代码不一定能删除所有无用的目录, 甚至有可能删除必要的目录
             all_skipped_detail = skip_detail + total_deduced_skips
+            # 下面的代码避免了要跳过的步骤所需要的目录
+            self.new_dirs = {k: v for k, v in self.new_dirs.items() if k not in all_skipped_detail}
             for each in all_skipped_detail:
                 if '_' not in each:
                     possible_dir = os.path.join(self.project_dir, each)
@@ -272,6 +287,7 @@ class Basic(object):
                             shutil.rmtree(possible_dir)
             # 删除跳过的具体步骤所需的目录后，检查大步骤所需的目录是否为空，如果为空，也要删除
             all_skipped_main = set(x.split('_', 1)[0] for x in all_skipped_detail)
+            self.new_dirs = {k: v for k, v in self.new_dirs.items() if k not in all_skipped_main}
             for each in all_skipped_main:
                 possible_dir = os.path.join(self.project_dir, each)
                 if os.path.exists(possible_dir):
@@ -300,11 +316,16 @@ class Basic(object):
             shutil.rmtree(project_dir)
             return
 
+        # 在程序运行前, 创建被延迟创建的目录
+        for step, path in self.new_dirs.items():
+            self.mkdir(path, delay=False)
+
         # ---------write pipeline cmds--------------------
         with open(os.path.join(project_dir, 'pipeline.ini'), 'w') as configfile:
             commands.write(configfile)
         if arguments.only_write_pipeline:
             return
+
         # ----------------run-----------------
         workflow = RunCommands(os.path.join(project_dir, 'pipeline.ini'),
                                logger=self.logger,
