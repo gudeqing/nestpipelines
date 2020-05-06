@@ -98,7 +98,7 @@ class ClusterHeatMap(object):
         :param lower_exp_cutoff: gene expression lower cutoff, combined with pass_lower_exp_num
         :param pass_lower_exp_num: gene with expression N times smaller than "lower_exp_cutoff" will be filtered，
             default: int(1/3*sample—number)
-        :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default 1
+        :param row_sum_cutoff: gene with sum of expression lower than this cutoff will be filtered, default None
         :param cv_cutoff: genes with cv (=std/mean) higher than will be retained
         :param target_cols: target columns to extract from data file for analysis
         :param target_rows: target rows to extract from data file for analysis
