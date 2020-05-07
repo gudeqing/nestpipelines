@@ -37,6 +37,9 @@ def pipeline():
     crsm = glob(join(result_dir, 'CollectRnaSeqMetrics', '*.CollectRnaSeqMetrics.xls'))
     ctpm = glob(join(result_dir, 'CollectTargetedPcrMetrics', '*.CollectTargetedPcrMetrics.xls'))
     star_log = glob(join(result_dir, 'Align', '*', '*.Log.final.out'))
+    diff_tables = glob(join(result_dir, 'DiffGene', '*_vs_*.*.xls'))
+    go_tables = glob(join(result_dir, 'GoEnrichGene', '*_vs_*.goea.xls'))
+    kegg_tables = glob(join(result_dir, 'KeggEnrichGene', '*_vs_*.*.kegg*.xls'))
 
     if gene_cov_files:
         nc.gene_body_coverage_cmd(gene_cov_files)
@@ -81,6 +84,21 @@ def pipeline():
             print('Star alignment log file not found')
     if any([crsm, ctpm, star_log]):
         nc.merge_qc_metrics_cmd(result_dir)
+
+    if diff_tables:
+        nc.volcano(diff_tables)
+    else:
+        print('diff table not found')
+
+    if go_tables:
+        nc.go_bubble(go_tables)
+    else:
+        print('go enrichment not found')
+
+    if kegg_tables:
+        nc.kegg_bubble(kegg_tables)
+    else:
+        print('kegg enrichment not found')
 
     nc.run()
 

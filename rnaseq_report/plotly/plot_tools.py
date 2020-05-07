@@ -892,7 +892,17 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None,
             return float(x)
         except:
             return 1
+    table_dir = os.path.join(outdir, '1.DiffTable')
+    volcano_dir = os.path.join(outdir, '2.Volcano')
+    os.mkdir(table_dir)
+    os.mkdir(volcano_dir)
+    link_files = []
     for table in files:
+        link = os.path.join(table_dir, os.path.basename(table))
+        link_files.append(os.path.abspath(link))
+        os.symlink(os.path.abspath(table), link)
+
+    for table in link_files:
         with open(table + '.describe.txt', 'w') as f:
             f.write(table_desc)
         ctrl, test = re.fullmatch(r'(.*)_vs_(.*?)\..*.xls', os.path.basename(table)).groups()
@@ -975,7 +985,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None,
 
         fig = go.Figure(data=[trace, trace2, trace3], layout=layout)
         prefix = '{}_vs_{}.volcano'.format(ctrl, test)
-        draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=volcano_desc)
+        draw(fig, prefix=prefix, outdir=volcano_dir, formats=formats, height=height, width=width, scale=scale, desc=volcano_desc)
 
 
 def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), gene_annot=None, use_pval=False,
@@ -1004,6 +1014,7 @@ def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), 
             f.write(dag_desc.format('MF（molecular function）'))
 
     for table in files:
+        print(table)
         with open(table+'.describe.txt', 'w') as f:
             f.write(table_desc)
         df_big = pd.read_table(table, index_col=0, header=0)
@@ -1061,14 +1072,34 @@ def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), 
             )
             links = []
             for x, y, link in zip(x_data, y_data, df.index):
-                links.append(dict(x=x, y=y,
-                                  text="""<a href="http://amigo.geneontology.org/amigo/term/{}">{}</a>""".format(link, "   "),
-                                  showarrow=False,
-                                  xanchor='center', yanchor='middle', ))
+                links.append(
+                    dict(x=x, y=y,
+                         text="""<a href="http://amigo.geneontology.org/amigo/term/{}">{}</a>""".format(link, "   "),
+                         showarrow=False, xanchor='center', yanchor='middle', )
+                )
             layout['annotations'] = links
             fig = go.Figure(data=[trace], layout=layout)
             prefix = '{}.{}.bubble'.format(prefix, each)
-            draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=desc)
+            draw(fig, prefix=prefix, outdir=os.path.dirname(table), formats=formats, height=height, width=width, scale=scale, desc=desc)
+
+    # reorganise
+    result = os.path.dirname(files[0])
+    table_dir = os.path.join(outdir, '1.EnrichTable')
+    bp_dir = os.path.join(outdir, '2.BP')
+    mf_dir = os.path.join(outdir, '3.MF')
+    cc_dir = os.path.join(outdir, '4.CC')
+    os.mkdir(table_dir)
+    os.mkdir(bp_dir)
+    os.mkdir(mf_dir)
+    os.mkdir(cc_dir)
+    for each in glob(os.path.join(result, '*.goea.xls*')):
+        os.symlink(each, os.path.join(outdir, table_dir, os.path.basename(each)))
+    for each in glob(os.path.join(result, '*.BP.*')):
+        os.symlink(each, os.path.join(outdir, bp_dir, os.path.basename(each)))
+    for each in glob(os.path.join(result, '*.MF.*')):
+        os.symlink(each, os.path.join(outdir, mf_dir, os.path.basename(each)))
+    for each in glob(os.path.join(result, '*.CC.*')):
+        os.symlink(each, os.path.join(outdir, cc_dir, os.path.basename(each)))
 
 
 def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), fdr_cutoff=0.05, use_pval=False,
@@ -1150,7 +1181,19 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
         layout['annotations'] = links
         fig = go.Figure(data=[trace], layout=layout)
         prefix = '{}.bubble'.format(prefix)
-        draw(fig, prefix=prefix, outdir=outdir, formats=formats, height=height, width=width, scale=scale, desc=desc)
+        draw(fig, prefix=prefix, outdir=os.path.dirname(table),
+             formats=formats, height=height, width=width, scale=scale, desc=desc)
+
+    # reorganise
+    result = os.path.dirname(files[0])
+    table_dir = os.path.join(outdir, '1.EnrichTable')
+    plot_dir = os.path.join(outdir, '2.EnrichPlot')
+    os.mkdir(table_dir)
+    os.mkdir(plot_dir)
+    for each in glob(os.path.join(result, '*.xls*')):
+        os.symlink(each, os.path.join(outdir, table_dir, os.path.basename(each)))
+    for each in glob(os.path.join(result, '*.bubble.*')):
+        os.symlink(each, os.path.join(outdir, plot_dir, os.path.basename(each)))
 
 
 if __name__ == '__main__':

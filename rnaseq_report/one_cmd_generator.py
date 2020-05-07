@@ -163,3 +163,52 @@ def merge_qc_metrics(**kwargs):
     cmd += '-height {} '.format(kwargs['height'])
     cmd += '-width {} '.format(kwargs['width'])
     return cmd
+
+
+def volcano(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += 'diff_volcano '
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-formats {} '.format(kwargs['formats'])
+    cmd += '-scale {} '.format(kwargs['scale'])
+    cmd += '-height {} '.format(kwargs['height'])
+    cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-files {} '.format(kwargs['files'])
+    cmd += '-gene_annot {} '.format(kwargs['gene_annot'])
+    cmd += '-fc_cutoff {} '.format(kwargs['fc_cutoff'])
+    cmd += '-sig_type {} '.format(kwargs['sig_type'])
+    cmd += '-pvalue_cutoff {} '.format(kwargs['pvalue_cutoff'])
+    cmd += '-limit {} '.format(kwargs['limit'])
+    return cmd
+
+
+def go_bubble(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += 'go_enriched_term_bubble '
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-formats {} '.format(kwargs['formats'])
+    cmd += '-scale {} '.format(kwargs['scale'])
+    cmd += '-height {} '.format(kwargs['height'])
+    cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-files {} '.format(kwargs['files'])
+    cmd += '-gene_annot {} '.format(kwargs['gene_annot'])
+    cmd += '-top {} '.format(kwargs['top'])
+    return cmd
+
+
+def kegg_bubble(**kwargs):
+    cmd = '{} '.format(kwargs['python'])
+    cmd += '{} '.format(kwargs['script'])
+    cmd += 'kegg_enriched_term_bubble '
+    cmd += '-outdir {} '.format(kwargs['outdir'])
+    cmd += '-formats {} '.format(kwargs['formats'])
+    cmd += '-scale {} '.format(kwargs['scale'])
+    cmd += '-height {} '.format(kwargs['height'])
+    cmd += '-width {} '.format(kwargs['width'])
+    cmd += '-files {} '.format(kwargs['files'])
+    cmd += '-gene_annot {} '.format(kwargs['gene_annot'])
+    cmd += '-top {} '.format(kwargs['top'])
+    cmd += '-fdr_cutoff {} '.format(kwargs['fdr_cutoff'])
+    return cmd

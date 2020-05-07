@@ -203,3 +203,49 @@ class NestedCmd(Basic):
         )
         self.workflow.update(commands)
         return commands
+
+    def volcano(self, files, step_name='5.DiffExp'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        args = dict(self.arg_pool['volcano'])
+        args['outdir'] = outdir
+        args['files'] = ' '.join(files)
+        cmd = cmdx.volcano(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            outdir=outdir,
+        )
+        self.workflow.update(commands)
+        return commands
+
+    def go_bubble(self, files, step_name='6.GoEnrichment'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        args = dict(self.arg_pool['go_bubble'])
+        args['outdir'] = outdir
+        args['files'] = ' '.join(files)
+        cmd = cmdx.go_bubble(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            outdir=outdir,
+        )
+        self.workflow.update(commands)
+        return commands
+
+    def kegg_bubble(self, files, step_name='7.KEGGEnrichment'):
+        commands = dict()
+        outdir = os.path.join(self.project_dir, step_name)
+        self.mkdir(outdir)
+        args = dict(self.arg_pool['kegg_bubble'])
+        args['outdir'] = outdir
+        args['files'] = ' '.join(files)
+        cmd = cmdx.kegg_bubble(**args)
+        commands[step_name] = self.cmd_dict(
+            cmd=cmd,
+            outdir=outdir,
+        )
+        self.workflow.update(commands)
+        return commands
+
