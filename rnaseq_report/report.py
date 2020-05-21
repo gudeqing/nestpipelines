@@ -3,6 +3,7 @@ import sys
 import os
 from os.path import join
 from glob import glob
+import shutil
 
 script_path = os.path.abspath(__file__)
 if os.path.islink(script_path):
@@ -101,6 +102,7 @@ def pipeline():
         print('kegg enrichment not found')
 
     nc.run()
+    shutil.copytree(join(os.path.dirname(script_path), '1.Workflow'), join(args.o, '1.Workflow'))
 
 
 if __name__ == '__main__':
