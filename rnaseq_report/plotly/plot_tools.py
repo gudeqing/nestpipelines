@@ -1083,7 +1083,7 @@ def go_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', ), 
             draw(fig, prefix=prefix, outdir=os.path.dirname(table), formats=formats, height=height, width=width, scale=scale, desc=desc)
 
     # reorganise
-    result = os.path.dirname(files[0])
+    result = os.path.dirname(os.path.abspath(files[0]))
     table_dir = os.path.join(outdir, '1.EnrichTable')
     bp_dir = os.path.join(outdir, '2.BP')
     mf_dir = os.path.join(outdir, '3.MF')
@@ -1185,7 +1185,7 @@ def kegg_enriched_term_bubble(files: list, top=20, outdir='', formats=('html', )
              formats=formats, height=height, width=width, scale=scale, desc=desc)
 
     # reorganise
-    result = os.path.dirname(files[0])
+    result = os.path.dirname(os.path.abspath(files[0]))
     table_dir = os.path.join(outdir, '1.EnrichTable')
     plot_dir = os.path.join(outdir, '2.EnrichPlot')
     os.mkdir(table_dir)
