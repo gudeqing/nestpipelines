@@ -811,9 +811,9 @@ class ClusterHeatMap(object):
             above_threshold_color='black'
         )
         self.ordered_samples = list(map(int, results['ivl']))
-        icoord = scp.array(results['icoord'])
-        dcoord = scp.array(results['dcoord'])
-        color_list = scp.array(results['color_list'])
+        icoord = np.array(results['icoord'])
+        dcoord = np.array(results['dcoord'])
+        color_list = np.array(results['color_list'])
         trace_list = []
         for i in range(len(icoord)):
             # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
@@ -864,9 +864,9 @@ class ClusterHeatMap(object):
             above_threshold_color='black'
         )
         self.ordered_genes = list(map(int, results['ivl']))
-        icoord = scp.array(results['dcoord'])*(-1)
-        dcoord = scp.array(results['icoord'])*(-1)
-        color_list = scp.array(results['color_list'])
+        icoord = np.array(results['dcoord'])*(-1)
+        dcoord = np.array(results['icoord'])*(-1)
+        color_list = np.array(results['color_list'])
         trace_list = []
         for i in range(len(icoord)):
             # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
