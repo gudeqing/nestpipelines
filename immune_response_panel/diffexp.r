@@ -4,7 +4,7 @@ opt_list = list(
     make_option(c('-e', '--expr'), help='expr matrix file'),
     make_option(c('-g', '--group'), help='sample group file'),
     make_option(c('-c', '--contrast'), help='comparison info file'),
-    make_option(c('-p', '--proportion'), default=0.1, help='comparison info file', type='numeric'),
+    make_option(c('-p', '--proportion'), default=0.1, help='numeric value between 0 and 1, assumed proportion of genes which are differentially expressed', type='numeric'),
     make_option(c('-f', '--fold_change'), default=2.0, help='fold change cutoff, if = -1, log2fc_cutoff = mean(abs(result$logFC)) + 2*sd(abs(result$logFC))', type='numeric'),
     make_option(c('-s', '--stat_cutoff'), default=0.05, help='pvalue or adjust pvalue cutoff', type='numeric'),
     make_option(c('-t', '--type'), default='padjust', help='use uncorrected pvalue if set to pvalue'),
@@ -73,6 +73,7 @@ for (i in 1:nrow(contrast)){
     result = diff_test(expr_matrix, group_list, contrast_exp, proportion=opt$p)
     # print(head(result, 30))
     ctrl_num = length(ctrl_samples) + 1
+    # 如果输入的是log2转换的数据，那么t-test的假设或许存在问题？
     ttest_pvalue = apply(expr_matrix, 1,
         function(x){
             t.test(as.numeric(x[1:length(ctrl_samples)]),
