@@ -17,21 +17,26 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 # We'll use this library to make the display pretty
 from tabulate import tabulate
+from sklearn.metrics import auc
+from sklearn.metrics import plot_roc_curve
+from sklearn.model_selection import StratifiedKFold
 
 
-def read_data(exp_matrix, group_info, standard_scale=False, target_rows=None, target_cols=None):
+def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  target_rows=None, target_cols=None):
     data = pd.read_csv(exp_matrix, header=0, index_col=0, sep=None, engine='python')
+    data = data.fillna(0)
     if target_rows is not None:
         data = data.loc[[x.strip().split()[0] for x in open(target_rows)]]
     if target_cols is not None:
         data = data[[x.strip().split()[0] for x in open(target_cols)]]
     # print(((data.std(axis=1) / data.mean(axis=1)).abs()).describe())
     # data = data[(data.std(axis=1) / data.mean(axis=1)).abs() > 0.01]
-    data = data.transpose()
-
-    if standard_scale:
+    if scale_on_col:
         data = data.apply(preprocessing.scale)
-        print(data.sum(axis=0))
+
+    data = data.transpose()
+    if scale_on_row:
+        data = data.apply(preprocessing.scale)
     group_info = pd.read_csv(group_info, header=0, index_col=0, sep=None, engine='python')
     group_info = group_info.loc[[x for x in data.index if x in group_info.index]].iloc[:, 0]
     y_dict = dict()
@@ -40,7 +45,7 @@ def read_data(exp_matrix, group_info, standard_scale=False, target_rows=None, ta
     target = [y_dict[x] for x in group_info]
     print(data.shape)
     print(y_dict)
-    return data, target
+    return data, np.array(target)
 
 
 def pca(data, explained_ratio=0.95):
@@ -61,7 +66,7 @@ def pca(data, explained_ratio=0.95):
     return result
 
 
-def train_and_predict(data, target, classifier="rf", max_iter=None, test_size=0.15, cv=10):
+def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_size=0.15, cv=10):
     best_scores = [0]
     k = 0
     model_id = 0
@@ -69,11 +74,13 @@ def train_and_predict(data, target, classifier="rf", max_iter=None, test_size=0.
     train_f = open(f'{classifier}.train_data_records.txt', 'a')
     test_f = open(f'{classifier}.test_data_record.txt', 'a')
     estimator_f = open(f'{classifier}.best_estimator.txt', 'a')
+    my_scores = []
     while True:
         k += 1
         x_train, x_test, y_train, y_test = train_test_split(data, target, test_size=test_size)
         if classifier == 'rf':
             estimator = RandomForestClassifier()
+            # 下面的字典给出参数的可选组合
             param_dict = dict(
                 n_estimators=range(50, 200, 20),
                 # criterion=('gini', 'entropy'),
@@ -94,57 +101,112 @@ def train_and_predict(data, target, classifier="rf", max_iter=None, test_size=0.
 
         estimator = GridSearchCV(estimator, param_grid=param_dict, cv=cv, n_jobs=5)
         estimator.fit(x_train, y_train)
-        if estimator.best_score_ > best_scores[-1]:
-            model_id += 1
-            best_scores.append(estimator.best_score_)
-            best_estimator = estimator.best_estimator_
-            print(f'{model_id}.best estimator:', best_estimator, flush=True)
-            estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
-            print(f'{model_id}.Mean cross-validated score of the best_estimator:', best_scores[-1], flush=True)
-            train_f.write(f'{model_id}.mean_cv_score:{best_scores[-1]}\t'+'\t'.join(x_train.index)+'\n')
-            y_predict = best_estimator.predict(x_test)
-            test_accuracy = accuracy_score(y_test, y_predict)
-            print(f'{model_id}.test_accuracy:{test_accuracy}', flush=True)
-            test_f.write(f'{model_id}.test_accuracy:{test_accuracy}\t'+'\t'.join(x_test.index)+'\n')
-            final_x_train = x_train
-            final_y_train = y_train
-            final_x_test = x_test
-            final_y_test = y_test
-            print(classification_report(final_y_test, y_predict), flush=True)
-            if max_iter is None:
-                if sum(best_scores[-1] - x for x in best_scores[-6:-1]) < 0.05:
-                    break
-            else:
-                if k == max_iter:
-                    break
-            train_f.flush()
-            test_f.flush()
-            estimator_f.flush()
+        # if estimator.best_score_ > best_scores[-1]:
+        model_id += 1
+        best_scores.append(estimator.best_score_)
+        best_estimator = estimator.best_estimator_
+        print(f'{model_id}.best estimator:', best_estimator, flush=True)
+        estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
+        print(f'{model_id}.Mean cross-validated score of the best_estimator:', best_scores[-1], flush=True)
+        train_f.write(f'{model_id}.mean_cv_score:{best_scores[-1]}\t'+'\t'.join(x_train.index)+'\n')
+        y_predict = best_estimator.predict(x_test)
+        test_accuracy = accuracy_score(y_test, y_predict)
+        my_scores.append([model_id, best_estimator, best_scores[-1], test_accuracy])
+        print(f'{model_id}.test_accuracy:{test_accuracy}', flush=True)
+        test_f.write(f'{model_id}.test_accuracy:{test_accuracy}\t'+'\t'.join(x_test.index)+'\n')
+        # final_x_train = x_train
+        # final_y_train = y_train
+        # final_x_test = x_test
+        # final_y_test = y_test
+        print(classification_report(y_test, y_predict), flush=True)
+        # roc plot
+        roc_cross_validation(best_estimator, data, target, out=f'model{model_id}.roc.pdf')
+
+        if max_iter is None:
+            # 倒数5个结果相差之和小于0.1
+            if sum(abs(best_scores[-1] - x) for x in best_scores[-6:-1]) < 0.1:
+                break
+        else:
+            if k == max_iter:
+                break
+        train_f.flush()
+        test_f.flush()
+        estimator_f.flush()
 
     train_f.close()
     test_f.close()
     estimator_f.close()
+    model_id, best_estimator, score, test_accuracy = sorted(my_scores, key=lambda x:x[2]*x[3])[-1]
     print('performed grid searching {} times'.format(k))
-    print('Final Mean cross-validated score of the best_estimator:', best_scores[-1])
-    print('best estimator:', best_estimator)
-    print('for test data:')
-    y_predict = best_estimator.predict(final_x_test)
-    print(classification_report(final_y_test, y_predict))
+    # print('Final Mean cross-validated score of the best_estimator:', best_scores[-1])
+    print(f'Final best estimator is the {model_id}th:', best_estimator)
+    print(f"It's score is {score}")
+    print("It's accuracy on test data is:", test_accuracy)
+    print("--Following is its performance on all input data---")
+    y_predict = best_estimator.predict(data)
+    print(classification_report(target, y_predict))
     model = best_estimator
     headers = ["name", "score"]
-    values = sorted(zip(final_x_train.columns, model.feature_importances_), key=lambda x: x[1] * -1)
+    values = sorted(zip(data.columns, model.feature_importances_), key=lambda x: x[1] * -1)
     print(tabulate(values, headers, tablefmt="plain"))
 
 
-def run(exp_matrix, group_info, classifier='rf', standard_scale=False,
+def run(exp_matrix, group_info, classifier='rf', scale_on_row=False, scale_on_col=False,
         target_rows=None, target_cols=None, pca_first=False,
-        max_iter=None, test_size=0.15, cv=10):
-    data, target = read_data(exp_matrix, group_info, standard_scale=standard_scale,
+        max_iter:int=None, test_size=0.15, cv=10):
+    data, target = read_data(exp_matrix, group_info, scale_on_row=scale_on_row, scale_on_col=scale_on_col,
                              target_rows=target_rows, target_cols=target_cols)
     if pca_first:
         data = pca(data, explained_ratio=0.95)
         print('after pca:', data.shape)
     train_and_predict(data, target, classifier=classifier, max_iter=max_iter, test_size=test_size, cv=cv)
+
+
+def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
+    """
+    把数据拆分
+    :param classifier:
+    :param X:
+    :param y:
+    :param out:
+    :return:
+    """
+    cv = StratifiedKFold(n_splits=n_splits)
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
+
+    fig, ax = plt.subplots()
+    for i, (train, test) in enumerate(cv.split(X, y)):
+        classifier.fit(X.iloc[train], y[train])
+        viz = plot_roc_curve(classifier, X.iloc[test], y[test],
+                             name='ROC fold {}'.format(i),
+                             alpha=0.3, lw=1, ax=ax)
+        interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
+        interp_tpr[0] = 0.0
+        tprs.append(interp_tpr)
+        aucs.append(viz.roc_auc)
+
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Chance', alpha=.8)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+    ax.plot(mean_fpr, mean_tpr, color='b',
+            label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+            lw=2, alpha=.8)
+
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    ax.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                    label=r'$\pm$ 1 std. dev.')
+
+    ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05], title="Receiver operating characteristic")
+    ax.legend(loc="lower right")
+    plt.savefig(out)
+    plt.close()
 
 
 def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02, out='svm.decision.pdf'):
