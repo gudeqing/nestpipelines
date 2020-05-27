@@ -73,7 +73,7 @@ for (i in 1:nrow(contrast)){
     result = diff_test(expr_matrix, group_list, contrast_exp, proportion=opt$p)
     # print(head(result, 30))
     ctrl_num = length(ctrl_samples) + 1
-    # 如果输入的是log2转换的数据，那么t-test的假设或许存在问题？
+    # 做t-test 如果输入的是log2转换的数据，那么t-test的假设或许存在问题？
     ttest_pvalue = apply(expr_matrix, 1,
         function(x){
             t.test(as.numeric(x[1:length(ctrl_samples)]),
@@ -82,9 +82,18 @@ for (i in 1:nrow(contrast)){
                 paired=opt$x)$p.value
         }
     )
-
+    # 做wilcox检验
+    wilcox_pvalue = apply(expr_matrix, 1,
+        function(x){
+            wilcox.test(as.numeric(x[1:length(ctrl_samples)]),
+            as.numeric(x[ctrl_num:dim(expr_matrix)[2]]),
+            paired=opt$x, correct=T)$p.value
+        }
+    )
     result$ttest_pvalue = ttest_pvalue
     result$adj.ttest_pvalue = as.vector(p.adjust(ttest_pvalue, method='BH'))
+    result$wilcox_pvalue = wilcox_pvalue
+    result$adj.wilcox_pvalue = as.vector(p.adjust(wilcox_pvalue, method='BH'))
 
     # add mean and median and sd columns
     result[, paste('mean.', ctrl, sep='')] = ctrl_mean_value

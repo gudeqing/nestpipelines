@@ -207,6 +207,7 @@ def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
     ax.legend(loc="lower right")
     plt.savefig(out)
     plt.close()
+    return mean_auc
 
 
 def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02, out='svm.decision.pdf'):
