@@ -20,6 +20,7 @@ from tabulate import tabulate
 from sklearn.metrics import auc
 from sklearn.metrics import plot_roc_curve
 from sklearn.model_selection import StratifiedKFold
+import cPickle
 
 
 def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  target_rows=None, target_cols=None):
@@ -105,6 +106,8 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
         model_id += 1
         best_scores.append(estimator.best_score_)
         best_estimator = estimator.best_estimator_
+        with open(f'best_model_{model_id}', 'wb') as f:
+            cPickle.dump(best_estimator, f)
         print(f'{model_id}.best estimator:', best_estimator, flush=True)
         estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
         print(f'{model_id}.Mean cross-validated score of the best_estimator:', best_scores[-1], flush=True)
