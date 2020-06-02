@@ -28,8 +28,10 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     data = data.fillna(0)
     if target_rows is not None:
         data = data.loc[[x.strip().split()[0] for x in open(target_rows)]]
+        data.to_csv(exp_matrix+'.target.csv')
     if target_cols is not None:
         data = data[[x.strip().split()[0] for x in open(target_cols)]]
+        data.to_csv(exp_matrix + '.target.csv')
     # print(((data.std(axis=1) / data.mean(axis=1)).abs()).describe())
     # data = data[(data.std(axis=1) / data.mean(axis=1)).abs() > 0.01]
     if scale_on_col:
@@ -167,7 +169,8 @@ def run(exp_matrix, group_info, classifier='rf', scale_on_row=False, scale_on_co
 
 def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
     """
-    把数据拆分
+    把数据集分成n_splits份，取n-1份作为训练集，剩下的一份作为测试集，共有n种取法。
+    计算每次
     :param classifier:
     :param X:
     :param y:
