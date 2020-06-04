@@ -8,6 +8,7 @@ from numpy import random
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
@@ -20,7 +21,7 @@ from tabulate import tabulate
 from sklearn.metrics import auc
 from sklearn.metrics import plot_roc_curve
 from sklearn.model_selection import StratifiedKFold
-import cPickle
+import pickle
 
 
 def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  target_rows=None, target_cols=None):
@@ -51,6 +52,25 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     return data, np.array(target)
 
 
+def spearman_corr(X):
+    from scipy.stats import spearmanr
+    from scipy.cluster import hierarchy
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+    corr = spearmanr(X).correlation
+    corr_linkage = hierarchy.ward(corr)
+    dendro = hierarchy.dendrogram(corr_linkage, labels=X.columns, ax=ax1, leaf_rotation=90)
+    dendro_idx = np.arange(0, len(dendro['ivl']))
+
+    ax2.imshow(corr[dendro['leaves'], :][:, dendro['leaves']])
+    ax2.set_xticks(dendro_idx)
+    ax2.set_yticks(dendro_idx)
+    ax2.set_xticklabels(dendro['ivl'], rotation='vertical')
+    ax2.set_yticklabels(dendro['ivl'])
+    fig.tight_layout()
+    plt.savefig('spearman_corr.pdf')
+
+
 def pca(data, explained_ratio=0.95):
     pca = decomposition.PCA()
     pca.fit(data)
@@ -70,6 +90,18 @@ def pca(data, explained_ratio=0.95):
 
 
 def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_size=0.15, cv=10):
+    """
+    先把数据集拆分为两份，一份为训练集，一份为测试集，比例由test_size决定
+    用上面的训练集进行grid search，grid search本身还需要一个交叉验证的参数cv
+    这意味着每次训练时，还要对上面的训练集进一步划分，每次取其中的如90%进行训练，剩下的10%进行验证
+    :param data:
+    :param target:
+    :param classifier:
+    :param max_iter:
+    :param test_size:
+    :param cv:
+    :return:
+    """
     best_scores = [0]
     k = 0
     model_id = 0
@@ -78,7 +110,10 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
     test_f = open(f'{classifier}.test_data_record.txt', 'a')
     estimator_f = open(f'{classifier}.best_estimator.txt', 'a')
     my_scores = []
+    feature_importance = dict()
     while True:
+        # 随机分割数据，然后grid_search最佳模型
+        # 对每次得到的最佳模型，都会画基于cross-validation的ROC曲线
         k += 1
         x_train, x_test, y_train, y_test = train_test_split(data, target, test_size=test_size)
         if classifier == 'rf':
@@ -108,8 +143,9 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
         model_id += 1
         best_scores.append(estimator.best_score_)
         best_estimator = estimator.best_estimator_
-        with open(f'best_model_{model_id}', 'wb') as f:
-            cPickle.dump(best_estimator, f)
+        with open(f'best_model_{model_id}.pickle', 'wb') as f:
+            pickle.dump(best_estimator, f)
+        feature_importance[f'model_{model_id}'] = best_estimator.feature_importances_
         print(f'{model_id}.best estimator:', best_estimator, flush=True)
         estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
         print(f'{model_id}.Mean cross-validated score of the best_estimator:', best_scores[-1], flush=True)
@@ -154,6 +190,15 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
     headers = ["name", "score"]
     values = sorted(zip(data.columns, model.feature_importances_), key=lambda x: x[1] * -1)
     print(tabulate(values, headers, tablefmt="plain"))
+    # 输出所有最佳模型的feature importance，最佳模型有好有坏，均值不一定有意义
+    df = pd.DataFrame(feature_importance, index=data.columns)
+    df['mean_importance'] = df.mean(axis=1)
+    df.sort_values(by='mean_importance', ascending=False).to_csv('feature_importance.csv')
+    # 输出基于最优模型的permutation importance，对于共线性feature较多的数据，极有可能结果都是0
+    result = permutation_importance(best_estimator, data, target, n_repeats=10, random_state=42, n_jobs=2)
+    df = pd.DataFrame(result.importances, index=data.columns)
+    df['mean_importance'] = df.mean(axis=1)
+    df.sort_values(by='mean_importance', ascending=False).to_csv('permutation_feature_importance.csv')
 
 
 def run(exp_matrix, group_info, classifier='rf', scale_on_row=False, scale_on_col=False,
@@ -169,7 +214,7 @@ def run(exp_matrix, group_info, classifier='rf', scale_on_row=False, scale_on_co
 
 def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
     """
-    把数据集分成n_splits份，取n-1份作为训练集，剩下的一份作为测试集，共有n种取法。
+    把数据集随机分成n_splits份，取n-1份作为训练集，剩下的一份作为测试集，共有n种取法。
     计算每次
     :param classifier:
     :param X:
