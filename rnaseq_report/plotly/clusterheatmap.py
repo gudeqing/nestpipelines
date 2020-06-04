@@ -25,7 +25,7 @@ class ClusterHeatMap(object):
                  sample_corr_as_heatmap=False, gene_corr_as_heatmap=False, corr_method='spearman',
                  sample_cluster_num=1, gene_cluster_num=1,
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
-                 log_base=0, log_additive=1.0, zscore_before_cluster=False,
+                 log_base=0, log_additive=1.0, zscore='none',
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
                  no_gene_link:bool=None, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
                  lower_exp_cutoff:float=None, pass_lower_exp_num=None,
@@ -86,7 +86,7 @@ class ClusterHeatMap(object):
         :param log_base: transform data using log, value could be one of {2, 10, 1, 0,None},
             1 or 0 means do no log transformation
         :param log_additive: a small value added before doing log transformation for data
-        :param zscore_before_cluster: bool indicates if to do zscore normalization, default: False.
+        :param zscore: str indicates if to do zscore normalization by row or col or none, default: none.
             No effect if "sample/gene_corr_as_heatmap" is True
         :param gene_group: a file with at least two column, first column is gene name and fist row is group scheme,
             data in matrix are group names. or a pandas data frame object.
@@ -118,7 +118,7 @@ class ClusterHeatMap(object):
             'Rainbow', 'RdBu', 'Reds', 'Viridis', 'YlGnBu', 'YlOrRd']
             or one of colorlover scales ['RdYlBu', 'Spectral', 'RdYlGn', 'PiYG', 'PuOr', 'PRGn', 'RdGy']
         :param preprocess_data_func: function provided for data filtering and transformation. Default None
-        :param transpose_data: transpose raw data before future analysis
+        :param transpose_data: transpose raw data before everything begins
         :param left_dendrogram_width: left/sample dendrogram width, default 0.15, range(0, 1)
         :param top_dendrogram_height: top/gene dendrogram height, default 0.15, range(0, 1)
         :param colorbar_x: colorbar x coordinate, default to self-determined
@@ -212,7 +212,7 @@ class ClusterHeatMap(object):
         self.pass_lower_exp_num = int(pass_lower_exp_num) if pass_lower_exp_num is not None else None
         self.row_sum_cutoff = row_sum_cutoff
         self.cv_cutoff = cv_cutoff
-        self.zscore_before_cluster = zscore_before_cluster
+        self.zscore = zscore
 
         self.out_prefix = out_prefix
         outdir = os.path.dirname(self.out_prefix)
@@ -324,7 +324,8 @@ class ClusterHeatMap(object):
             raise Exception("Data is not enough for analysis !")
         if self.row_sum_cutoff is not None:
             exp_pd = exp_pd[exp_pd.sum(axis=1) > self.row_sum_cutoff]
-        exp_pd = exp_pd[(exp_pd.std(axis=1)/exp_pd.mean(axis=1)).abs() > self.cv_cutoff]
+        if self.cv_cutoff > 0:
+            exp_pd = exp_pd[(exp_pd.std(axis=1)/exp_pd.mean(axis=1)).abs() > self.cv_cutoff]
         pass_num_cutoff = int(exp_pd.shape[1] / 3) if self.pass_lower_exp_num is None else self.pass_lower_exp_num
         if self.lower_exp_cutoff is not None:
             pass_state = exp_pd.apply(lambda x: sum(x > self.lower_exp_cutoff), axis=1)
@@ -345,6 +346,12 @@ class ClusterHeatMap(object):
                 self.out_prefix, self.logbase, self.cv_cutoff, pass_num_cutoff, exp_pd.shape[1], self.lower_exp_cutoff
             ))
             exp_pd.round(4).to_csv(out_name, header=True, index=True, sep='\t')
+        # zscore data
+        if not (self.sample_corr_as_heatmap or self.gene_corr_as_heatmap):
+            if self.zscore == 'row':
+                exp_pd = exp_pd.transpose().apply(zscore).transpose()
+            elif self.zscore == 'col':
+                exp_pd = exp_pd.apply(zscore)
         return exp_pd
 
     def heatmap_xaxis(self):
@@ -790,9 +797,6 @@ class ClusterHeatMap(object):
 
     def top_dendrogram_traces(self):
         exp_pd = self.data.transpose()
-        if not (self.sample_corr_as_heatmap or self.gene_corr_as_heatmap):
-            if self.zscore_before_cluster:
-                exp_pd = exp_pd.transpose().apply(zscore).transpose()
         z, subcluster = self.hcluster(
             exp_pd,
             method=self.scm,
@@ -842,10 +846,6 @@ class ClusterHeatMap(object):
 
     def left_dendrogram_traces(self):
         exp_pd = self.data
-        if not (self.sample_corr_as_heatmap or self.gene_corr_as_heatmap):
-            if self.zscore_before_cluster:
-                exp_pd = exp_pd.transpose().apply(zscore).transpose()
-                self.data = exp_pd
         z, subcluster = self.hcluster(
             exp_pd,
             method=self.gcm,
