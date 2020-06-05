@@ -27,7 +27,7 @@ class ClusterHeatMap(object):
                  sample_group=None, sample_group_color=None, sample_group_is_comm=True,
                  log_base=0, log_additive=1.0, zscore='none',
                  gene_group=None, gene_group_color=None, gene_group_is_comm=False,
-                 no_gene_link:bool=None, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
+                 no_gene_link:bool=False, link_source="https://www.genecards.org/cgi-bin/carddisp.pl?gene=",
                  lower_exp_cutoff:float=None, pass_lower_exp_num=None,
                  row_sum_cutoff:float=None, cv_cutoff=0.,
                  target_cols=None, target_rows=None,
@@ -142,7 +142,7 @@ class ClusterHeatMap(object):
         self.transpose_data = transpose_data
         self.sort_cluster_by = sort_cluster_by
         self.outlier_k = k_outlier
-        self.link_gene = True if no_gene_link is None else not no_gene_link
+        self.link_gene = not no_gene_link
         self.link_source = link_source
         self.gene_names = dict(x.strip().split('\t')[:2] for x in open(gene_names)) if gene_names else None
         self.sample_names = dict(x.strip().split('\t')[:2] for x in open(sample_names)) if sample_names else None
@@ -256,7 +256,7 @@ class ClusterHeatMap(object):
         if self.sample_corr_as_heatmap:
             print('calculate sample correlation')
             self.data = self.data.corr(method=corr_method)
-            self.link_gene = False if no_gene_link is None else not no_gene_link
+            self.link_gene = not no_gene_link
             self.gene_label_size = 9 if gene_label_size is None else gene_label_size
             # we choose not use the following codes to enable more freedom of users
             # self.cluster_gene = True
@@ -265,7 +265,7 @@ class ClusterHeatMap(object):
         if self.gene_corr_as_heatmap:
             print('calculate gene correlation')
             self.data = self.data.transpose().corr(method=corr_method)
-            self.link_gene = True if no_gene_link is None else not no_gene_link
+            self.link_gene = not no_gene_link
             self.sample_label_size = 7 if sample_label_size is None else sample_label_size
 
         if self.cluster_gene:
