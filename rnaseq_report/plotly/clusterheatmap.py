@@ -763,7 +763,7 @@ class ClusterHeatMap(object):
         traces = list()
         existed_legend = set()
         base = -1.01
-        with open('sample.group.colors', 'w') as f:
+        with open('gene.group.colors', 'w') as f:
             for k, v in group_colors.items():
                 f.write('{}\t{}\n'.format(k, v))
         for category, group_dict in all_group_dict.items():
