@@ -826,21 +826,22 @@ class ClusterHeatMap(object):
         dcoord = np.array(results['dcoord'])
         color_list = np.array(results['color_list'])
         trace_list = []
-        for i in range(len(icoord)):
-            # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
-            hovertext_label = None
-            trace = go.Scatter(
-                x=icoord[i],
-                y=dcoord[i],
-                mode='lines',
-                marker=dict(color=color_list[i]),
-                text=hovertext_label,
-                hoverinfo='text',
-                xaxis="x3",
-                yaxis="y3",
-                showlegend=False,
-            )
-            trace_list.append(trace)
+        if self.top_dendrogram_height > 0:
+            for i in range(len(icoord)):
+                # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
+                hovertext_label = None
+                trace = go.Scatter(
+                    x=icoord[i],
+                    y=dcoord[i],
+                    mode='lines',
+                    marker=dict(color=color_list[i]),
+                    text=hovertext_label,
+                    hoverinfo='text',
+                    xaxis="x3",
+                    yaxis="y3",
+                    showlegend=False,
+                )
+                trace_list.append(trace)
         #
         if self.only_sample_dendrogram:
             if self.group_sample is None:
@@ -875,21 +876,22 @@ class ClusterHeatMap(object):
         dcoord = np.array(results['icoord'])*(-1)
         color_list = np.array(results['color_list'])
         trace_list = []
-        for i in range(len(icoord)):
-            # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
-            hovertext_label = None
-            trace = go.Scatter(
-                x=icoord[i],
-                y=dcoord[i],
-                mode='lines',
-                marker=dict(color=color_list[i]),
-                text=hovertext_label,
-                hoverinfo='text',
-                xaxis="x2",
-                yaxis="y2",
-                showlegend=False
-            )
-            trace_list.append(trace)
+        if self.left_dendrogram_width > 0:
+            for i in range(len(icoord)):
+                # x and y are arrays of 4 points that make up the '∩' shapes of the dendrogram tree
+                hovertext_label = None
+                trace = go.Scatter(
+                    x=icoord[i],
+                    y=dcoord[i],
+                    mode='lines',
+                    marker=dict(color=color_list[i]),
+                    text=hovertext_label,
+                    hoverinfo='text',
+                    xaxis="x2",
+                    yaxis="y2",
+                    showlegend=False
+                )
+                trace_list.append(trace)
 
         if self.only_gene_dendrogram:
             if self.group_gene is None:
