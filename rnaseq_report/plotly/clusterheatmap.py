@@ -654,6 +654,10 @@ class ClusterHeatMap(object):
         traces = list()
         existed_legend = set()
         base = -1.01
+        # if self.keep_tmp:
+        with open('sample.group.colors', 'w') as f:
+            for k, v in group_colors.items():
+                f.write('{}\t{}\n'.format(k, v))
         for category, group_dict in all_group_dict.items():
             base += 1
             sample_colors = dict()
@@ -759,6 +763,9 @@ class ClusterHeatMap(object):
         traces = list()
         existed_legend = set()
         base = -1.01
+        with open('sample.group.colors', 'w') as f:
+            for k, v in group_colors.items():
+                f.write('{}\t{}\n'.format(k, v))
         for category, group_dict in all_group_dict.items():
             base += 1
             sample_colors = dict()
