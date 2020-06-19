@@ -28,7 +28,8 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     data = pd.read_csv(exp_matrix, header=0, index_col=0, sep=None, engine='python')
     data = data.fillna(0)
     if target_rows is not None:
-        data = data.loc[[x.strip().split()[0] for x in open(target_rows)]]
+        targets = [x.strip().split()[0] for x in open(target_rows)]
+        data = data.loc[[x for x in targets if x in data.index]]
         data.to_csv(exp_matrix+'.target.csv')
     if target_cols is not None:
         data = data[[x.strip().split()[0] for x in open(target_cols)]]
@@ -52,21 +53,69 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     return data, np.array(target)
 
 
-def spearman_corr(X):
-    from scipy.stats import spearmanr
+def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0.0):
     from scipy.cluster import hierarchy
+    if type(X) == str:
+        X = pd.read_csv(X, header=0, index_col=0, sep=None, engine='python')
+    if target_rows is not None:
+        targets = [x.strip().split()[0] for x in open(target_rows)]
+        X = X.loc[[x for x in targets if x in X.index]]
+        X.to_csv('target_data.csv')
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
-    corr = spearmanr(X).correlation
+    corr = X.T.corr(method='spearman')
+
+    # 计算高相关性的基因
+    high_corr_group = set()
+    for ind, row in corr.abs().iterrows():
+        group = set(row[row > corr_cutoff].index)
+        if len(group) > 1:
+            high_corr_group.add(tuple(sorted(group)))
+    # merge group
+    merged = set()
+    for each in high_corr_group:
+        tmp = set(each)
+        _ = [tmp.update(x) for x in high_corr_group if set(x)&tmp]
+        merged.add(tuple(sorted(tmp)))
+    with open('HighCorrGroup.list', 'w') as f:
+        for each in merged:
+            f.write(';'.join(each)+'\n')
+
+    # 计算VIF，计算出与其他基因有较高共线性的基因
+    vif = np.linalg.inv(corr.values).diagonal()
+    vif_df = pd.DataFrame(vif, index=corr.index, columns=['VIF']).sort_values(by='VIF', ascending=False)
+    vif_df.to_csv('vif.txt', sep='\t')
+    high_vif_genes = vif_df[vif_df['VIF'] >= 5].index
+
+    # 根据聚类距离计算距离比较近的基因簇
     corr_linkage = hierarchy.ward(corr)
-    dendro = hierarchy.dendrogram(corr_linkage, labels=X.columns, ax=ax1, leaf_rotation=90)
-    dendro_idx = np.arange(0, len(dendro['ivl']))
+    distance_desc = pd.DataFrame(corr_linkage)[2].describe()
+    if distance_cutoff <= 0:
+        lq = distance_desc['25%']
+        print('25% distance cutoff:', lq)
+    else:
+        lq = distance_cutoff
+    cluster_ids = hierarchy.fcluster(corr_linkage,lq, criterion='distance')
+    distance_group = dict()
+    ids = corr.columns
+    for ind, big_id in enumerate(cluster_ids):
+        distance_group.setdefault(ids[big_id], list())
+        distance_group[ids[big_id]].append(ids[ind])
+    representing = list()
+    with open('NearDisGroup.list', 'w') as f, open('representing.list', 'w') as f2:
+        for k, v in distance_group.items():
+            representing.append(v[0])
+            f2.write(v[0]+'\n')
+            if len(v) > 1:
+                mean_corr = (corr.loc[v, v].values.flatten().sum() - len(v))/2/(len(v)**2-len(v))
+                # if mean_corr > corr_cutoff:
+                f.write(v[0]+'\t'+';'.join(sorted(v))+'\t'+str(mean_corr)+'\n')
 
-    ax2.imshow(corr[dendro['leaves'], :][:, dendro['leaves']])
-    ax2.set_xticks(dendro_idx)
-    ax2.set_yticks(dendro_idx)
-    ax2.set_xticklabels(dendro['ivl'], rotation='vertical')
-    ax2.set_yticklabels(dendro['ivl'])
+    # 可视化聚类结果
+    # 如果筛选的基因全是差异基因，在不对相关系数取绝对值时，聚成两大类，分别对应上调基因和下调基因成团
+    # 如果对相关系数取绝对值，可以聚成3大类，即增加了一个负相关基因成团的聚类
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+    dendro = hierarchy.dendrogram(corr_linkage, ax=ax1,  leaf_rotation=90)
+    ax2.imshow(corr.iloc[dendro['leaves'], :].iloc[:, dendro['leaves']])
     fig.tight_layout()
     plt.savefig('spearman_corr.pdf')
 
@@ -112,7 +161,7 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
     my_scores = []
     feature_importance = dict()
     while True:
-        # 随机分割数据，然后grid_search最佳模型
+        # 随机分割数据，然后grid_search最佳模型参数
         # 对每次得到的最佳模型，都会画基于cross-validation的ROC曲线
         k += 1
         x_train, x_test, y_train, y_test = train_test_split(data, target, test_size=test_size)
@@ -145,7 +194,9 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
         best_estimator = estimator.best_estimator_
         with open(f'best_model_{model_id}.pickle', 'wb') as f:
             pickle.dump(best_estimator, f)
-        feature_importance[f'model_{model_id}'] = best_estimator.feature_importances_
+
+        if classifier == 'rf':
+            feature_importance[f'model_{model_id}'] = best_estimator.feature_importances_
         print(f'{model_id}.best estimator:', best_estimator, flush=True)
         estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
         print(f'{model_id}.Mean cross-validated score of the best_estimator:', best_scores[-1], flush=True)
@@ -186,19 +237,20 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
     print("--Following is its performance on all input data---")
     y_predict = best_estimator.predict(data)
     print(classification_report(target, y_predict))
-    model = best_estimator
-    headers = ["name", "score"]
-    values = sorted(zip(data.columns, model.feature_importances_), key=lambda x: x[1] * -1)
-    print(tabulate(values, headers, tablefmt="plain"))
-    # 输出所有最佳模型的feature importance，最佳模型有好有坏，均值不一定有意义
-    df = pd.DataFrame(feature_importance, index=data.columns)
-    df['mean_importance'] = df.mean(axis=1)
-    df.sort_values(by='mean_importance', ascending=False).to_csv('feature_importance.csv')
-    # 输出基于最优模型的permutation importance，对于共线性feature较多的数据，极有可能结果都是0
-    result = permutation_importance(best_estimator, data, target, n_repeats=10, random_state=42, n_jobs=2)
-    df = pd.DataFrame(result.importances, index=data.columns)
-    df['mean_importance'] = df.mean(axis=1)
-    df.sort_values(by='mean_importance', ascending=False).to_csv('permutation_feature_importance.csv')
+    if classifier == 'rf':
+        model = best_estimator
+        headers = ["name", "score"]
+        values = sorted(zip(data.columns, model.feature_importances_), key=lambda x: x[1] * -1)
+        print(tabulate(values, headers, tablefmt="plain"))
+        # 输出所有最佳模型的feature importance，最佳模型有好有坏，均值不一定有意义
+        df = pd.DataFrame(feature_importance, index=data.columns)
+        df['mean_importance'] = df.mean(axis=1)
+        df.sort_values(by='mean_importance', ascending=False).to_csv('feature_importance.csv')
+        # 输出基于最优模型的permutation importance，对于共线性feature较多的数据，极有可能结果都是0
+        result = permutation_importance(best_estimator, data, target, n_repeats=10, random_state=42, n_jobs=2)
+        df = pd.DataFrame(result.importances, index=data.columns)
+        df['mean_importance'] = df.mean(axis=1)
+        df.sort_values(by='mean_importance', ascending=False).to_csv('permutation_feature_importance.csv')
 
 
 def run(exp_matrix, group_info, classifier='rf', scale_on_row=False, scale_on_col=False,
@@ -299,4 +351,4 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02, out=
 
 if __name__ == '__main__':
     from xcmds import xcmds
-    xcmds.xcmds(locals(), include=['run'])
+    xcmds.xcmds(locals(), include=['run', 'group_collinear_gene'])
