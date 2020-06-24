@@ -74,7 +74,7 @@ def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0
     merged = set()
     for each in high_corr_group:
         tmp = set(each)
-        _ = [tmp.update(x) for x in high_corr_group if set(x)&tmp]
+        _ = [tmp.update(set(x)) for x in high_corr_group if set(x)&tmp]
         merged.add(tuple(sorted(tmp)))
     with open('HighCorrGroup.list', 'w') as f:
         for each in merged:
