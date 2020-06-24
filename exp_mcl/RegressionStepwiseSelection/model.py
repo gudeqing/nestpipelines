@@ -11,10 +11,22 @@ import stepwiseSelection as ss
 import pandas as pd
 
 
-def var_selection(data,model_type='logistic', method='backward', y_col='y',  x_cols:list=None, drop_cols:list=None, significant=0.05,varchar_process="dummy_dropfirst"):
+def var_selection(data,model_type='logistic', method='backward', y_col='y',
+				  x_cols:list=None, drop_cols:list=None, significant=0.05,
+				  varchar_process="dummy_dropfirst", factorize:tuple=None):
 	# Read Data
-	df = pd.read_csv(data, header=0, sep=None, engine='python')
-
+	df = pd.read_csv(data, header=0, index_col=0, sep=None, engine='python')
+	if factorize is not None:
+		fac = {x:int(y) for x, y in zip(factorize[::2], factorize[1:][::2])}
+		y_data = [fac[x] for x in df[y_col]]
+	else:
+		if df[y_col].dtype != int:
+			y_data, rule = df[y_col].factorize()
+			print(dict(zip(rule, range(len(rule)))))
+		else:
+			print('target col seems to be already factorized!')
+			y_data = df[y_col]
+	df[y_col] = y_data
 	# Dependent and Independent Variables
 	X = df.drop(columns= y_col)
 	if drop_cols:
@@ -37,7 +49,7 @@ def var_selection(data,model_type='logistic', method='backward', y_col='y',  x_c
 	print(final_vars)
 
 	# Write Logs To .txt
-	iterations_file = open("Iterations.log","w") 
+	iterations_file = open("Iterations.log","w")
 	iterations_file.write(iterations_logs)
 	iterations_file.close()
 

@@ -3,48 +3,87 @@ matplotlib.use('agg')
 
 import pandas as pd
 import statsmodels.api as sm
-import pylab as pl
+from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.metrics import roc_curve, auc
+from bokeh.plotting import figure, save, output_file
+from bokeh.models import ColumnDataSource, CDSView, GroupFilter, HoverTool, LabelSet, Legend
+from bokeh.layouts import gridplot
 import sys
 
 
-def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, prefix='Result'):
-    df = pd.read_csv(data, header=0, sep=None, engine='python')
+def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, factorize:tuple=None, prefix='Result'):
+    """
+
+    :param data:
+    :param y_col:
+    :param x_cols:
+    :param drop_cols:
+    :param prefix:
+    :param factorize:
+    :return:
+    """
+    df = pd.read_csv(data, header=0, sep=None, index_col=0, engine='python')
     # Dependent and Independent Variables
-    y = df[y_col].copy()
-    X = df.drop(columns= y_col)
+    if factorize is not None:
+        fac = {x:int(y) for x, y in zip(factorize[::2], factorize[1:][::2])}
+        y_data = [fac[x] for x in df[y_col]]
+    else:
+        if df[y_col].dtype != int:
+            y_data, rule = df[y_col].factorize()
+            print(dict(zip(rule, range(len(rule)))))
+        else:
+            y_data = df[y_col]
+
+    data = df.drop(columns=y_col)
     if drop_cols:
         for each in drop_cols:
-            X = X.drop(columns=each)
+            data = data.drop(columns=each)
     if x_cols:
-        X = df[x_cols]
+        data = df[x_cols]
+    target_cols = data.columns
 
-
-    data = X
-    train_cols = data.columns
-
+    data[y_col] = y_data
     # manually add the intercept
     data['intercept'] = 1.0
-    data[y_col] = y
+
+    # # 一起做回归分析
+    # final_data = data.dropna()
+    # unfit_model = sm.Logit(final_data[y_col], final_data.drop(columns=y_col))
+    # model = unfit_model.fit()
+    # print(model.summary())
+
+    # 逐一进行回归分析
     res_data = list()
-    for col in train_cols:
+    row_num = len(target_cols)//3
+    if row_num == 0:
+        row_num = 1
+    elif len(target_cols)%3 != 0:
+        row_num += 1
+    plot_options = dict(
+        width=250,
+        plot_height=250,
+        tools='pan,wheel_zoom,box_select, reset,save',
+    )
+    plots = list()
+    for col in target_cols:
         print('>>>Analysis variable', col)
         # fit the model
-        input_data = data[[y_col, col, 'intercept']].dropna()
-        y_data = input_data[y_col]
-        train_data = input_data[[col, 'intercept']]
-        result = sm.Logit(y_data, train_data).fit()
-        print(result.summary())
-        model = result
+        my_data = data[[y_col, col, 'intercept']].dropna()
+        y_data = my_data[y_col]
+        train_data = my_data[[col, 'intercept']]
+        print(y_data)
+        unfit_model = sm.Logit(y_data, train_data)
+        model = unfit_model.fit()
+        print(model.summary())
         stat = model.conf_int()
         stat.columns = ['conf_lower', 'conf_upper']
         stat['pvalues'] = model.pvalues
         stat['coef'] = model.params
         target = stat.loc[[col]]
         intercept = stat.loc['intercept', 'coef']
-        predict_data = result.predict(train_data)
-        fpr, tpr, thresholds =roc_curve(y_data, predict_data)
+        predict_data = model.predict(train_data)
+        fpr, tpr, thresholds = roc_curve(y_data, predict_data)
         roc_auc = auc(fpr, tpr)
         train_data[y_col] = y_data
         train_data['intercept'] = intercept
@@ -68,20 +107,25 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, prefix='
         i = np.arange(len(tpr)) # index for df
         roc = pd.DataFrame({'fpr' : pd.Series(fpr, index=i),'tpr' : pd.Series(tpr, index = i), '1-fpr' : pd.Series(1-fpr, index = i), 'tf' : pd.Series(tpr - (1-fpr), index = i), 'thresholds' : pd.Series(thresholds, index = i)})
         # optimal_threshold = roc.iloc[(roc.tf-0).abs().argsort()[:1]]['thresholds']
-        print(roc)
-        
-        # Plot tpr vs 1-fpr
-        fig, ax = pl.subplots()
-        pl.plot(roc['tpr'])
-        pl.plot(roc['1-fpr'], color = 'red')
-        pl.xlabel('1-False Positive Rate')
-        pl.ylabel('True Positive Rate')
-        pl.title('Receiver operating characteristic')
-        ax.set_xticklabels([])
-        pl.savefig(f'{col}.ROC.png')
-        pl.close()
+        # print(roc)
 
-    pd.concat(res_data).to_csv(f'{prefix}.xls', sep='\t')
+        # Plot tpr vs 1-fpr
+        # plt.plot(roc['tpr'], color='green', label='TPR')
+        # plt.plot(roc['1-fpr'], color = 'red', label='1-FPR')
+        s = figure(**plot_options)
+        s.line(roc['fpr'], roc['tpr'], color='blue', legend_label=f'{col}  AUC={roc_auc:.2f}')
+        s.xaxis.axis_label = 'FPR'
+        s.yaxis.axis_label = 'TPR'
+        s.legend.location = 'bottom_right'
+        plots.append((s, roc_auc))
+
+    plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)]
+    p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=3)
+    output_file(f'{prefix}.ROC.html', title="ROC")
+    save(p)
+    pd.concat(res_data).sort_values(by='pvalues').to_csv(f'{prefix}.xls', sep='\t')
+
+
 
 
 if __name__ == '__main__':
