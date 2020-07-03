@@ -252,7 +252,8 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
         # final_y_test = y_test
         print(classification_report(y_test, y_predict), flush=True)
         # roc plot
-        roc_cross_validation(best_estimator, data, target, out=f'{prefix}model{model_id}.roc.pdf')
+        if len(set(target)) == 2:
+            roc_cross_validation(best_estimator, data, target, out=f'{prefix}model{model_id}.roc.pdf')
 
         if max_iter is None:
             # 倒数5个结果相差之和小于0.1
