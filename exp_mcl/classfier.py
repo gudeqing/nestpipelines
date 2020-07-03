@@ -21,10 +21,21 @@ from tabulate import tabulate
 from sklearn.metrics import auc
 from sklearn.metrics import plot_roc_curve
 from sklearn.model_selection import StratifiedKFold
+from boruta import BorutaPy
 import pickle
 
 
 def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  target_rows=None, target_cols=None):
+    """
+    读取目标数据，用于模型训练和特征选择
+    :param exp_matrix:
+    :param group_info:
+    :param scale_on_row:
+    :param scale_on_col:
+    :param target_rows:
+    :param target_cols:
+    :return: 返回X（仍未dataframe）和y（为numpy.array)
+    """
     data = pd.read_csv(exp_matrix, header=0, index_col=0, sep=None, engine='python')
     data = data.fillna(0)
     if target_rows is not None:
@@ -32,13 +43,13 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
         data = data.loc[[x for x in targets if x in data.index]]
         data.to_csv(exp_matrix+'.target.csv')
     if target_cols is not None:
-        data = data[[x.strip().split()[0] for x in open(target_cols)]]
+        targets = [x.strip().split()[0] for x in open(target_cols)]
+        data = data[[x for x in targets if x in data.columns]]
         data.to_csv(exp_matrix + '.target.csv')
     # print(((data.std(axis=1) / data.mean(axis=1)).abs()).describe())
     # data = data[(data.std(axis=1) / data.mean(axis=1)).abs() > 0.01]
     if scale_on_col:
         data = data.apply(preprocessing.scale)
-
     data = data.transpose()
     if scale_on_row:
         data = data.apply(preprocessing.scale)
@@ -53,16 +64,15 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     return data, np.array(target)
 
 
-def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0.0):
+def group_collinear_vars(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0.0, method='spearman'):
     from scipy.cluster import hierarchy
     if type(X) == str:
         X = pd.read_csv(X, header=0, index_col=0, sep=None, engine='python')
     if target_rows is not None:
         targets = [x.strip().split()[0] for x in open(target_rows)]
         X = X.loc[[x for x in targets if x in X.index]]
-        X.to_csv('target_data.csv')
-
-    corr = X.T.corr(method='spearman')
+        # X.to_csv('target_data.csv')
+    corr = X.T.corr(method=method)
 
     # 计算高相关性的基因
     high_corr_group = set()
@@ -70,7 +80,8 @@ def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0
         group = set(row[row > corr_cutoff].index)
         if len(group) > 1:
             high_corr_group.add(tuple(sorted(group)))
-    # merge group
+
+    # merge high corr group
     merged = set()
     for each in high_corr_group:
         tmp = set(each)
@@ -78,13 +89,14 @@ def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0
         merged.add(tuple(sorted(tmp)))
     with open('HighCorrGroup.list', 'w') as f:
         for each in merged:
-            f.write(';'.join(each)+'\n')
+            f.write(each[0]+ '\t' + ';'.join(each)+'\n')
 
     # 计算VIF，计算出与其他基因有较高共线性的基因
     vif = np.linalg.inv(corr.values).diagonal()
     vif_df = pd.DataFrame(vif, index=corr.index, columns=['VIF']).sort_values(by='VIF', ascending=False)
-    vif_df.to_csv('vif.txt', sep='\t')
-    high_vif_genes = vif_df[vif_df['VIF'] >= 5].index
+    vif_df.round(2).to_csv('all.vif.txt', sep='\t')
+    vif_dict = dict(zip(vif_df.index, vif_df['VIF']))
+    # high_vif_genes = vif_df[vif_df['VIF'] >= 5].index
 
     # 根据聚类距离计算距离比较近的基因簇
     corr_linkage = hierarchy.ward(corr)
@@ -100,15 +112,40 @@ def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0
     for ind, big_id in enumerate(cluster_ids):
         distance_group.setdefault(ids[big_id], list())
         distance_group[ids[big_id]].append(ids[ind])
+
+    # 找代表
     representing = list()
-    with open('NearDisGroup.list', 'w') as f, open('representing.list', 'w') as f2:
-        for k, v in distance_group.items():
-            representing.append(v[0])
-            f2.write(v[0]+'\n')
+    for _, v in distance_group.items():
+        if len(v) > 1:
+            vif_lst = [vif_dict[x] for x in v]
+            # 选择vif最大的一个作为代表
+            represent = sorted(zip(v, vif_lst), key=lambda x:x[1])[-1][0]
+            # 如果v中某个变量与代表的相关系数低于0.7，则该变量不能被代表, 只能自己作为代表
+            # print(represent, v)
+            for x, corr_value in corr.loc[represent, v].iteritems():
+                if abs(corr_value) < 0.7:
+                    v.remove(x)
+                    representing.append([x, x, 1, vif_dict[x]])
             if len(v) > 1:
-                mean_corr = (corr.loc[v, v].values.flatten().sum() - len(v))/2/(len(v)**2-len(v))
-                # if mean_corr > corr_cutoff:
-                f.write(v[0]+'\t'+';'.join(sorted(v))+'\t'+str(mean_corr)+'\n')
+                mean_corr = (corr.loc[v, v].values.flatten().sum() - len(v)) / 2 / (len(v) ** 2 - len(v))
+            else:
+                mean_corr = 1
+            vif_lst = [vif_dict[x] for x in v]
+            mean_vif = sum(vif_lst) / len(vif_lst)
+            representing.append([represent, ';'.join(sorted(v)), mean_corr, mean_vif])
+        else:
+            representing.append([v[0], v[0], 1, vif_dict[v[0]]])
+
+    with open('representing_decision.txt', 'w') as f:
+        f.write('represent\tmembers\tmean_corr\tVIF\n')
+        for each in representing:
+            f.write('\t'.join(str(x) for x in each)+'\n')
+
+    # new VIF using representing
+    new_corr = X.loc[[x[0] for x in representing]].T.corr(method=method)
+    vif = np.linalg.inv(new_corr.values).diagonal()
+    vif_df = pd.DataFrame(vif, index=new_corr.index, columns=['VIF']).sort_values(by='VIF', ascending=False)
+    vif_df.round(2).to_csv('representing.vif.txt', sep='\t')
 
     # 可视化聚类结果
     # 如果筛选的基因全是差异基因，在不对相关系数取绝对值时，聚成两大类，分别对应上调基因和下调基因成团
@@ -116,8 +153,10 @@ def group_collinear_gene(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
     dendro = hierarchy.dendrogram(corr_linkage, ax=ax1,  leaf_rotation=90)
     ax2.imshow(corr.iloc[dendro['leaves'], :].iloc[:, dendro['leaves']])
+    ax1.set_xticklabels(corr.index[dendro['leaves']])
     fig.tight_layout()
-    plt.savefig('spearman_corr.pdf')
+    plt.savefig(f'{method}_corr_cluster.pdf')
+    return representing
 
 
 def pca(data, explained_ratio=0.95):
@@ -138,7 +177,7 @@ def pca(data, explained_ratio=0.95):
     return result
 
 
-def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_size=0.15, cv=10):
+def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, test_size=0.15, cv=10, prefix=''):
     """
     先把数据集拆分为两份，一份为训练集，一份为测试集，比例由test_size决定
     用上面的训练集进行grid search，grid search本身还需要一个交叉验证的参数cv
@@ -149,15 +188,16 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
     :param max_iter:
     :param test_size:
     :param cv:
-    :return:
+    :param prefix: 输出结果前缀，目前仅支持所有结果输出到当前目录
+    :return:返回确定好参数的最佳模型
     """
     best_scores = [0]
     k = 0
     model_id = 0
     feature_num = data.shape[1]
-    train_f = open(f'{classifier}.train_data_records.txt', 'a')
-    test_f = open(f'{classifier}.test_data_record.txt', 'a')
-    estimator_f = open(f'{classifier}.best_estimator.txt', 'a')
+    train_f = open(f'{prefix}{classifier}.train_data_records.txt', 'a')
+    test_f = open(f'{prefix}{classifier}.test_data_record.txt', 'a')
+    estimator_f = open(f'{prefix}{classifier}.best_estimator.txt', 'a')
     my_scores = []
     feature_importance = dict()
     while True:
@@ -192,7 +232,7 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
         model_id += 1
         best_scores.append(estimator.best_score_)
         best_estimator = estimator.best_estimator_
-        with open(f'best_model_{model_id}.pickle', 'wb') as f:
+        with open(f'{prefix}best_model_{model_id}.pickle', 'wb') as f:
             pickle.dump(best_estimator, f)
 
         if classifier == 'rf':
@@ -212,7 +252,7 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
         # final_y_test = y_test
         print(classification_report(y_test, y_predict), flush=True)
         # roc plot
-        roc_cross_validation(best_estimator, data, target, out=f'model{model_id}.roc.pdf')
+        roc_cross_validation(best_estimator, data, target, out=f'{prefix}model{model_id}.roc.pdf')
 
         if max_iter is None:
             # 倒数5个结果相差之和小于0.1
@@ -245,23 +285,13 @@ def train_and_predict(data, target, classifier="rf", max_iter:int=None, test_siz
         # 输出所有最佳模型的feature importance，最佳模型有好有坏，均值不一定有意义
         df = pd.DataFrame(feature_importance, index=data.columns)
         df['mean_importance'] = df.mean(axis=1)
-        df.sort_values(by='mean_importance', ascending=False).to_csv('feature_importance.csv')
+        df.sort_values(by='mean_importance', ascending=False).to_csv(f'{prefix}feature_importance.csv')
         # 输出基于最优模型的permutation importance，对于共线性feature较多的数据，极有可能结果都是0
         result = permutation_importance(best_estimator, data, target, n_repeats=10, random_state=42, n_jobs=2)
         df = pd.DataFrame(result.importances, index=data.columns)
         df['mean_importance'] = df.mean(axis=1)
-        df.sort_values(by='mean_importance', ascending=False).to_csv('permutation_feature_importance.csv')
-
-
-def run(exp_matrix, group_info, classifier='rf', scale_on_row=False, scale_on_col=False,
-        target_rows=None, target_cols=None, pca_first=False,
-        max_iter:int=None, test_size=0.15, cv=10):
-    data, target = read_data(exp_matrix, group_info, scale_on_row=scale_on_row, scale_on_col=scale_on_col,
-                             target_rows=target_rows, target_cols=target_cols)
-    if pca_first:
-        data = pca(data, explained_ratio=0.95)
-        print('after pca:', data.shape)
-    train_and_predict(data, target, classifier=classifier, max_iter=max_iter, test_size=test_size, cv=cv)
+        df.sort_values(by='mean_importance', ascending=False).to_csv(f'{prefix}permutation_feature_importance.csv')
+    return best_estimator
 
 
 def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
@@ -313,42 +343,84 @@ def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
     return mean_auc
 
 
-def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02, out='svm.decision.pdf'):
-    # setup marker generator and color map
-    markers = ('s', 'x', 'o', '^', 'v')
-    colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
-    cmap = ListedColormap(colors[:len(np.unique(y))])
+def run(exp_matrix, group_info, classifier='rf',
+        scale_on_row=False, scale_on_col=False,  # data preprocess
+        target_rows=None, target_cols=None, pca_first=False,  # data selection
+        max_iter:int=10, test_size=0.15, cv=10, # grid search model
+        no_feature_selection=False,  # if use boruta select feature, Need a randomforest classfier
+        percent=90, alpha=0.05  # for boruta feature selection
+        ):
+    """
+    :param exp_matrix:
+    :param group_info:
+    :param classifier:
+    :param scale_on_row:
+    :param scale_on_col:
+    :param target_rows:
+    :param target_cols:
+    :param pca_first:
+    :param max_iter:
+    :param test_size:
+    :param cv:
+    :param no_feature_selection:
+    :param percent:
+    :param alpha:
+    :return:
+    """
+    # step1: preprocess
+    X, y = read_data(
+        exp_matrix, group_info,
+        scale_on_row=scale_on_row,
+        scale_on_col=scale_on_col,
+        target_rows=target_rows,
+        target_cols=target_cols
+    )
+    if pca_first:
+        X = pca(X, explained_ratio=0.95)
+        print('after pca:', X.shape)
 
-    # plot the decision surface
-    x1_min, x1_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-    x2_min, x2_max = X[:, 1].min() - 1, X[:, 1].max() + 1
-    xx1, xx2 = np.meshgrid(np.arange(x1_min, x1_max, resolution),
-                           np.arange(x2_min, x2_max, resolution))
-    Z = classifier.predict(np.array([xx1.ravel(), xx2.ravel()]).T)
-    Z = Z.reshape(xx1.shape)
-    plt.contourf(xx1, xx2, Z, alpha=0.4, cmap=cmap)
-    plt.xlim(xx1.min(), xx1.max())
-    plt.ylim(xx2.min(), xx2.max())
+    # step2: optimize model parameter
+    param_optimized_model = multi_grid_search_model(
+        X, y, classifier=classifier,
+        max_iter=max_iter, test_size=test_size, cv=cv
+    )
 
-    for idx, cl in enumerate(np.unique(y)):
-        plt.scatter(x=X[y == cl, 0], y=X[y == cl, 1],
-                    alpha=0.8, c=cmap(idx),
-                    marker=markers[idx], label=cl)
+    # step3: feature selection
+    if not no_feature_selection:
+        feat_selector = BorutaPy(
+            param_optimized_model,
+            n_estimators='auto', verbose=2, random_state=1,
+            max_iter=100, perc=percent,
+        )
+        # find all relevant features
+        feat_selector.fit(X.values, y)
+        # check selected features - first 5 features are selected
+        print('selected feature:\n', X.columns[feat_selector.support_])
+        # check ranking of features
+        rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
+        rank.sort_values(by='rank').to_csv('feature_ranking.txt', sep='\t')
 
-    # highlight test samples
-    if test_idx:
-        # plot all samples
-        X_test, y_test = X[test_idx, :], y[test_idx]
-        plt.scatter(X_test[:, 0],
-                    X_test[:, 1],
-                    c='',
-                    alpha=1.0,
-                    linewidths=1,
-                    marker='o',
-                    s=55, label='test set')
-    plt.savefig(out)
+        # step4: 找共线性并举出代表
+        # re-train model by using selected feature
+        X = X.iloc[:, feat_selector.support_]
+        represents = group_collinear_vars(
+            X.T, corr_cutoff=0.8, method='spearman'
+        )
+
+        # step5: 使用最终筛选出来的代表性feature进行最终的模型训练和评估
+        X = X[[x[0] for x in represents]]
+        multi_grid_search_model(
+            X, y, classifier=classifier, prefix='final.',
+            max_iter=max_iter, test_size=test_size, cv=cv
+        )
+
+        # save final data used for building model
+        data = X.T
+        rep_dict = dict((x[0], x[1]) for x in represents)
+        data.insert(0, 'members', [rep_dict[x] for x in data.index])
+        data.to_csv('final_model_based_data.txt')
 
 
 if __name__ == '__main__':
     from xcmds import xcmds
-    xcmds.xcmds(locals(), include=['run', 'group_collinear_gene'])
+    xcmds.xcmds(locals(), include=['run', 'group_collinear_vars'])
