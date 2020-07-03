@@ -127,7 +127,7 @@ def group_collinear_vars(X, corr_cutoff=0.8, target_rows=None, distance_cutoff=0
                     v.remove(x)
                     representing.append([x, x, 1, vif_dict[x]])
             if len(v) > 1:
-                mean_corr = (corr.loc[v, v].values.flatten().sum() - len(v)) / 2 / (len(v) ** 2 - len(v))
+                mean_corr = (corr.values.flatten().sum() - len(v)) / (len(v) ** 2 - len(v))
             else:
                 mean_corr = 1
             vif_lst = [vif_dict[x] for x in v]
