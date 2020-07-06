@@ -12,21 +12,27 @@ from bokeh.layouts import gridplot
 import sys
 
 
-def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, factorize:tuple=None, prefix='Result'):
+def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, target_feature=None,
+               factorize:tuple=None, prefix='Result', transpose=False):
     """
-
     :param data:
     :param y_col:
     :param x_cols:
     :param drop_cols:
+    :param target_feature: 文件路径参数，提取第一列的feature用于拟合
     :param prefix:
     :param factorize:
+    :param transpose: 如果每一列为样本，则可以通过该参数进行转置使得每一列信息为feature
     :return:
     """
     df = pd.read_csv(data, header=0, sep=None, index_col=0, engine='python')
+    if transpose:
+        df = df.T
+
     # Dependent and Independent Variables
     if factorize is not None:
         fac = {x:int(y) for x, y in zip(factorize[::2], factorize[1:][::2])}
+        print(df.columns)
         y_data = [fac[x] for x in df[y_col]]
     else:
         if df[y_col].dtype != int:
@@ -36,11 +42,19 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, factoriz
             y_data = df[y_col]
 
     data = df.drop(columns=y_col)
+    if target_feature:
+        targets = [x.strip().split()[0] for x in open(target_feature)]
+        targets = [x for x in targets if x in df.columns]
+        data = data[targets]
+
     if drop_cols:
         for each in drop_cols:
             data = data.drop(columns=each)
     if x_cols:
-        data = df[x_cols]
+        data = df.loc[x_cols]
+
+    print('data size:', data.shape)
+
     target_cols = data.columns
 
     data[y_col] = y_data
@@ -105,7 +119,13 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, factoriz
         print(f'Conclude that optimal variable cutoff of', cutoff)
         res_data.append(target[['coef', 'cutoff', 'pvalues', 'conf_lower', 'conf_upper']])
         i = np.arange(len(tpr)) # index for df
-        roc = pd.DataFrame({'fpr' : pd.Series(fpr, index=i),'tpr' : pd.Series(tpr, index = i), '1-fpr' : pd.Series(1-fpr, index = i), 'tf' : pd.Series(tpr - (1-fpr), index = i), 'thresholds' : pd.Series(thresholds, index = i)})
+        roc = pd.DataFrame({
+            'fpr' : pd.Series(fpr, index=i),
+            'tpr' : pd.Series(tpr, index = i),
+            '1-fpr' : pd.Series(1-fpr, index = i),
+            'tf' : pd.Series(tpr - (1-fpr), index = i),
+            'thresholds' : pd.Series(thresholds, index = i)
+        })
         # optimal_threshold = roc.iloc[(roc.tf-0).abs().argsort()[:1]]['thresholds']
         # print(roc)
 
