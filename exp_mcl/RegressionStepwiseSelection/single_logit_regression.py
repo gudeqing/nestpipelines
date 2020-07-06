@@ -58,6 +58,8 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, target_f
     target_cols = data.columns
 
     data[y_col] = y_data
+    if target_feature or drop_cols:
+        data.to_csv('used_data.csv')
     # manually add the intercept
     data['intercept'] = 1.0
 

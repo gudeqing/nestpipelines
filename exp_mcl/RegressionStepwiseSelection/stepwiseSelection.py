@@ -230,7 +230,7 @@ def __forwardSelectionRaw__(X, y, model_type ="linear",elimination_criteria = "a
     print("BIC: "+str(model.bic))
     print("Final Variables:", selected_cols)
 
-    return selected_cols, iterations_log
+    return selected_cols, iterations_log, model
 
 def __backwardSelectionRaw__(X, y, model_type ="linear",elimination_criteria = "aic", sl=0.05):
     
@@ -308,4 +308,4 @@ def __backwardSelectionRaw__(X, y, model_type ="linear",elimination_criteria = "
     print(str(model.summary())+"\nAIC: "+ str(model.aic) + "\nBIC: "+ str(model.bic))
     print("Final Variables:", cols)
     iterations_log += "\n"+str(model.summary())+"\nAIC: "+ str(model.aic) + "\nBIC: "+ str(model.bic)+"\n"
-    return cols, iterations_log
+    return cols, iterations_log, model

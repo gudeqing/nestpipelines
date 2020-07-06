@@ -43,11 +43,12 @@ def var_selection(data,model_type='logistic', method='backward', y_col='y',
 
 	# Magic Happens
 	if method == 'backward':
-		final_vars, iterations_logs = ss.backwardSelection(X,y, model_type=model_type, sl=significant, varchar_process=varchar_process)
+		final_vars, iterations_logs, model = ss.backwardSelection(X,y, model_type=model_type, sl=significant, varchar_process=varchar_process)
 	else:
-		final_vars, iterations_logs = ss.forwardSelection(X,y, model_type=model_type, sl=significant, varchar_process=varchar_process)
+		final_vars, iterations_logs, model = ss.forwardSelection(X,y, model_type=model_type, sl=significant, varchar_process=varchar_process)
 	print(final_vars)
-
+	with open('final.model.summary.txt', 'w') as f:
+		f.write(model.summary().as_text()+'\n')
 	# Write Logs To .txt
 	iterations_file = open("Iterations.log","w")
 	iterations_file.write(iterations_logs)
