@@ -114,12 +114,13 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, target_f
         # prob = 1/(1+np.exp(-(b*x+c)))
         cutoff = (np.log(1/optimal_threshold - 1)*(-1) - intercept)/target['coef']
         target['cutoff'] = cutoff
+        target['AUC'] = roc_auc
         print('# predict result')
         print(train_data)
         print("Area under the ROC curve : %f" % roc_auc)
         print('Optimal probability threshold is', optimal_threshold)
         print(f'Conclude that optimal variable cutoff of', cutoff)
-        res_data.append(target[['coef', 'cutoff', 'pvalues', 'conf_lower', 'conf_upper']])
+        res_data.append(target[['coef', 'cutoff', 'pvalues', 'conf_lower', 'conf_upper', 'AUC']])
         i = np.arange(len(tpr)) # index for df
         roc = pd.DataFrame({
             'fpr' : pd.Series(fpr, index=i),
@@ -141,9 +142,9 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, target_f
         s.legend.location = 'bottom_right'
         plots.append((s, roc_auc))
 
-    plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)]
+    plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)][:99]
     p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=3)
-    output_file(f'{prefix}.ROC.html', title="ROC")
+    output_file(f'{prefix}.top{len(plots)}.ROC.html', title="ROC")
     save(p)
     pd.concat(res_data).sort_values(by='pvalues').to_csv(f'{prefix}.xls', sep='\t')
 
