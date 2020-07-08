@@ -384,7 +384,6 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
     tpr = dict()
     roc_auc = dict()
     for i, cls in enumerate(clf.classes_):
-        print(y_score)
         fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
 
@@ -409,7 +408,8 @@ def run(exp_matrix, group_info, classifier='rf',
         target_rows=None, target_cols=None, pca_first=False,  # data selection
         max_iter:int=10, test_size=0.15, cv=10, # grid search model
         no_feature_selection=False,  # if use boruta select feature, Need a randomforest classfier
-        percent=90, alpha=0.05  # for boruta feature selection
+        percent=90, alpha=0.05,  # for boruta feature selection
+        corr_cutoff=0.75,
         ):
     """
     :param exp_matrix:
@@ -467,7 +467,7 @@ def run(exp_matrix, group_info, classifier='rf',
         # re-train model by using selected feature
         X = X.iloc[:, feat_selector.support_]
         represents = group_collinear_vars(
-            X.T, corr_cutoff=0.8, method='spearman'
+            X.T, corr_cutoff=corr_cutoff, method='spearman'
         )
 
         # step5: 使用最终筛选出来的代表性feature进行最终的模型训练和评估
