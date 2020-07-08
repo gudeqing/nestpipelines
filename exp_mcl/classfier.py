@@ -406,7 +406,7 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
 def run(exp_matrix, group_info, classifier='rf',
         scale_on_row=False, scale_on_col=False,  # data preprocess
         target_rows=None, target_cols=None, pca_first=False,  # data selection
-        max_iter:int=10, test_size=0.15, cv=10, # grid search model
+        grid_search_num:int=10, test_size=0.15, cv=10,  # grid search model
         no_feature_selection=False,  # if use boruta select feature, Need a randomforest classfier
         percent=90, alpha=0.05,  # for boruta feature selection
         corr_cutoff=0.75,
@@ -420,7 +420,7 @@ def run(exp_matrix, group_info, classifier='rf',
     :param target_rows:
     :param target_cols:
     :param pca_first:
-    :param max_iter:
+    :param grid_search_num: 随机拆分数据数据的次数。因为网格搜索前需对数据进行随机拆分，不同拆分可能导致搜索到的最优模型不一样。
     :param test_size:
     :param cv:
     :param no_feature_selection:
@@ -444,7 +444,7 @@ def run(exp_matrix, group_info, classifier='rf',
     print('搜索最优模型参数')
     param_optimized_model = multi_grid_search_model(
         X, y, classifier=classifier,
-        max_iter=max_iter, test_size=test_size, cv=cv
+        max_iter=grid_search_num, test_size=test_size, cv=cv
     )
 
     # step3: feature selection
@@ -461,7 +461,7 @@ def run(exp_matrix, group_info, classifier='rf',
         print('selected feature:\n', X.columns[feat_selector.support_])
         # check ranking of features
         rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
-        rank.sort_values(by='rank', ignore_index=True).to_csv('feature_ranking.xls', sep='\t')
+        rank.sort_values(by='rank').to_csv('feature_ranking.xls', sep='\t', index=False)
 
         # step4: 找共线性并举出代表
         # re-train model by using selected feature
@@ -475,7 +475,7 @@ def run(exp_matrix, group_info, classifier='rf',
         print('再次搜索最优模型参数')
         best_model = multi_grid_search_model(
             X, y, classifier=classifier, prefix='final.',
-            max_iter=max_iter, test_size=test_size, cv=cv
+            max_iter=grid_search_num, test_size=test_size, cv=cv
         )
 
         print(f'the final best model(use {len(represents)} features)  is', best_model)
