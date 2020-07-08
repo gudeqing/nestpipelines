@@ -461,7 +461,7 @@ def run(exp_matrix, group_info, classifier='rf',
         print('selected feature:\n', X.columns[feat_selector.support_])
         # check ranking of features
         rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
-        rank.sort_values(by='rank').to_csv('feature_ranking.xls', sep='\t')
+        rank.sort_values(by='rank', ignore_index=True).to_csv('feature_ranking.xls', sep='\t')
 
         # step4: 找共线性并举出代表
         # re-train model by using selected feature
