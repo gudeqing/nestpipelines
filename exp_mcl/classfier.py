@@ -452,7 +452,7 @@ def run(exp_matrix, group_info, classifier='rf',
         print('使用BorutaPy筛选出所有重要的特征')
         feat_selector = BorutaPy(
             param_optimized_model,
-            n_estimators='auto', verbose=0, random_state=1,
+            n_estimators='auto', verbose=1, random_state=1,
             max_iter=200, perc=percent, alpha=alpha
         )
         # find all relevant features
