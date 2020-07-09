@@ -12,17 +12,18 @@ from bokeh.layouts import gridplot
 import sys
 
 
-def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, target_feature=None,
+def single_lgr(data, y_col=None, target_rows:list=None, drop_cols:list=None, target_cols=None,
                factorize:tuple=None, prefix='Result', transpose=False):
     """
+    对每一个feature，使用statsmodels中的Logit进行逻辑回归，并适用auc和pvalue进行排序
     :param data:
-    :param y_col:
-    :param x_cols:
+    :param y_col: 数据中哪一列是分组信息
+    :param target_rows: 提取指定行的数据进行分析
     :param drop_cols:
-    :param target_feature: 文件路径参数，提取第一列的feature用于拟合
+    :param target_cols: 文件路径参数，提取该文件中的第一列的feature用于分析
     :param prefix:
     :param factorize:
-    :param transpose: 如果每一列为样本，则可以通过该参数进行转置使得每一列信息为feature
+    :param transpose: 如果每一列为样本，则可以通过该参数进行转置使得每一列信息为feature, 该参数执行的操作会在载入数据后第一时间执行。
     :return:
     """
     df = pd.read_csv(data, header=0, sep=None, index_col=0, engine='python')
@@ -42,23 +43,23 @@ def single_lgr(data, y_col='y',  x_cols:list=None, drop_cols:list=None, target_f
             y_data = df[y_col]
 
     data = df.drop(columns=y_col)
-    if target_feature:
-        targets = [x.strip().split()[0] for x in open(target_feature)]
+    if target_cols:
+        targets = [x.strip().split()[0] for x in open(target_cols)]
         targets = [x for x in targets if x in df.columns]
         data = data[targets]
 
     if drop_cols:
         for each in drop_cols:
             data = data.drop(columns=each)
-    if x_cols:
-        data = df.loc[x_cols]
+    if target_rows:
+        data = df.loc[target_rows]
 
     print('data size:', data.shape)
 
     target_cols = data.columns
 
     data[y_col] = y_data
-    if target_feature or drop_cols:
+    if target_cols or drop_cols:
         data.to_csv('used_data.csv')
     # manually add the intercept
     data['intercept'] = 1.0
