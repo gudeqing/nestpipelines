@@ -210,7 +210,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
     my_scores = []
     feature_importance = dict()
     outdir = f'{prefix}models'
-    os.mkdir(outdir)
+    os.makedirs(outdir, exist_ok=True)
     while True:
         # 随机分割数据，然后grid_search最佳模型参数
         # 对每次得到的最佳模型，都会画基于cross-validation的ROC曲线
@@ -223,7 +223,8 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
                 n_estimators=range(50, 200, 20),
                 # criterion=('gini', 'entropy'),
                 max_features=range(2, int(np.log2(feature_num)+np.sqrt(feature_num)), 2),
-                oob_score=(True, False)
+                oob_score=(True, False),
+                max_depth=[5,]
             )
         elif classifier == 'svm':
             estimator = SVC()
@@ -378,6 +379,8 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
     # classifier
     clf = OneVsRestClassifier(clf)
     y_test = preprocessing.label_binarize(y_test, classes=list(set(y_test.ravel())))
+    if y_test.shape[1] == 1:
+        y_test = np.hstack((y_test, (~y_test.astype(bool)).astype(int)))
     y_score = clf.fit(X_train, y_train).predict_proba(X_test)
     # Compute ROC curve and ROC area for each class
     fpr = dict()
