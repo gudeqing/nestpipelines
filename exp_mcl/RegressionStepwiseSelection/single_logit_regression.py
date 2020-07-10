@@ -136,7 +136,7 @@ def single_lgr(data, y_col=None, target_rows:list=None, drop_cols:list=None, tar
         # Plot tpr vs 1-fpr
         # plt.plot(roc['tpr'], color='green', label='TPR')
         # plt.plot(roc['1-fpr'], color = 'red', label='1-FPR')
-        s = figure(**plot_options)
+        s = figure(**plot_options, title=f'{col} AUC={roc_auc:.2f}')
         s.line(roc['fpr'], roc['tpr'], color='blue', legend_label=f'{col}  AUC={roc_auc:.2f}')
         s.xaxis.axis_label = 'FPR'
         s.yaxis.axis_label = 'TPR'
