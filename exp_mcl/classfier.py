@@ -490,11 +490,11 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
             url = f'https://www.proteinatlas.org/search/{col}'
             s = figure(**plot_options)
             title = Title()
-            callback = CustomJS(
-                args=dict(urls=['https://www.google.com']),
-                code="urls.forEach(url => window.open(url))")
-            title.js_on_event('tap', callback)
-            title.text = f'{col}  Mean_AUC={mean_auc:.2f} <a href="{url}">Link</a>'
+            # callback = CustomJS(
+            #     args=dict(urls=['https://www.google.com']),
+            #     code="urls.forEach(url => window.open(url))")
+            # title.js_on_event('tap', callback)
+            title.text = f'{col}  Mean_AUC={mean_auc:.2f}'
             s.title = title
 
             for i, (cls, fpr, tpr, roc_auc) in enumerate(zip(cls_lst, fpr_lst, tpr_lst, auc_lst)):
