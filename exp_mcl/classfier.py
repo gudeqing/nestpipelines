@@ -15,6 +15,8 @@ from sklearn import decomposition
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegressionCV
+
 from sklearn.svm import SVC
 # feature selection module
 from boruta import BorutaPy
@@ -378,10 +380,10 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
     # https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
     # classifier
     clf = OneVsRestClassifier(clf)
-    y_test = preprocessing.label_binarize(y_test, classes=list(set(y_test.ravel())))
+    y_score = clf.fit(X_train, y_train).predict_proba(X_test)
+    y_test = preprocessing.label_binarize(y_test, classes=clf.classes_)
     if y_test.shape[1] == 1:
         y_test = np.hstack((y_test, (~y_test.astype(bool)).astype(int)))
-    y_score = clf.fit(X_train, y_train).predict_proba(X_test)
     # Compute ROC curve and ROC area for each class
     fpr = dict()
     tpr = dict()
@@ -404,6 +406,111 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
     plt.tight_layout()
     plt.savefig(out)
     plt.clf()
+
+
+def get_color_pool(n):
+    # https://plot.ly/ipython-notebooks/color-scales/
+    import colorlover
+    if n <= 8:
+        if n <= 3:
+            n = 3
+        return colorlover.scales[str(n)]['qual']['Set1']
+    if n <= 12:
+        return colorlover.scales[str(n)]['qual']['Paired']
+
+
+def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
+    from bokeh.plotting import figure, save, output_file
+    from bokeh.models import ColumnDataSource, CDSView, GroupFilter, HoverTool, LabelSet, Legend, CustomJS, TapTool, OpenURL,Div
+    from bokeh.models.annotations import Title
+    from bokeh.events import ButtonClick
+    from bokeh.layouts import gridplot
+
+    X, y = read_data(
+        exp_matrix=exp_matrix,
+        group_info=group_info,
+        target_cols=target_cols,
+        target_rows=target_rows
+    )
+    plot_options = dict(
+        width=250,
+        plot_height=250,
+        tools='pan,wheel_zoom,box_select, reset,save',
+    )
+    plots = []
+    report = []
+    if len(set(y)) == 2:
+        plot_data = []
+        for ind, col in enumerate(X.columns):
+            clf = LogisticRegressionCV(cv=5, random_state=0)
+            train = X[col].values.reshape(-1, 1)
+            clf.fit(train, y)
+            y_pred = clf.predict_proba(train)[:, 1]
+            fpr, tpr, threshold = roc_curve(y, y_pred)
+            roc_auc = auc(fpr, tpr)
+            report.append([col, roc_auc])
+            if roc_auc > 0.5:
+                plot_data.append((col, fpr, tpr, roc_auc))
+
+        plot_data = sorted(plot_data, key=lambda x:x[3], reverse=True)
+        for col, fpr, tpr, roc_auc in plot_data:
+            s = figure(**plot_options, title=f'{col}  AUC={roc_auc:.2f}')
+            s.line(fpr, tpr, color='blue', legend_label=f'{col}  AUC={roc_auc:.2f}')
+            s.xaxis.axis_label = 'FPR'
+            s.yaxis.axis_label = 'TPR'
+            s.legend.location = 'bottom_right'
+            plots.append((s, roc_auc))
+    else:
+        plot_data = []
+        for col in X.columns:
+            clf = OneVsRestClassifier(LogisticRegressionCV(cv=5, random_state=0))
+            train = X[col].values.reshape(-1, 1)
+            y_score = clf.fit(train, y).predict_proba(train)
+            y_test = preprocessing.label_binarize(y, classes=clf.classes_)
+            # Compute ROC curve and ROC area for each class
+            auc_lst = []
+            fpr_lst = []
+            tpr_lst = []
+            cls_lst = []
+            for i, cls in enumerate(clf.classes_):
+                fpr, tpr, _ = roc_curve(y_test[:, i], y_score[:, i], drop_intermediate=False)
+                roc_auc = auc(fpr, tpr)
+                auc_lst.append(roc_auc)
+                fpr_lst.append(fpr)
+                tpr_lst.append(tpr)
+                cls_lst.append(cls)
+            mean_auc = sum(auc_lst) / len(auc_lst)
+            report.append([col, mean_auc])
+            if mean_auc >= 0.4:
+                plot_data.append([col, cls_lst, fpr_lst, tpr_lst, auc_lst, mean_auc])
+
+        plot_data = sorted(plot_data, key=lambda x:x[4], reverse=True)
+        colors = get_color_pool(len(set(y)))
+        for col, cls_lst, fpr_lst, tpr_lst, auc_lst, mean_auc in plot_data:
+            url = f'https://www.proteinatlas.org/search/{col}'
+            s = figure(**plot_options)
+            title = Title()
+            callback = CustomJS(
+                args=dict(urls=['https://www.google.com']),
+                code="urls.forEach(url => window.open(url))")
+            title.js_on_event('tap', callback)
+            title.text = f'{col}  Mean_AUC={mean_auc:.2f} <a href="{url}">Link</a>'
+            s.title = title
+
+            for i, (cls, fpr, tpr, roc_auc) in enumerate(zip(cls_lst, fpr_lst, tpr_lst, auc_lst)):
+                s.line(fpr, tpr, color=colors[i], legend_label=f'{cls}  AUC={roc_auc:.2f}')
+            s.xaxis.axis_label = 'FPR'
+            s.yaxis.axis_label = 'TPR'
+            s.legend.location = 'bottom_right'
+            plots.append((s, mean_auc))
+    # save
+    pd.DataFrame(report, columns=['feature', 'AUC']).to_csv('all.feature_auc.xls', sep='\t', index=False)
+    # plot all
+    if plots:
+        plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)]
+        p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=3)
+        output_file(f'top{len(plots)}.ROC.html', title="ROC")
+        save(p)
 
 
 def run(exp_matrix, group_info, classifier='rf',
@@ -491,4 +598,4 @@ def run(exp_matrix, group_info, classifier='rf',
 
 if __name__ == '__main__':
     from xcmds import xcmds
-    xcmds.xcmds(locals(), include=['run', 'group_collinear_vars'])
+    xcmds.xcmds(locals(), include=['run', 'group_collinear_vars', 'per_logit_reg'])
