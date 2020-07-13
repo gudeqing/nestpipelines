@@ -419,9 +419,11 @@ def get_color_pool(n):
         return colorlover.scales[str(n)]['qual']['Paired']
 
 
-def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
+def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
+                  link='https://www.proteinatlas.org/search/{}'):
     from bokeh.plotting import figure, save, output_file
-    from bokeh.models import ColumnDataSource, CDSView, GroupFilter, HoverTool, LabelSet, Legend, CustomJS, TapTool, OpenURL,Div
+    from bokeh.models import ColumnDataSource, CDSView, GroupFilter, \
+        HoverTool, LabelSet, Legend, CustomJS, TapTool, OpenURL,Div
     from bokeh.models.annotations import Title
     from bokeh.events import ButtonClick
     from bokeh.layouts import gridplot
@@ -435,7 +437,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
     plot_options = dict(
         width=250,
         plot_height=250,
-        tools='pan,wheel_zoom,box_select, reset,save',
+        tools='pan,wheel_zoom,box_select,reset,save,tap',  # tap 支持点击打开超链接
     )
     plots = []
     report = []
@@ -495,7 +497,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
         plot_data = sorted(plot_data, key=lambda x:x[4], reverse=True)
         colors = get_color_pool(len(set(y)))
         for col, cls_lst, fpr_lst, tpr_lst, auc_lst, mean_auc in plot_data:
-            url = f'https://www.proteinatlas.org/search/{col}'
+            url = link.format(col)
             s = figure(**plot_options)
             title = Title()
             # callback = CustomJS(
@@ -504,6 +506,8 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
             # title.js_on_event('tap', callback)
             title.text = f'{col}  Mean_AUC={mean_auc:.2f}'
             s.title = title
+            taptool = s.select(type=TapTool)
+            taptool.callback = OpenURL(url=url)
 
             for i, (cls, fpr, tpr, roc_auc) in enumerate(zip(cls_lst, fpr_lst, tpr_lst, auc_lst)):
                 source = ColumnDataSource(data=dict(fpr=fpr, tpr=tpr))
