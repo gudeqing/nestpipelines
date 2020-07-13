@@ -457,6 +457,9 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
         plot_data = sorted(plot_data, key=lambda x:x[3], reverse=True)
         for col, fpr, tpr, roc_auc in plot_data:
             s = figure(**plot_options, title=f'{col}  AUC={roc_auc:.2f}')
+            url = link.format(col)
+            taptool = s.select(type=TapTool)
+            taptool.callback = OpenURL(url=url)
             source = ColumnDataSource(data=dict(fpr=fpr, tpr=tpr))
             hover = HoverTool(
                 tooltips=[
@@ -497,7 +500,6 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
         plot_data = sorted(plot_data, key=lambda x:x[4], reverse=True)
         colors = get_color_pool(len(set(y)))
         for col, cls_lst, fpr_lst, tpr_lst, auc_lst, mean_auc in plot_data:
-            url = link.format(col)
             s = figure(**plot_options)
             title = Title()
             # callback = CustomJS(
@@ -506,6 +508,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
             # title.js_on_event('tap', callback)
             title.text = f'{col}  Mean_AUC={mean_auc:.2f}'
             s.title = title
+            url = link.format(col)
             taptool = s.select(type=TapTool)
             taptool.callback = OpenURL(url=url)
 
