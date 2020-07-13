@@ -455,7 +455,15 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
         plot_data = sorted(plot_data, key=lambda x:x[3], reverse=True)
         for col, fpr, tpr, roc_auc in plot_data:
             s = figure(**plot_options, title=f'{col}  AUC={roc_auc:.2f}')
-            s.line(fpr, tpr, color='blue', legend_label=f'{col}  AUC={roc_auc:.2f}')
+            source = ColumnDataSource(data=dict(fpr=fpr, tpr=tpr))
+            hover = HoverTool(
+                tooltips=[
+                    ("FPR", "@{}".format('fpr')),
+                    ("TPR", "@{}".format('tpr')),
+                ]
+            )
+            s.add_tools(hover)
+            s.line('fpr', 'tpr', color='blue', legend_label=f'{col}  AUC={roc_auc:.2f}', source=source)
             s.xaxis.axis_label = 'FPR'
             s.yaxis.axis_label = 'TPR'
             s.legend.location = 'bottom_right'
@@ -498,7 +506,15 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
             s.title = title
 
             for i, (cls, fpr, tpr, roc_auc) in enumerate(zip(cls_lst, fpr_lst, tpr_lst, auc_lst)):
-                s.line(fpr, tpr, color=colors[i], legend_label=f'{cls}  AUC={roc_auc:.2f}')
+                source = ColumnDataSource(data=dict(fpr=fpr, tpr=tpr))
+                s.line('fpr', 'tpr', color=colors[i], legend_label=f'{cls}  AUC={roc_auc:.2f}', source=source)
+            hover = HoverTool(
+                tooltips=[
+                    ("FPR", "@{}".format('fpr')),
+                    ("TPR", "@{}".format('tpr')),
+                ]
+            )
+            s.add_tools(hover)
             s.xaxis.axis_label = 'FPR'
             s.yaxis.axis_label = 'TPR'
             s.legend.location = 'bottom_right'
@@ -508,7 +524,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None):
     # plot all
     if plots:
         plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)]
-        p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=3)
+        p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=4)
         output_file(f'top{len(plots)}.ROC.html', title="ROC")
         save(p)
 
