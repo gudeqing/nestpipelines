@@ -309,6 +309,7 @@ class ClusterHeatMap(object):
 
     def process_data(self):
         exp_pd = pd.read_csv(self.data_file, header=0, index_col=0, sep=None, engine='python')
+        exp_pd = exp_pd.fillna(0)
         if self.target_rows:
             exp_pd = exp_pd.loc[[x for x in self.target_rows if x in exp_pd.index], :]
         if self.target_cols:

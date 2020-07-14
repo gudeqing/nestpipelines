@@ -10,7 +10,8 @@ from bokeh.layouts import gridplot
 def pca(table, row_sum_cutoff=1, exp_cutoff=0.5, cv_cutoff=0.01, pass_exp_cutoff_num=None,
         explained_ratio=0.9, prefix='pca', no_log_transform=False, log_additive=0, no_pre_scale=False,
         x=1, y=2, group_file=None, annotate=False, text_size='6pt', marker_size=15, stretch='both'):
-    data = pd.read_csv(table, header=0, index_col=0, sep=None, engine='python')
+    # data = pd.read_csv(table, header=0, index_col=0, sep=None, engine='python')
+    data = pd.read_csv(table, header=0, index_col=0, sep=None, engine='python').fillna(0)
     data = data[data.sum(axis=1) >= row_sum_cutoff]
     pass_state = data.apply(lambda x: sum(x > exp_cutoff), axis=1)
     if pass_exp_cutoff_num is None:
