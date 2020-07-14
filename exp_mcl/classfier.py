@@ -437,7 +437,8 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
     plot_options = dict(
         width=250,
         plot_height=250,
-        tools='pan,wheel_zoom,box_select,reset,save,tap',  # tap 支持点击打开超链接
+        # tools='pan,wheel_zoom,box_select,reset,save,tap',  # tap 支持点击打开超链接
+        tools='wheel_zoom,reset,save,tap',  # tap 支持点击打开超链接
     )
     plots = []
     report = []
@@ -507,6 +508,9 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
             #     code="urls.forEach(url => window.open(url))")
             # title.js_on_event('tap', callback)
             title.text = f'{col}  Mean_AUC={mean_auc:.2f}'
+            url = link.format(col)
+            taptool = title.select(TapTool)
+            taptool.callback = OpenURL(url=url)
             s.title = title
             url = link.format(col)
             taptool = s.select(type=TapTool)
