@@ -46,7 +46,10 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     :param target_cols:
     :return: 返回X（仍未dataframe）和y（为numpy.array)
     """
-    data = pd.read_csv(exp_matrix, header=0, index_col=0, sep=None, engine='python')
+    if type(exp_matrix) == str:
+        data = pd.read_csv(exp_matrix, header=0, index_col=0, sep=None, engine='python')
+    else:
+        data = exp_matrix
     data = data.fillna(0)
     if target_rows is not None:
         targets = [x.strip().split()[0] for x in open(target_rows)]
@@ -66,7 +69,7 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     group_info = pd.read_csv(group_info, header=0, index_col=0, sep=None, engine='python')
     group_info = group_info.loc[[x for x in data.index if x in group_info.index]].iloc[:, 0]
     y_dict = dict()
-    for ind, group in enumerate(set(group_info)):
+    for ind, group in enumerate(sorted(set(group_info))):
         y_dict[group] = ind
     target = [y_dict[x] for x in group_info]
     print(data.shape)
@@ -361,7 +364,7 @@ def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
     ax.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
                     label=r'$\pm$ 1 std. dev.')
 
-    ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05], title="{}-cross validation ROC")
+    ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05], title=f"{n_splits}-cross validation ROC")
     ax.legend(loc="lower right")
     plt.savefig(out)
     plt.clf()
@@ -419,7 +422,7 @@ def get_color_pool(n):
         return colorlover.scales[str(n)]['qual']['Paired']
 
 
-def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
+def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None, min_auc=0.5,
                   link='https://www.proteinatlas.org/search/{}'):
     from bokeh.plotting import figure, save, output_file
     from bokeh.models import ColumnDataSource, CDSView, GroupFilter, \
@@ -452,7 +455,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
             fpr, tpr, threshold = roc_curve(y, y_pred)
             roc_auc = auc(fpr, tpr)
             report.append([col, roc_auc])
-            if roc_auc > 0.5:
+            if roc_auc >= min_auc:
                 plot_data.append((col, fpr, tpr, roc_auc))
 
         plot_data = sorted(plot_data, key=lambda x:x[3], reverse=True)
@@ -495,7 +498,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
                 cls_lst.append(cls)
             mean_auc = sum(auc_lst) / len(auc_lst)
             report.append([col, mean_auc])
-            if mean_auc >= 0.4:
+            if mean_auc >= min_auc:
                 plot_data.append([col, cls_lst, fpr_lst, tpr_lst, auc_lst, mean_auc])
 
         plot_data = sorted(plot_data, key=lambda x:x[4], reverse=True)
@@ -503,14 +506,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
         for col, cls_lst, fpr_lst, tpr_lst, auc_lst, mean_auc in plot_data:
             s = figure(**plot_options)
             title = Title()
-            # callback = CustomJS(
-            #     args=dict(urls=['https://www.google.com']),
-            #     code="urls.forEach(url => window.open(url))")
-            # title.js_on_event('tap', callback)
             title.text = f'{col}  Mean_AUC={mean_auc:.2f}'
-            url = link.format(col)
-            taptool = title.select(TapTool)
-            taptool.callback = OpenURL(url=url)
             s.title = title
             url = link.format(col)
             taptool = s.select(type=TapTool)
@@ -519,6 +515,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
             for i, (cls, fpr, tpr, roc_auc) in enumerate(zip(cls_lst, fpr_lst, tpr_lst, auc_lst)):
                 source = ColumnDataSource(data=dict(fpr=fpr, tpr=tpr))
                 s.line('fpr', 'tpr', color=colors[i], legend_label=f'{cls}  AUC={roc_auc:.2f}', source=source)
+
             hover = HoverTool(
                 tooltips=[
                     ("FPR", "@{}".format('fpr')),
@@ -531,7 +528,8 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None,
             s.legend.location = 'bottom_right'
             plots.append((s, mean_auc))
     # save
-    pd.DataFrame(report, columns=['feature', 'AUC']).to_csv('all.feature_auc.xls', sep='\t', index=False)
+    result = pd.DataFrame(report, columns=['feature', 'AUC']).sort_values(by='AUC', ascending=False)
+    result.to_csv('all.feature_auc.xls', sep='\t', index=False)
     # plot all
     if plots:
         plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)]
@@ -547,8 +545,15 @@ def run(exp_matrix, group_info, classifier='rf',
         no_feature_selection=False,  # if use boruta select feature, Need a randomforest classfier
         percent=90, alpha=0.05,  # for boruta feature selection
         corr_cutoff=0.75,
+        link='https://www.proteinatlas.org/search/{}'
         ):
     """
+    1. 全变量模型参数优化
+    网格搜索参数时有一个cv参数，在进行网格搜索前也有一次随机数据拆分，所以数据实际拆分了两次。
+    也就是说，原始数据划分为3份，分别为：训练集、验证集和测试集；其中训练集用来模型训练，验证集用来调整参数，而测试集用来衡量模型表现好坏。
+    2. 基于上述优化后的模型，使用borutapy进行feature筛选
+    3. 对筛选的变量进行相关性分析，并对相关性较强的变量进行分组，每组派出一个代表作为最后模型使用的feature
+    4. 基于最后selected features的模型参数优化
     :param exp_matrix:
     :param group_info:
     :param classifier:
@@ -558,11 +563,13 @@ def run(exp_matrix, group_info, classifier='rf',
     :param target_cols:
     :param pca_first:
     :param grid_search_num: 随机拆分数据数据的次数。因为网格搜索前需对数据进行随机拆分，不同拆分可能导致搜索到的最优模型不一样。
-    :param test_size:
-    :param cv:
+    :param test_size: 网格调参前的数据拆分比例参数，百分比，表示使用多少比例用于参数优化后的模型
+    :param cv: 网格搜素最优参数时的cv参数，
     :param no_feature_selection:
     :param percent:
-    :param alpha:
+    :param alpha: borutapy的参数
+    :param corr_cutoff: 相关系数阈值，用于寻找相关性较强的变量
+    :param link: 链接feature的网址
     :return:
     """
     # step1: preprocess
@@ -606,6 +613,9 @@ def run(exp_matrix, group_info, classifier='rf',
         represents = group_collinear_vars(
             X.T, corr_cutoff=corr_cutoff, method='spearman'
         )
+
+        # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
+        per_logit_reg(X.T, group_info, min_auc=0, link=link)
 
         # step5: 使用最终筛选出来的代表性feature进行最终的模型训练和评估
         X = X[[x[0] for x in represents]]
