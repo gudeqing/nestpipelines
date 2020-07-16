@@ -239,9 +239,11 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
                 gamma=(0.01, 0.1, 0.5, 1, 2),
                 C=(1, 5, 10)
             )
+        elif classifier == 'lgr':
+            estimator = LogisticRegression(warm_start=True, max_iter=100)
+            param_dict = dict(penalty=('l2',))
         else:
-            estimator = LogisticRegression()
-            param_dict = dict(penalty=('l1', 'l2'))
+            raise Exception('Only support rf or svm or lgr classifier!')
 
         estimator = GridSearchCV(estimator, param_grid=param_dict, cv=cv, n_jobs=5)
         estimator.fit(x_train, y_train)
@@ -262,7 +264,9 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
         test_accuracy = accuracy_score(y_test, y_predict)
         # print(f'{model_id}.test_accuracy:{test_accuracy}', flush=True)
         # test_f.write(f'{model_id}.test_accuracy:{test_accuracy}\t'+'\t'.join(x_test.index)+'\n')
-        print(f'model{model_id} performance:\n', classification_report(y_test, y_predict), flush=True, file=report_f)
+        print(f'model{model_id}[score:{best_scores[-1]:.2f}] performance on test data:\n',
+              classification_report(y_test, y_predict), flush=True, file=report_f
+              )
 
         # plot confusion matrix
         plot_confusion_table(best_estimator, x_test, y_test, out=f'{outdir}/{prefix}model{model_id}.test.confusion.pdf')
@@ -289,7 +293,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
     # test_f.close()
     # estimator_f.close()
     sort_scores = sorted(my_scores, key=lambda x: x[2] * x[3], reverse=True)
-    model_id, best_estimator, score, test_accuracy = sort_scores[0]
+    model_id, best_estimator, score, test_accuracy, mean_auc = sort_scores[0]
     # 整理临时文件
     all_best_model_info = pd.DataFrame(
         sort_scores,
@@ -551,6 +555,7 @@ def run(exp_matrix, group_info, classifier='rf',
         no_feature_selection=False,  # if use boruta select feature, Need a randomforest classfier
         percent=90, alpha=0.05,  # for boruta feature selection
         corr_cutoff=0.75,
+        slgr='yes',
         link='https://www.proteinatlas.org/search/{}'
         ):
     """
@@ -562,7 +567,7 @@ def run(exp_matrix, group_info, classifier='rf',
     4. 基于最后selected features的模型参数优化
     :param exp_matrix:
     :param group_info:
-    :param classifier:
+    :param classifier: one of ['rf', 'svm', 'lgr']
     :param scale_on_row:
     :param scale_on_col:
     :param target_rows:
@@ -575,6 +580,7 @@ def run(exp_matrix, group_info, classifier='rf',
     :param percent:
     :param alpha: borutapy的参数
     :param corr_cutoff: 相关系数阈值，用于寻找相关性较强的变量
+    :param slgr: 对每个变量进行一次逻辑回归分析并可视化
     :param link: 链接feature的网址
     :return:
     """
@@ -590,6 +596,18 @@ def run(exp_matrix, group_info, classifier='rf',
         X = pca(X, explained_ratio=0.95)
         print('after pca:', X.shape)
 
+    if slgr == 'yes' and classifier != 'fr':
+        # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
+        min_auc = 0.5 if X.shape[1] > 100 else 0
+        per_logit_reg(X.T, group_info, min_auc=min_auc, link=link)
+
+    # 如果不是随机森林模型，则先进行feature聚类并派选代表
+    if classifier != 'rf':
+        represents = group_collinear_vars(
+            X.T, corr_cutoff=corr_cutoff, method='spearman'
+        )
+        X = X[[x[0] for x in represents]]
+
     # step2: optimize model parameter
     print('搜索最优模型参数')
     param_optimized_model = multi_grid_search_model(
@@ -598,7 +616,8 @@ def run(exp_matrix, group_info, classifier='rf',
     )
 
     # step3: feature selection
-    if not no_feature_selection:
+    if not no_feature_selection and classifier == 'rf':
+        # 目前borutapy可能仅支持rf
         print('使用BorutaPy筛选出所有重要的特征')
         feat_selector = BorutaPy(
             param_optimized_model,
@@ -620,8 +639,9 @@ def run(exp_matrix, group_info, classifier='rf',
             X.T, corr_cutoff=corr_cutoff, method='spearman'
         )
 
-        # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
-        per_logit_reg(X.T, group_info, min_auc=0, link=link)
+        if slgr == 'yes':
+            # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
+            per_logit_reg(X.T, group_info, min_auc=0, link=link)
 
         # step5: 使用最终筛选出来的代表性feature进行最终的模型训练和评估
         X = X[[x[0] for x in represents]]
