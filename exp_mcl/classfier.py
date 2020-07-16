@@ -44,7 +44,7 @@ def read_data(exp_matrix, group_info, scale_on_row=False, scale_on_col=False,  t
     :param scale_on_col:
     :param target_rows:
     :param target_cols:
-    :return: 返回X（仍未dataframe）和y（为numpy.array)
+    :return: 返回X（dataframe）和y（numpy.array)
     """
     if type(exp_matrix) == str:
         data = pd.read_csv(exp_matrix, header=0, index_col=0, sep=None, engine='python')
@@ -260,7 +260,6 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
         # train_f.write(f'{model_id}.mean_cv_score:{best_scores[-1]}\t'+'\t'.join(x_train.index)+'\n')
         y_predict = best_estimator.predict(x_test)
         test_accuracy = accuracy_score(y_test, y_predict)
-        my_scores.append([model_id, best_estimator, best_scores[-1], test_accuracy])
         # print(f'{model_id}.test_accuracy:{test_accuracy}', flush=True)
         # test_f.write(f'{model_id}.test_accuracy:{test_accuracy}\t'+'\t'.join(x_test.index)+'\n')
         print(f'model{model_id} performance:\n', classification_report(y_test, y_predict), flush=True, file=report_f)
@@ -271,10 +270,10 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
 
         # roc plot
         if len(set(target)) == 2:
-            roc_cross_validation(best_estimator, data, target, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
+            mean_auc = roc_cross_validation(best_estimator, data, target, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
         else:
-            multiclass_roc_plot(best_estimator, x_train, y_train, x_test, y_test, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
-
+            mean_auc = multiclass_roc_plot(best_estimator, x_train, y_train, x_test, y_test, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
+        my_scores.append([model_id, best_estimator, best_scores[-1], test_accuracy, mean_auc])
         if max_iter is None:
             # 倒数5个结果相差之和小于0.1
             if sum(abs(best_scores[-1] - x) for x in best_scores[-6:-1]) < 0.1:
@@ -292,7 +291,10 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
     sort_scores = sorted(my_scores, key=lambda x: x[2] * x[3], reverse=True)
     model_id, best_estimator, score, test_accuracy = sort_scores[0]
     # 整理临时文件
-    all_best_model_info = pd.DataFrame(sort_scores, columns=['model_id', 'model', 'mean_cv_score', 'test_accuracy'])
+    all_best_model_info = pd.DataFrame(
+        sort_scores,
+        columns=['model_id', 'model', 'mean_cv_score', 'test_accuracy', 'mean_auc']
+    )
     all_best_model_info.to_csv(f'{prefix}best_models.xls', sep='\t', index=False)
     print('performed grid searching {} times'.format(k), file=report_f)
     # print('Final Mean cross-validated score of the best_estimator:', best_scores[-1])
@@ -322,7 +324,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
     return best_estimator
 
 
-def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
+def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5, shuffle=True):
     """
     把数据集随机分成n_splits份，取n-1份作为训练集，剩下的一份作为测试集，共有n种取法。
     计算每次
@@ -332,7 +334,7 @@ def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
     :param out:
     :return:
     """
-    cv = StratifiedKFold(n_splits=n_splits)
+    cv = StratifiedKFold(n_splits=n_splits, shuffle=shuffle)
     tprs = []
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
@@ -343,6 +345,9 @@ def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5):
         viz = plot_roc_curve(classifier, X.iloc[test], y[test],
                              name='ROC fold {}'.format(i),
                              alpha=0.3, lw=1, ax=ax)
+        pred = classifier.predict(X.iloc[test])
+        missed = X.loc[[y1!=y2 for y1,y2 in zip(pred, y[test])]].index
+        print(f'Miss labeled sample in {i}th fold:', missed)
         interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
         interp_tpr[0] = 0.0
         tprs.append(interp_tpr)
@@ -409,6 +414,7 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
     plt.tight_layout()
     plt.savefig(out)
     plt.clf()
+    return sum(roc_auc.values())/len(roc_auc)
 
 
 def get_color_pool(n):
