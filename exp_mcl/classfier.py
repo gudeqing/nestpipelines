@@ -543,7 +543,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None, mi
     # plot all
     if plots:
         plots = [x[0] for x in sorted(plots, key=lambda x:x[1], reverse=True)]
-        p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=4)
+        p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=4, toolbar_location='left')
         output_file(f'top{len(plots)}.ROC.html', title="ROC")
         save(p)
 
