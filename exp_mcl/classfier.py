@@ -596,7 +596,7 @@ def run(exp_matrix, group_info, classifier='rf',
         X = pca(X, explained_ratio=0.95)
         print('after pca:', X.shape)
 
-    if slgr == 'yes' and classifier != 'fr':
+    if slgr == 'yes' and classifier != 'rf':
         # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
         min_auc = 0.5 if X.shape[1] > 100 else 0
         per_logit_reg(X.T, group_info, min_auc=min_auc, link=link)
