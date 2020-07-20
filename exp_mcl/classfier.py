@@ -350,7 +350,7 @@ def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5, shuffle=Tr
                              name='ROC fold {}'.format(i),
                              alpha=0.3, lw=1, ax=ax)
         pred = classifier.predict(X.iloc[test])
-        missed = X.loc[[y1!=y2 for y1,y2 in zip(pred, y[test])]].index
+        missed = X.iloc[test].loc[[y1!=y2 for y1,y2 in zip(pred, y[test])]].index
         print(f'Miss labeled sample in {i}th fold:', missed)
         interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
         interp_tpr[0] = 0.0
@@ -553,7 +553,7 @@ def run(exp_matrix, group_info, classifier='rf',
         target_rows=None, target_cols=None, pca_first=False,  # data selection
         grid_search_num:int=10, test_size=0.15, cv=10,  # grid search model
         no_feature_selection=False,  # if use boruta select feature, Need a randomforest classfier
-        percent=90, alpha=0.05,  # for boruta feature selection
+        percent:int=90, alpha=0.05,  # for boruta feature selection
         corr_cutoff=0.75,
         slgr='yes',
         link='https://www.proteinatlas.org/search/{}'
