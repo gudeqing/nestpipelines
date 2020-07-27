@@ -666,12 +666,12 @@ def run(exp_matrix, group_info, classifier='rf',
                 rank = pd.DataFrame({'feature': X.columns, col_name: feat_selector.ranking_})
                 ranks.append(rank)
                 # select feature
-                selected = rank[rank[col_name] == 1]['feature']
+                this_selected = rank[rank[col_name] == 1]['feature']
                 if tentative:
-                    selected = rank[(rank[col_name] == 2) | (rank[col_name] == 1)]['feature']
-                selected += list(selected)
+                    this_selected = rank[(rank[col_name] == 2) | (rank[col_name] == 1)]['feature']
+                selected += [x for x in this_selected if x not in selected]
             pd.concat(ranks, axis=1).to_csv('feature_ranking.xls', sep='\t', index=False)
-        X = X.loc[:, sorted(set(selected))]
+        X = X.loc[:, selected]
         print('final selected features:', X.columns)
 
         # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
