@@ -556,12 +556,14 @@ def run(exp_matrix, group_info, classifier='rf',
         percent:int=90, alpha=0.05,  # for boruta feature selection
         corr_cutoff=0.75,
         slgr='yes',
+        tentative=False,
         link='https://www.proteinatlas.org/search/{}'
         ):
     """
     1. 全变量模型参数优化
     网格搜索参数时有一个cv参数，在进行网格搜索前也有一次随机数据拆分，所以数据实际拆分了两次。
     也就是说，原始数据划分为3份，分别为：训练集、验证集和测试集；其中训练集用来模型训练，验证集用来调整参数，而测试集用来衡量模型表现好坏。
+    本次程序设计进行N(=grid_search_num)次网格搜索，并根据模型score和测试集准确性accuracy的乘积进行排序，对乘积最高模型用ROC分析。
     2. 基于上述优化后的模型，使用borutapy进行feature筛选
     3. 对筛选的变量进行相关性分析，并对相关性较强的变量进行分组，每组派出一个代表作为最后模型使用的feature
     4. 基于最后selected features的模型参数优化
@@ -573,7 +575,7 @@ def run(exp_matrix, group_info, classifier='rf',
     :param target_rows:
     :param target_cols:
     :param pca_first:
-    :param grid_search_num: 随机拆分数据数据的次数。因为网格搜索前需对数据进行随机拆分，不同拆分可能导致搜索到的最优模型不一样。
+    :param grid_search_num: 指定进行多少次网格搜索. 因为网格搜索前需对数据进行随机拆分，不同拆分可能导致搜索到的最优模型不一样。
     :param test_size: 网格调参前的数据拆分比例参数，百分比，表示使用多少比例用于参数优化后的模型
     :param cv: 网格搜素最优参数时的cv参数，
     :param no_feature_selection:
@@ -581,6 +583,7 @@ def run(exp_matrix, group_info, classifier='rf',
     :param alpha: borutapy的参数
     :param corr_cutoff: 相关系数阈值，用于寻找相关性较强的变量
     :param slgr: 对每个变量进行一次逻辑回归分析并可视化
+    :param tentative:使用borutapy筛选feature时，如果设置该参数，则把tentative变量也包括进来
     :param link: 链接feature的网址
     :return:
     """
@@ -609,7 +612,7 @@ def run(exp_matrix, group_info, classifier='rf',
         X = X[[x[0] for x in represents]]
 
     # step2: optimize model parameter
-    print('搜索最优模型参数')
+    print('网格搜索最优模型参数')
     param_optimized_model = multi_grid_search_model(
         X, y, classifier=classifier,
         max_iter=grid_search_num, test_size=test_size, cv=cv
@@ -626,15 +629,17 @@ def run(exp_matrix, group_info, classifier='rf',
         )
         # find all relevant features
         feat_selector.fit(X.values, y)
-        # check selected features - first 5 features are selected
-        print('selected feature:\n', X.columns[feat_selector.support_])
         # check ranking of features
         rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
         rank.sort_values(by='rank').to_csv('feature_ranking.xls', sep='\t', index=False)
+        # select feature
+        selected_index = list(feat_selector.support_)
+        if tentative:
+            selected_index += list(feat_selector.support_weak_)
+        X = X.iloc[:, selected_index]
+        print('final selected features:', X.columns)
 
         # step4: 找共线性并举出代表
-        # re-train model by using selected feature
-        X = X.iloc[:, feat_selector.support_]
         represents = group_collinear_vars(
             X.T, corr_cutoff=corr_cutoff, method='spearman'
         )
@@ -645,7 +650,7 @@ def run(exp_matrix, group_info, classifier='rf',
 
         # step5: 使用最终筛选出来的代表性feature进行最终的模型训练和评估
         X = X[[x[0] for x in represents]]
-        print('再次搜索最优模型参数')
+        print('基于筛选出来的feature数据，重新建模并网格搜索最优模型参数')
         best_model = multi_grid_search_model(
             X, y, classifier=classifier, prefix='final.',
             max_iter=grid_search_num, test_size=test_size, cv=cv
