@@ -633,10 +633,10 @@ def run(exp_matrix, group_info, classifier='rf',
         rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
         rank.sort_values(by='rank').to_csv('feature_ranking.xls', sep='\t', index=False)
         # select feature
-        selected_index = list(feat_selector.support_)
+        selected = rank[rank['rank'] == 1]['feature']
         if tentative:
-            selected_index += list(feat_selector.support_weak_)
-        X = X.iloc[:, selected_index]
+            selected += rank[(rank['rank'] == 2) | (rank['rank'] == 1)]['feature']
+        X = X.loc[:, selected]
         print('final selected features:', X.columns)
 
         # step4: 找共线性并举出代表
