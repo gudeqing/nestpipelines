@@ -635,18 +635,18 @@ def run(exp_matrix, group_info, classifier='rf',
         # select feature
         selected = rank[rank['rank'] == 1]['feature']
         if tentative:
-            selected += rank[(rank['rank'] == 2) | (rank['rank'] == 1)]['feature']
+            selected = rank[(rank['rank'] == 2) | (rank['rank'] == 1)]['feature']
         X = X.loc[:, selected]
         print('final selected features:', X.columns)
+
+        # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
+        if slgr == 'yes':
+            per_logit_reg(X.T, group_info, min_auc=0, link=link)
 
         # step4: 找共线性并举出代表
         represents = group_collinear_vars(
             X.T, corr_cutoff=corr_cutoff, method='spearman'
         )
-
-        if slgr == 'yes':
-            # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
-            per_logit_reg(X.T, group_info, min_auc=0, link=link)
 
         # step5: 使用最终筛选出来的代表性feature进行最终的模型训练和评估
         X = X[[x[0] for x in represents]]
@@ -656,7 +656,7 @@ def run(exp_matrix, group_info, classifier='rf',
             max_iter=grid_search_num, test_size=test_size, cv=cv
         )
 
-        print(f'the final best model(use {len(represents)} features)  is', best_model)
+        print(f'the final best model(with {len(represents)} features)  is', best_model)
         # save final data used for building model
         data = X.T
         rep_dict = dict((x[0], x[1]) for x in represents)
