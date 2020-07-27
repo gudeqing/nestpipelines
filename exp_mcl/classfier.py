@@ -190,7 +190,7 @@ def pca(data, explained_ratio=0.95):
     return result
 
 
-def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, test_size=0.15, cv=10, prefix=''):
+def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, ovr=False, test_size=0.15, cv=10, prefix=''):
     """
     先把数据集拆分为两份，一份为训练集，一份为测试集，比例由test_size决定
     用上面的训练集进行grid search，grid search本身还需要一个交叉验证的参数cv
@@ -199,6 +199,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
     :param target:
     :param classifier:
     :param max_iter: 随机分割训练集和测试集的次数，如设为10，表示进行10次参数调优，然后从10个最优中再选最优。
+    :param ovr: 多分类时，是否采用OneVsRestClassifier策略
     :param test_size:
     :param cv:
     :param prefix: 输出结果前缀，目前仅支持所有结果输出到当前目录
@@ -220,17 +221,28 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
         # 随机分割数据，然后grid_search最佳模型参数
         # 对每次得到的最佳模型，都会画基于cross-validation的ROC曲线
         k += 1
-        x_train, x_test, y_train, y_test = train_test_split(data, target, test_size=test_size)
+        x_train, x_test, y_train, y_test = train_test_split(data, target, test_size=test_size, stratify=target)
         if classifier == 'rf':
             estimator = RandomForestClassifier()
-            # 下面的字典给出参数的可选组合
-            param_dict = dict(
-                n_estimators=range(50, 200, 20),
-                # criterion=('gini', 'entropy'),
-                max_features=range(2, int(np.log2(feature_num)+np.sqrt(feature_num)), 2),
-                oob_score=(True, False),
-                max_depth=[5,]
-            )
+            if ovr and len(set(y_test)) > 2:
+                estimator = OneVsRestClassifier(estimator)
+                # 下面的字典给出参数的可选组合
+                param_dict = dict(
+                    estimator__n_estimators=range(50, 200, 20),
+                    estimator__criterion=('gini', ),
+                    estimator__max_features=range(2, int(np.log2(feature_num) + np.sqrt(feature_num)), 2),
+                    estimator__oob_score=(True, False),
+                    estimator__max_depth=[5, ]
+                )
+            else:
+                # 下面的字典给出参数的可选组合
+                param_dict = dict(
+                    n_estimators=range(50, 200, 20),
+                    # criterion=('gini', 'entropy'),
+                    max_features=range(2, int(np.log2(feature_num)+np.sqrt(feature_num)), 2),
+                    oob_score=(True, False),
+                    max_depth=[5,]
+                )
         elif classifier == 'svm':
             estimator = SVC()
             param_dict = dict(
@@ -254,7 +266,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
         with open(f'{outdir}/{prefix}best_model_{model_id}.pickle', 'wb') as f:
             pickle.dump(best_estimator, f)
 
-        if classifier == 'rf':
+        if classifier == 'rf' and not ovr:
             feature_importance[f'model_{model_id}'] = best_estimator.feature_importances_
         print(f'{model_id}.best estimator:', best_estimator, flush=True)
         # estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
@@ -310,7 +322,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, te
     print(classification_report(target, y_predict), file=report_f)
     report_f.close()
 
-    if classifier == 'rf':
+    if classifier == 'rf' and not ovr:
         # model = best_estimator
         # headers = ["name", "score"]
         # values = sorted(zip(data.columns, model.feature_importances_), key=lambda x: x[1] * -1)
@@ -557,6 +569,7 @@ def run(exp_matrix, group_info, classifier='rf',
         corr_cutoff=0.75,
         slgr='yes',
         tentative=False,
+        ovr=False,
         link='https://www.proteinatlas.org/search/{}'
         ):
     """
@@ -584,6 +597,7 @@ def run(exp_matrix, group_info, classifier='rf',
     :param corr_cutoff: 相关系数阈值，用于寻找相关性较强的变量
     :param slgr: 对每个变量进行一次逻辑回归分析并可视化
     :param tentative:使用borutapy筛选feature时，如果设置该参数，则把tentative变量也包括进来
+    :param ovr: 多分类时，是否采用OneVsRestClassifier策略, 有文献报道使用随机森林时，虽然随机森林本身可以处理多分类，但该策略更有效
     :param link: 链接feature的网址
     :return:
     """
@@ -614,29 +628,50 @@ def run(exp_matrix, group_info, classifier='rf',
     # step2: optimize model parameter
     print('网格搜索最优模型参数')
     param_optimized_model = multi_grid_search_model(
-        X, y, classifier=classifier,
+        X, y, classifier=classifier, ovr=ovr,
         max_iter=grid_search_num, test_size=test_size, cv=cv
     )
-
     # step3: feature selection
     if not no_feature_selection and classifier == 'rf':
         # 目前borutapy可能仅支持rf
         print('使用BorutaPy筛选出所有重要的特征')
-        feat_selector = BorutaPy(
-            param_optimized_model,
-            n_estimators='auto', verbose=1, random_state=1,
-            max_iter=200, perc=percent, alpha=alpha
-        )
-        # find all relevant features
-        feat_selector.fit(X.values, y)
-        # check ranking of features
-        rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
-        rank.sort_values(by='rank').to_csv('feature_ranking.xls', sep='\t', index=False)
-        # select feature
-        selected = rank[rank['rank'] == 1]['feature']
-        if tentative:
-            selected = rank[(rank['rank'] == 2) | (rank['rank'] == 1)]['feature']
-        X = X.loc[:, selected]
+        if not ovr:
+            feat_selector = BorutaPy(
+                param_optimized_model,
+                n_estimators='auto', verbose=1, random_state=1,
+                max_iter=200, perc=percent, alpha=alpha
+            )
+            # find all relevant features
+            feat_selector.fit(X.values, y)
+            # check ranking of features
+            rank = pd.DataFrame({'feature':X.columns, 'rank': feat_selector.ranking_})
+            rank.sort_values(by='rank').to_csv('feature_ranking.xls', sep='\t', index=False)
+            # select feature
+            selected = rank[rank['rank'] == 1]['feature']
+            if tentative:
+                selected = rank[(rank['rank'] == 2) | (rank['rank'] == 1)]['feature']
+        else:
+            selected = []
+            ranks = []
+            for i, label in enumerate(param_optimized_model.classes_):
+                feat_selector = BorutaPy(
+                    param_optimized_model.estimators_[i],
+                    n_estimators='auto', verbose=1, random_state=1,
+                    max_iter=200, perc=percent, alpha=alpha
+                )
+                # find all relevant features
+                feat_selector.fit(X.values, y)
+                # check ranking of features
+                col_name = f'{label}.rank'
+                rank = pd.DataFrame({'feature': X.columns, col_name: feat_selector.ranking_})
+                ranks.append(rank)
+                # select feature
+                selected = rank[rank[col_name] == 1]['feature']
+                if tentative:
+                    selected = rank[(rank[col_name] == 2) | (rank[col_name] == 1)]['feature']
+                selected += list(selected)
+            pd.concat(ranks, axis=1).to_csv('feature_ranking.xls', sep='\t', index=False)
+        X = X.loc[:, sorted(set(selected))]
         print('final selected features:', X.columns)
 
         # 使用单变量逻辑回归，对每一个筛选出的变量进行分析并进行ROC可视化
@@ -652,7 +687,7 @@ def run(exp_matrix, group_info, classifier='rf',
         X = X[[x[0] for x in represents]]
         print('基于筛选出来的feature数据，重新建模并网格搜索最优模型参数')
         best_model = multi_grid_search_model(
-            X, y, classifier=classifier, prefix='final.',
+            X, y, classifier=classifier, ovr=ovr, prefix='final.',
             max_iter=grid_search_num, test_size=test_size, cv=cv
         )
 
