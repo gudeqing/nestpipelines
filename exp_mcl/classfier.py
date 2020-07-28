@@ -268,25 +268,28 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, ov
 
         if classifier == 'rf' and not ovr:
             feature_importance[f'model_{model_id}'] = best_estimator.feature_importances_
-        print(f'{model_id}.best estimator:', best_estimator, flush=True)
+        model_str = best_estimator.__str__().replace("\n", '').replace(' ', '')
+        print(f'{model_id}.BestModel<mean_cv_score={best_scores[-1]:.2f}>:', model_str, flush=True)
         # estimator_f.write(f'{model_id}: '+str(best_estimator)+'\n')
-        print(f'{model_id}.Mean cross-validated score of the best_estimator:', best_scores[-1], flush=True)
         # train_f.write(f'{model_id}.mean_cv_score:{best_scores[-1]}\t'+'\t'.join(x_train.index)+'\n')
         y_predict = best_estimator.predict(x_test)
+        missed = x_test.loc[[y1 != y2 for y1, y2 in zip(y_predict, y_test)]].index
+        print(f'Miss labeled samples by best estimator are:', missed)
         test_accuracy = accuracy_score(y_test, y_predict)
         # print(f'{model_id}.test_accuracy:{test_accuracy}', flush=True)
         # test_f.write(f'{model_id}.test_accuracy:{test_accuracy}\t'+'\t'.join(x_test.index)+'\n')
-        print(f'model{model_id}[score:{best_scores[-1]:.2f}] performance on test data:\n',
-              classification_report(y_test, y_predict), flush=True, file=report_f
-              )
-
+        print(
+            f'model{model_id}[score:{best_scores[-1]:.2f}] performance on test data:\n',
+            classification_report(y_test, y_predict), flush=True, file=report_f
+        )
         # plot confusion matrix
         plot_confusion_table(best_estimator, x_test, y_test, out=f'{outdir}/{prefix}model{model_id}.test.confusion.pdf')
         plot_confusion_table(best_estimator, data, target, out=f'{outdir}/{prefix}model{model_id}.all.confusion.pdf')
 
         # roc plot
         if len(set(target)) == 2:
-            mean_auc = roc_cross_validation(best_estimator, data, target, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
+            # mean_auc = roc_cross_validation(best_estimator, data, target, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
+            mean_auc = binary_roc_plot(best_estimator, x_test, y_test, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
         else:
             mean_auc = multiclass_roc_plot(best_estimator, x_train, y_train, x_test, y_test, out=f'{outdir}/{prefix}model{model_id}.roc.pdf')
         my_scores.append([model_id, best_estimator, best_scores[-1], test_accuracy, mean_auc])
@@ -311,10 +314,12 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, ov
         sort_scores,
         columns=['model_id', 'model', 'mean_cv_score', 'test_accuracy', 'mean_auc']
     )
+    all_best_model_info['model'] = [x.__str__().replace("\n", '').replace(' ', '') for x in all_best_model_info['model']]
     all_best_model_info.to_csv(f'{prefix}best_models.xls', sep='\t', index=False)
     print('performed grid searching {} times'.format(k), file=report_f)
     # print('Final Mean cross-validated score of the best_estimator:', best_scores[-1])
-    print(f'Final best estimator is the {model_id}th:', best_estimator, file=report_f)
+    model_str = best_estimator.__str__().replace("\n", '').replace(' ', '')
+    print(f'Final best estimator is the {model_id}th:', model_str, file=report_f)
     print(f"It's mean cv score is {score}", file=report_f)
     print("It's accuracy on test data is:", test_accuracy, file=report_f)
     print("--Following is its performance on all input data---", file=report_f)
@@ -338,6 +343,16 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, ov
         df.sort_values(by='mean_importance', ascending=False).to_csv(f'{outdir}/{prefix}permutation_feature_importance.csv')
 
     return best_estimator
+
+
+def binary_roc_plot(clf, X_test, y_test, out='roc.pdf'):
+    fig, ax = plt.subplots()
+    viz = plot_roc_curve(clf, X_test, y_test, alpha=0.8, lw=1.5, ax=ax, drop_intermediate=False)
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=1, label='Chance', alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close()
+    return viz.roc_auc
 
 
 def roc_cross_validation(classifier, X, y, out='roc.pdf', n_splits=5, shuffle=True):
@@ -403,8 +418,20 @@ def plot_confusion_table(clf, X_test, y_test, normalize=None, cmap='bwr', out='c
 def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.roc.pdf'):
     # https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
     # classifier
-    clf = OneVsRestClassifier(clf)
-    y_score = clf.fit(X_train, y_train).predict_proba(X_test)
+    if not clf.__str__().startswith('OneVsRestClassifier'):
+        print('当前模型不是OneVsRestClassifier, 为了画ROC图，将会使用OneVsRestClassifier重新训练和预测')
+        print('OneVsRestClassifier和原始模型的性能可能不一样，因此ROC图仅供参考')
+        clf = OneVsRestClassifier(clf)
+        y_score = clf.fit(X_train, y_train).predict_proba(X_test)
+    else:
+        y_score = clf.predict_proba(X_test)
+        # print(y_score, clf.predict(X_test))
+        # 下面的代码测试发现，再次将OneVsRestClassifier嵌入OneVsRestClassifier后，结果或有提升或有下降
+        # print('before', accuracy_score(y_test, clf.predict(X_test)))
+        # clf = OneVsRestClassifier(clf)
+        # clf.fit(X_train, y_train)
+        # print('after', accuracy_score(y_test, clf.predict(X_test)))
+
     y_test = preprocessing.label_binarize(y_test, classes=clf.classes_)
     if y_test.shape[1] == 1:
         y_test = np.hstack((y_test, (~y_test.astype(bool)).astype(int)))
@@ -413,7 +440,7 @@ def multiclass_roc_plot(clf, X_train, y_train, X_test, y_test, out='multiLabel.r
     tpr = dict()
     roc_auc = dict()
     for i, cls in enumerate(clf.classes_):
-        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i], drop_intermediate=False)
         roc_auc[i] = auc(fpr[i], tpr[i])
 
     # Plot of a ROC curve for a specific class
@@ -474,7 +501,7 @@ def per_logit_reg(exp_matrix, group_info, target_rows=None, target_cols=None, mi
             train = X[col].values.reshape(-1, 1)
             clf.fit(train, y)
             y_pred = clf.predict_proba(train)[:, 1]
-            fpr, tpr, threshold = roc_curve(y, y_pred)
+            fpr, tpr, threshold = roc_curve(y, y_pred, drop_intermediate=False)
             roc_auc = auc(fpr, tpr)
             report.append([col, roc_auc])
             if roc_auc >= min_auc:
@@ -580,24 +607,25 @@ def run(exp_matrix, group_info, classifier='rf',
     2. 基于上述优化后的模型，使用borutapy进行feature筛选
     3. 对筛选的变量进行相关性分析，并对相关性较强的变量进行分组，每组派出一个代表作为最后模型使用的feature
     4. 基于最后selected features的模型参数优化
-    :param exp_matrix:
-    :param group_info:
+    :param exp_matrix: 表达矩阵文件，每一行表示一个基因在n个样本中的表达丰度
+    :param group_info: 分组信息，第一列为样本名
     :param classifier: one of ['rf', 'svm', 'lgr']
     :param scale_on_row:
     :param scale_on_col:
-    :param target_rows:
-    :param target_cols:
-    :param pca_first:
+    :param target_rows: 文件的第一列作为要提取的目标行，无header
+    :param target_cols: 文件的第一列作为要提取的目标列，无header
+    :param pca_first: 是否先使用pca进行降维，降维后的数据用于后续分析
     :param grid_search_num: 指定进行多少次网格搜索. 因为网格搜索前需对数据进行随机拆分，不同拆分可能导致搜索到的最优模型不一样。
     :param test_size: 网格调参前的数据拆分比例参数，百分比，表示使用多少比例用于参数优化后的模型
     :param cv: 网格搜素最优参数时的cv参数，
-    :param no_feature_selection:
-    :param percent:
-    :param alpha: borutapy的参数
+    :param no_feature_selection: 是否使用boruta进行feature筛选
+    :param percent: boruta的参数，0-100，100时最严格，默认90
+    :param alpha: boruta的参数，即FDR阈值，默认0.05
     :param corr_cutoff: 相关系数阈值，用于寻找相关性较强的变量
     :param slgr: 对每个变量进行一次逻辑回归分析并可视化
-    :param tentative:使用borutapy筛选feature时，如果设置该参数，则把tentative变量也包括进来
-    :param ovr: 多分类时，是否采用OneVsRestClassifier策略, 有文献报道使用随机森林时，虽然随机森林本身可以处理多分类，但该策略更有效
+    :param tentative:使用borutapy筛选feature时, 如果设置该参数,则把tentative变量也包括进来
+    :param ovr: 多分类时，是否采用OneVsRestClassifier策略. 目前该参数仅针对随机森林有效
+        有文献报道使用随机森林时，虽然随机森林本身可以处理多分类，但该策略更有效.
     :param link: 链接feature的网址
     :return:
     """
@@ -635,10 +663,10 @@ def run(exp_matrix, group_info, classifier='rf',
     if not no_feature_selection and classifier == 'rf':
         # 目前borutapy可能仅支持rf
         print('使用BorutaPy筛选出所有重要的特征')
-        if not ovr:
+        if not ovr or len(set(y))==2:
             feat_selector = BorutaPy(
                 param_optimized_model,
-                n_estimators='auto', verbose=1, random_state=1,
+                n_estimators='auto', verbose=0, random_state=1,
                 max_iter=200, perc=percent, alpha=alpha
             )
             # find all relevant features
@@ -657,7 +685,7 @@ def run(exp_matrix, group_info, classifier='rf',
                 feat_selector = BorutaPy(
                     param_optimized_model.estimators_[i],
                     n_estimators='auto', verbose=1, random_state=1,
-                    max_iter=200, perc=percent, alpha=alpha
+                    max_iter=100, perc=percent, alpha=alpha
                 )
                 # find all relevant features
                 feat_selector.fit(X.values, y)
@@ -691,7 +719,8 @@ def run(exp_matrix, group_info, classifier='rf',
             max_iter=grid_search_num, test_size=test_size, cv=cv
         )
 
-        print(f'the final best model(with {len(represents)} features)  is', best_model)
+        print(f'The final best model(with {len(represents)} features) is',
+              best_model.__str__().replace("\n", '').replace(' ', ''))
         # save final data used for building model
         data = X.T
         rep_dict = dict((x[0], x[1]) for x in represents)
