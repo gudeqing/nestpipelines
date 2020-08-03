@@ -322,6 +322,7 @@ def multi_grid_search_model(data, target, classifier="rf", max_iter:int=None, ov
     print(f'Final best estimator is the {model_id}th:', model_str, file=report_f)
     print(f"It's mean cv score is {score}", file=report_f)
     print("It's accuracy on test data is:", test_accuracy, file=report_f)
+    print("It's AUC on test data is:", mean_auc, file=report_f)
     print("--Following is its performance on all input data---", file=report_f)
     y_predict = best_estimator.predict(data)
     print(classification_report(target, y_predict), file=report_f)
