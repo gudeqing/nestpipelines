@@ -131,7 +131,8 @@ def plot_bar(info_dict, colors, fontsize, rotation, out, label_bar=False, title=
             """Attach a text label above each bar in *rects*, displaying its height."""
             for rect in rects:
                 height = rect.get_height()
-                ax.annotate('{}'.format(height),
+                height_percent = f'{height/sum(info_dict.values()):.2%}'
+                ax.annotate('{}'.format(height_percent),
                             xy=(rect.get_x() + rect.get_width() / 2, height),
                             xytext=(0, 2),  # 3 points vertical offset
                             textcoords="offset points",
