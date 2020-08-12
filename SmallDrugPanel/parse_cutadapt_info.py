@@ -13,7 +13,7 @@ def parse_info_file(file, out_prefix='primer'):
     no_primer = 0
     prefix_primer = 0
     middle_primer = 0
-    # perfect_primer仅允许一个错配
+    # perfect_primer仅允许2个错配, 且长度一致
     perfect_primer = 0
     # 错误>=4 或者和预期primer长度相差超过4bp
     dubious_primer = 0
@@ -32,19 +32,19 @@ def parse_info_file(file, out_prefix='primer'):
                 end = int(lst[3])
                 primer_name = lst[7]
                 primer_len = int(primer_name.split(':', 3)[2].split('=')[1])
-                primer_dict.setdefault(primer_name, 0)
-                primer_dict[primer_name] += 1
-                # umi = read_name.split()[0].split(':')[-1][:11]
-                umi = read_name.split()[0].split(':')[-1]
-                umi_dict.setdefault(primer_name, set())
-                umi_dict[primer_name].add(umi)
-
                 if start == 0:
                     prefix_primer += 1
                 else:
                     middle_primer += 1
-                if errors <= 1 and primer_len == (end - start):
+                if errors <= 2 and primer_len == (end - start):
                     perfect_primer += 1
+                    # update stat dict
+                    primer_dict.setdefault(primer_name, 0)
+                    primer_dict[primer_name] += 1
+                    # umi = read_name.split()[0].split(':')[-1][:11]
+                    umi = read_name.split()[0].split(':')[-1]
+                    umi_dict.setdefault(primer_name, set())
+                    umi_dict[primer_name].add(umi)
                 else:
                     if errors >= 4 or abs(primer_len - end + start) >= 4:
                         dubious_primer += 1
@@ -117,10 +117,13 @@ def plot_bar(info_dict, colors, fontsize, rotation, out, label_bar=False, title=
     ax.set_xticklabels(info_dict.keys(), fontsize=fontsize, rotation=rotation)
     ax.set_xlim(-1, x_num)
     ax.tick_params(axis='y', labelsize=fontsize+1)
-    mean_number = sum(info_dict.values()) / len(info_dict)
+    # mean_number = sum(info_dict.values()) / len(info_dict)
+    mean_number = np.mean(list(info_dict.values()))
+    median_number = np.median(list(info_dict.values()))
     ax.axhline(y=mean_number, c="r", ls="--", lw=0.6, label=f'Mean={int(mean_number)}')
-    ax.axhline(y=mean_number * 0.2, c="r", ls="--", lw=0.5, label='20%Mean')
-    ax.axhline(y=mean_number * 0.3, c="r", ls="--", lw=0.5, label='30%Mean')
+    ax.axhline(y=median_number, c="r", ls="--", lw=0.6, label=f'Median={int(median_number)}')
+    ax.axhline(y=mean_number * 0.25, c="r", ls="--", lw=0.5, label='25%Mean')
+    ax.axhline(y=median_number * 0.25, c="r", ls="--", lw=0.5, label='25%Median')
     ax.spines['right'].set_color('None')  # 右框不显示
     ax.spines['top'].set_color('None')  # 上框不显示
     if label_bar:
