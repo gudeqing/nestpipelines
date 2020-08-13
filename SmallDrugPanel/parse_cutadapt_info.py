@@ -31,7 +31,8 @@ def parse_info_file(file, out_prefix='primer'):
                 start = int(lst[2])
                 end = int(lst[3])
                 primer_name = lst[7]
-                primer_len = int(primer_name.split(':', 3)[2].split('=')[1])
+                # primer_len = int(primer_name.split(':', 3)[2].split('=')[1])
+                primer_len = int(primer_name.split(':', 3)[2])
                 if start == 0:
                     prefix_primer += 1
                 else:
@@ -55,7 +56,8 @@ def parse_info_file(file, out_prefix='primer'):
     has_primer_number = read_number - no_primer
     # stat for each primer
     # chr2:29446286-29446312:len=27:strand=+:gene=ALK
-    order = lambda x: (x.split(':')[-1], x.split('strand=')[1].split(':')[0])
+    # order = lambda x: (x.split(':')[-1], x.split('strand=')[1].split(':')[0])
+    order = lambda x: (x.split(':')[-1], x.split(':')[-2])
     keys = sorted(primer_dict.keys(), key=order)
     primer_dict = {k: primer_dict[k] for k in keys}
     umi_dict = {k: len(umi_dict[k]) for k in keys}
@@ -64,7 +66,7 @@ def parse_info_file(file, out_prefix='primer'):
     # data['umi_count/pair_number'] = data['umi_count']/read_number
     # data.index.name = 'primer'
     # data = data.round(3)
-    with open(out_prefix+'.stats.txt', 'w') as f:
+    with open(out_prefix+'.primer_stats.txt', 'w') as f:
         f.write(f'pair_number\t{read_number}\n')
         f.write(f'primer_number\t{primer_number}\n')
         f.write(f'has_primer\t{has_primer_number}\t{has_primer_number/read_number:.3%}\n')
@@ -86,25 +88,28 @@ def parse_info_file(file, out_prefix='primer'):
     out_name2 = f'{out_prefix}.PrimerUMICounts.pdf'
     out_name3 = f'{out_prefix}.GenePrimerReadCounts.pdf'
     out_name4 = f'{out_prefix}.GenePrimerUMICounts.pdf'
-    new_key = lambda x: x.split('strand=')[1].replace(':gene=', '')
-    genes = sorted({new_key(x) for x in primer_dict.keys()})
+    # new_key = lambda x: x.split('strand=')[1].replace(':gene=', '')
+    get_gene = lambda x: x.split(':')[-1]
+    genes = sorted({get_gene(x) for x in primer_dict.keys()})
     colors = get_color_pool(len(genes))
     color_dict = dict(zip(genes, colors))
-    for info_dict, type_, out, out2 in zip([primer_dict, umi_dict], ['reads', 'UMIs'], [out_name, out_name2], [out_name3, out_name4]):
+    for info_dict, type_, out, out2 in zip([primer_dict, umi_dict], ['Read', 'UMI'], [out_name, out_name2], [out_name3, out_name4]):
         # plot for each primer
-        colors = [color_dict[new_key(x)] for x in info_dict.keys()]
-        title = f'Number of {type_} containing primer'
+        colors = [color_dict[get_gene(x)] for x in info_dict.keys()]
+        title = f'{type_} distribution for each primer'
+        out = f'{out_prefix}.' + title.title().replace(' ', '') + '.pdf'
         plot_bar(info_dict, colors=colors, fontsize=3, rotation=90, out=out, title=title)
 
         # plot for each gene
         gene_stat_dict = dict()
         for k, read_count in info_dict.items():
-            key = new_key(k)
+            key = k.split(':', 3)[-1]
             gene_stat_dict.setdefault(key, 0)
             gene_stat_dict[key] += read_count
 
-        colors = [color_dict[x.split(':')[-1]] for x in gene_stat_dict.keys()]
-        title = f'Number of {type_} along with primer for each gene'
+        colors = [color_dict[get_gene(x)] for x in gene_stat_dict.keys()]
+        title = f'{type_} distribution for each gene'
+        out2 = f'{out_prefix}.' + title.title().replace(' ', '') + '.pdf'
         plot_bar(gene_stat_dict, colors=colors, fontsize=5, rotation=90, out=out2, label_bar=True, title=title)
 
 
