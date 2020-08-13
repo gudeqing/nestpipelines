@@ -14,7 +14,7 @@ def reverse_complement(seq):
     return ''.join(complement[base] if base in complement else base for base in seq[::-1])
 
 
-with open('primer.txt') as f, open('primer.fasta', 'w') as fw, open('primer.bed', 'w') as fw2:
+with open('primer.txt') as f, open('primer_for_cutadapt.fasta', 'w') as fw, open('primer.bed', 'w') as fw2:
     for line in f:
         lst = line.strip().split()
         chr_, pos, length = lst[0], int(lst[1]), len(lst[3])
@@ -50,8 +50,10 @@ with open('primer.txt') as f, open('primer.fasta', 'w') as fw, open('primer.bed'
                 info[gene_id].append(trans)
         info = str(info).replace(' ', '')
         # to fasta file
-        name = f'{chr_}:{start + 1}-{end} len:{length} strand:{strand} annot:{info}'
-        fw.write(f'>{name}\n{ref}\n')
+        # name = f'{chr_}:{start + 1}-{end}:len={length}:strand={strand}:annot={info}'
+        # name = f'{chr_}:{start+1}-{end}:len={length}:strand={strand}:gene={gene_name}'
+        name = f'{chr_}:{start+1}-{end}:{length}:{strand}:{gene_name}'
+        fw.write(f'>{name}\n^{ref}\n')
         # to bed file
         fw2.write(f'{chr_}\t{start}\t{end}\t{info}\t.\t{strand}\n')
 
