@@ -55,8 +55,9 @@ def stat(bam, out_prefix):
                 if abs(int(pe) - read.reference_start) < 15:
                     target = True
             else:
-                if abs(int(ps) - read.reference_end) < 15:
-                    target = True
+                if read.reference_end is not None:
+                    if abs(int(ps) - read.reference_end) < 15:
+                        target = True
 
         specific.setdefault(primer, set())
         unspecific.setdefault(primer, set())
