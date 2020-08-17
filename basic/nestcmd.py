@@ -232,7 +232,8 @@ class Command(object):
 
 class CommandNetwork(object):
     def __init__(self, cmd_config):
-        self.parser = configparser.ConfigParser()
+        # self.parser = configparser.ConfigParser()
+        self.parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
         self.parser.read(cmd_config, encoding='utf-8')
         self.pool_size = self.parser.getint('mode', 'threads')
 
@@ -251,6 +252,10 @@ class CommandNetwork(object):
                 depend = self.parser[name]['depend'].strip()
                 if not depend:
                     independent_cmds.append(name)
+                else:
+                    for each in depend.split(','):
+                        if each not in self.names():
+                            raise Exception(f'Step "{each}" is not in your pipeline! A spelling mistake?')
         return independent_cmds
 
     def get_dependency(self, name):
@@ -424,6 +429,7 @@ class RunCommands(CommandNetwork):
         self.task_number = len(self.state)
         self.outdir = outdir
         self.success = 0
+        self.failed = 0
         # wait resource time limit
         self.timeout = timeout
         if not logger:
@@ -494,6 +500,7 @@ class RunCommands(CommandNetwork):
         success = set(x for x in self.state if self.state[x]['state'] == 'success')
         self.success = len(success)
         failed = set(x for x in self.state if self.state[x]['state'] == 'failed')
+        self.failed = len(failed)
         running_or_queueing = self.ever_queued - success - failed
         waiting = set(self.names()) - self.ever_queued
         tmp_dict = {y: x for x, y in PROCESS_local.items()}
@@ -602,8 +609,8 @@ class RunCommands(CommandNetwork):
                 if self.task_number - self.success == 1:
                     break
 
-            if 1 < self.task_number - self.success < self.pool_size:
-                time.sleep(188)
+            if 1 < self.task_number - self.success - self.failed < self.pool_size:
+                time.sleep(60)
                 continue
 
             running_number = 0
