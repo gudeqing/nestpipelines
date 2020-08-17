@@ -587,6 +587,9 @@ class RunCommands(CommandNetwork):
                 if enough:
                     if try_times > 1:
                         self.logger.warning('{}th run {}'.format(try_times, cmd.name))
+                    # 把运行状态设为running
+                    self.state[cmd.name]['state'] = 'running'
+                    self._draw_state()
                     cmd.run(remote_run=remote_run)
                     if cmd.proc.returncode == 0:
                         break
@@ -598,7 +601,7 @@ class RunCommands(CommandNetwork):
 
     def fake_run_for_updating_status(self):
         """As we will only update status after one cmd finished,
-        this fake run may help to update status timely"""
+        this fake run may help to update status timely,现在已经在每次运行前瞬更新状态,该函数不再需要，以后测试没问题后删除"""
         while self.end is False:
             time.sleep(3)
             with self.__LOCK__:
@@ -631,9 +634,9 @@ class RunCommands(CommandNetwork):
             threads.append(thread)
             thread.start()
         # run fake cmd
-        thread = threading.Thread(target=self.fake_run_for_updating_status, daemon=True)
-        threads.append(thread)
-        thread.start()
+        # thread = threading.Thread(target=self.fake_run_for_updating_status, daemon=True)
+        # threads.append(thread)
+        # thread.start()
 
         # update state
         time.sleep(2)
