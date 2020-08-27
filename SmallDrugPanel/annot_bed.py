@@ -3,6 +3,7 @@ import pysam
 
 def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None, trans_col=1, level='exon', strip_version=False):
     """
+    使用gff文件对bed文件进行注释
     info order: [gene_name, strand, gene_id, trans_id, exon_number, phase]
     :param bed: 至少三列
     :param out: 输出文件名
