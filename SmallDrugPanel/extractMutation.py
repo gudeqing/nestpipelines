@@ -3,6 +3,9 @@ import re
 import pandas as pd
 import numpy as np
 
+"""
+该脚本是针对panel设计初步阶段进行的开发的，主要是为了获取：cosmic和FusionGDB的融合，PharmGKB的drug位点信息
+"""
 
 def get_cosmic_fusion(infile='target.fusion_genes.list', break_extend=100, out_off_target_break=False,
                       database='fusionDatabase/CosmicFusionExport.tsv.gz'):
@@ -280,6 +283,7 @@ def get_hotspot(infile='target.gene.list', hots='simplified.hotspot.txt', out='t
         print("Found no hotspot for genes:", not_found)
     else:
         pass
+
 
 if __name__ == '__main__':
     from xcmds import xcmds
