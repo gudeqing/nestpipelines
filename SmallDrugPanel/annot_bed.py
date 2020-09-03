@@ -32,6 +32,7 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None, t
             lst = line.strip().split('\t')
             contig, start, end = lst[0], lst[1], lst[2]
             info = []
+            gene_info = []
             for record in gff.fetch(contig, int(start)-1, int(end)):
                 gene_name = record['gene_name']
                 gene_id = record['gene_id']
@@ -52,23 +53,57 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None, t
                         exon_number = record['exon_number']
                         phase = record['phase']
                         info.append([gene_name, strand, gene_id, trans_id, str(exon_number), str(phase)])
+                if record['feature'] == 'gene':
+                    gene_info.append([gene_name, strand, gene_id])
+
+            if not info:
+                info = gene_info
+                if not info:
+                    # print('NoInformation for', line)
+                    info.append([f'No{level.capitalize()}OrGeneInformation'])
+                else:
+                    info[-1].append(f'NotIn{level.capitalize()}')
+                if len(lst) >=4:
+                    info[-1].append(lst[3])
 
             if transcripts:
                 new_info = []
                 for each in info:
-                    if each[3] in transcripts:
-                        new_info.append(each)
+                    if len(each) >= 4:
+                        if each[3] in transcripts:
+                            new_info.append(each)
                 if not new_info:
                     # 如果没有常用转录本，则使用注释到的所有转录本信息
                     new_info = info
             info = new_info
-            if not info:
-                info = [[f'No{level.capitalize()}Information']]
-                if len(lst) >=4:
-                    info[0][0] = info[0][0]+ ';'+lst[3]
             info = ';'.join(':'.join(x) for x in info)
             new_line = [contig, start, end, info]
             fw.write('\t'.join(new_line)+'\n')
+
+
+def stat_gene_and_bed(gene_bed, cov_bed, exon_bed):
+    cov_bed = pysam.TabixFile(cov_bed, parser=pysam.asBed())
+    exon_bed = pysam.TabixFile(exon_bed, parser=pysam.asBed())
+    result = dict()
+    with open(gene_bed) as f:
+        for line in f:
+            chr_, start, end, gene = line.strip().split()
+            regions = cov_bed.fetch(chr_, start, end)
+            for region in regions:
+                pass
+
+
+def get_canonical_transcript_exon(gff, canonical_trans, out):
+    trans = {x.strip().split()[1].rsplit('.', 1)[0] for x in open(canonical_trans)}
+    with open(out, 'w') as fw, open(gff) as fr:
+        for line in fr:
+            if line.startswith('#'):
+                continue
+            lst = line.strip().split()
+            if lst[2] == 'exon':
+                col9 = dict(x.split('=', 1) for x in lst[8].split(';'))
+                if col9['transcript_id'].rsplit('.', 1)[0] in trans:
+                    fw.write(line)
 
 
 if __name__ == '__main__':
