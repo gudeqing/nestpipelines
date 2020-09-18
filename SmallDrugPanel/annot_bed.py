@@ -22,7 +22,10 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None, t
     if level not in features:
         raise Exception('level must be one of', features)
     gff = pysam.TabixFile(gff, parser=pysam.asGFF3())
-    transcripts = {x.strip().split()[trans_col].rsplit('.', 1)[0] for x in open(transcript)}
+    if transcript:
+        transcripts = {x.strip().split()[trans_col].rsplit('.', 1)[0] for x in open(transcript)}
+    else:
+        transcripts = set()
     # fetch one or more rows in a region using 0-based indexing.
     # The region is specified by reference, start and end.
     # Alternatively, a samtools region string can be supplied.
@@ -72,10 +75,9 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None, t
                     if len(each) >= 4:
                         if each[3] in transcripts:
                             new_info.append(each)
-                if not new_info:
+                if new_info:
                     # 如果没有常用转录本，则使用注释到的所有转录本信息
-                    new_info = info
-            info = new_info
+                    info = new_info
             info = ';'.join(':'.join(x) for x in info)
             new_line = [contig, start, end, info]
             fw.write('\t'.join(new_line)+'\n')
