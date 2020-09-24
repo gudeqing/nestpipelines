@@ -103,7 +103,8 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None,
                              or record['gene_type'] == 'sense_overlapping'
                             ):
                         # 根据注释到的基因类型考虑是否添加该基因注释
-                        gene_to_discard.add(gene_name)
+                        if gene_name not in prior_genes:
+                            gene_to_discard.add(gene_name)
                     else:
                         # 计算基因feature与当前区域的交集情况，根据交集情况进行过滤
                         a = sorted([start, end])
