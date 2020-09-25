@@ -41,22 +41,27 @@ def is_part_overlap(a, b):
     return overlap
 
 
-def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None,
-              trans_col=1, level='exon', strip_version=False, prior_genes=None):
+def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None, trans_col=1, prior_genes=None,
+              level='exon', strip_version=False, bed_fraction=0.9, gff_fraction=0.0, keep_col4=False):
     """
     使用gff文件对bed文件进行注释
     info order: [gene_name, strand, gene_id, trans_id, exon_number, phase]
-    :param bed: 至少三列
+    :param bed: 至少三列, 如果存在第四列信息，会在没有注释的情况下保留，另外如果keep_col4，则在第5列保留原来的第4列信息
     :param out: 输出文件名
-    :param gff: gff3文件路径，目前仅测试了gencode的gff3
-    :param transcript: 如果提供该文件，该文件某一列包含转录本信息
+    :param gff: gff3文件路径，目前仅测试了gencode的gff3，pysam要求该文件bgzip and tabix
+    :param transcript: 如果提供该文件，该文件某一列包含转录本信息，用于构建转录本集合;
+        注释时，如果某个区域有可以有多种注释且某个注释的转录本包含于的该转录本集合中，则只保留相应的注释。
     :param trans_col: 指示transcript文件哪一列包含转录本信息，默认第二列
+    :param prior_genes: 如果一个区域可以注释到多个基因，则优先选用该文件中指定的基因作为注释
     :param level: one of ['gene', 'transcript', 'exon'(default), 'CDS']
      for CDS:
      A phase of "0" indicates that a codon begins on the first nucleotide of the CDS feature (i.e. 0 bases forward),
      a phase of "1" indicates that the codon begins at the second nucleotide of this CDS feature and
      a phase of "2" indicates that the codon begins at the third nucleotide of this region.
     :param strip_version: 如果设置该参数，则剔除基因或转录本的version信息
+    :param bed_fraction: overlap/bed
+    :param gff_fraction: overlap/gff
+    :param keep_col4: 如果bed存在第四列信息，且设置该参数，则注释后在第5列保留该信息
     :return:
     """
     features = ['gene', 'transcript', 'exon', 'CDS']
@@ -110,7 +115,9 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None,
                         a = sorted([start, end])
                         b = sorted([record['start'], record['end']])
                         ovelap = is_contained(a, b) or is_part_overlap(a, b)
-                        if ovelap > (a[1] - a[0]) * 0.9:
+                        good = ovelap >= (a[1] - a[0])*bed_fraction if bed_fraction > 0 else True
+                        good2 = ovelap >= (b[1] - b[0])*gff_fraction if gff_fraction > 0 else True
+                        if good and good2:
                             gene_info.append([gene_name, strand, gene_id])
                         else:
                             # 要求查询区域的90%包含于gene区域, 否则丢弃该基因相关注释
@@ -181,7 +188,10 @@ def annot_bed(bed, out, gff='gencode.v19.annotation.gff3.gz', transcript=None,
 
             hit_genes |= set([x[0] for x in info if not x[0].startswith('No')])
             info = ';'.join(':'.join(x) for x in info)
-            new_line = [contig, str(start), str(end), info]
+            if not keep_col4:
+                new_line = [contig, str(start), str(end), info]
+            else:
+                new_line = [contig, str(start), str(end), info, lst[3]]
             fw.write('\t'.join(new_line)+'\n')
 
     with open('hit.gene.list', 'w') as f:
