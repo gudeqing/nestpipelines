@@ -1119,7 +1119,7 @@ class NestedCmd(Basic):
             cmd = cmdx.MapSplice(**args)
             commands[step_name + '_' + sample] = self.cmd_dict(
                 cmd=cmd,
-                out=args['out'],
+                out=args['outdir'],
                 sample_name=sample,
                 mem=1024 ** 3 * 5,
                 cpu=4,
