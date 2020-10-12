@@ -2,14 +2,14 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib._color_data as mcd
-import matplotlib.patches as mpatch
-import pandas as pd
-import itertools
-from cycler import cycler
+# import matplotlib._color_data as mcd
+# import matplotlib.patches as mpatch
+# import pandas as pd
+# import itertools
+# from cycler import cycler
 
 
-def parse_info_file(file, out_prefix='primer'):
+def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     no_primer = 0
     prefix_primer = 0
     middle_primer = 0
@@ -20,6 +20,20 @@ def parse_info_file(file, out_prefix='primer'):
     read_number = 0
     primer_dict = dict()
     umi_dict = dict()
+    # 统计primer测序错误的情况
+    base_num = 0
+    total_error = 0
+    transition = dict()
+    transition_base_num = 0
+    if primer_fasta:
+        fasta = open(primer_fasta).readlines()
+        names = [x[1:].strip() for x in fasta[0::2]]
+        fa = [x.strip().strip('^').upper() for x in fasta[1::2]]
+        primer_fa_dict = dict(zip(names, fa))
+        # print(primer_fa_dict)
+    else:
+        primer_fa_dict = dict()
+
     with open(file) as f:
         for i, line in enumerate(f):
             lst = line.split('\t')
@@ -49,8 +63,33 @@ def parse_info_file(file, out_prefix='primer'):
                 else:
                     if errors >= 4 or abs(primer_len - end + start) >= 4:
                         dubious_primer += 1
+
+                # 统计primer测序错误的情况
+                if abs(primer_len - (end - start)) <= 3:
+                    total_error += errors
+                    base_num += primer_len
+
+                if primer_len == (end - start) and primer_fasta:
+                    transition_base_num += primer_len
+                    primer_fa = primer_fa_dict[primer_name]
+                    if primer_fa != lst[5].upper():
+                        # print(primer_fa)
+                        # print(lst[5])
+                        for ref, alt in zip(primer_fa, lst[5].upper()):
+                            if ref != alt:
+                                transition.setdefault((ref, alt), 0)
+                                transition[(ref, alt)] += 1
         else:
             read_number = i + 1
+
+    # print seq error info
+    print(f'primer总体错误率={total_error}/{base_num}={total_error/base_num:.2%}')
+    total_trans_times = sum(transition.values())
+    overall_trans_rate = total_trans_times/transition_base_num
+    print(f'Overall transition/transversion rate {overall_trans_rate:.4%}')
+    for k in sorted(transition.keys()):
+        num = transition[k]
+        print(f'{k[0]}>{k[1]}: {num/transition_base_num:.4%} | {num/total_trans_times:.4%}')
 
     primer_number = len(primer_dict)
     has_primer_number = read_number - no_primer
@@ -75,6 +114,7 @@ def parse_info_file(file, out_prefix='primer'):
         f.write(f'dubious_primer\t{dubious_primer}\t{dubious_primer/read_number:.3%}\n')
         f.write(f'prefix_primer\t{prefix_primer}\t{prefix_primer/read_number:.3%}\n')
         f.write(f'middle_primer\t{middle_primer}\t{middle_primer/read_number:.3%}\n')
+        f.write(f'overall_primer_base_seq_error_rate\t{total_error}/{base_num}={total_error/base_num:.2%}\n')
         f.write(f'#primer\tread_count\tread_count/pair_number\tumi_count\tumi_count/pair_number\n')
         for k in keys:
             read_count = primer_dict[k]
