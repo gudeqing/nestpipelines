@@ -9,7 +9,7 @@ import pysam
 """
 1.fastq处理时，把primer信息如在基因组上的位置信息带入read id
 2.从bam信息中提取每一个read1比对到参考基因组的位置：
-    a.比对位置和primer位置进行比较，假设primer的位置：chrX:a-b, strand=S1, read1的比对位置chrY:c-d, strand=S2
+    a.将比对位置和primer位置进行比较，假设primer的位置：chrX:a-b, strand=S1, read1的比对位置chrY:c-d, strand=S2
         if chrX != chrY or S1 != S2 or Un-mapped:
             primer 非特异性 + 1
         else:
@@ -23,11 +23,11 @@ import pysam
                     primer 非特异性 + 1
                 else:
                     primer 特异性 + 1
-        当read1可以比对到多个位置，进统计primary alignment，
+        当read1可以比对到多个位置，仅统计primary alignment
         这个必须在通读bam完成后才能知晓，除非bam用readName排序
         
-3.如果使用umitools dedup后的bam统计，会有什么影响呢：
-    1. primer的特异性结合分析结果是否更加可靠？应该是，因为排除了pcr的非均一性可能带来的偏差，dedup还原了扩增前的状况
+3.如果使用umitools/gencore dedup后的bam统计，会对最后统计的捕获效率有什么影响呢：
+    1. primer的特异性结合分析结果是否更加可靠？应该是，因为排除了pcr的非均一性可能带来的偏差，dedup尽可能还原了扩增前的状况
     2. dedup后的bam不会包含ummapped的read，这可能导致分析结果存在一定的偏差，即特异性偏高
 4. 基于3的考虑，直接采用dedup后的bam统计
 5. 这里的特异性占比可以理解为mapping后的 off-target-ratio
@@ -35,10 +35,11 @@ import pysam
 """
 
 
-def stat(bam, out_prefix):
+def stat(bam, out_prefix, tol=15, keep_off_target=False):
     specific = dict()
     unspecific = dict()
     bam_obj = pysam.AlignmentFile(bam, "rb")
+    off_target_reads = set()
     for read in bam_obj.fetch():
         if (not read.is_read1) or read.is_secondary:
             continue
@@ -52,11 +53,11 @@ def stat(bam, out_prefix):
         if primer_lst[0] == read.reference_name and (map_strand == primer_lst[3]):
             ps, pe = primer_lst[1].split('-')
             if map_strand == '+':
-                if abs(int(pe) - read.reference_start) < 15:
+                if abs(int(pe) - read.reference_start) < tol:
                     target = True
             else:
                 if read.reference_end is not None:
-                    if abs(int(ps) - read.reference_end) < 15:
+                    if abs(int(ps) - read.reference_end) < tol:
                         target = True
 
         specific.setdefault(primer, set())
@@ -65,8 +66,17 @@ def stat(bam, out_prefix):
             specific[primer].add(umi)
         else:
             unspecific[primer].add(umi)
+            off_target_reads.add(read_name)
     else:
         bam_obj.close()
+
+    # discard off target
+    if not keep_off_target:
+        discard_off_target(bam, f'{out_prefix}.onTarget.bam', off_target_reads)
+        with open(f'{out_prefix}.offTarget.reads.txt', 'w') as f:
+            for each in off_target_reads:
+                f.write(each+'\n')
+
     print('Primer Number:', len(specific))
     order = lambda x: (x.split(':')[-1], x.split(':')[-2])
     keys = sorted(specific.keys(), key=order)
@@ -172,6 +182,16 @@ def get_color_pool(n):
     # color_pool = [matplotlib.colors.to_rgba(x) for x in color_pool]
     # print(color_pool)
     return color_pool
+
+
+def discard_off_target(bam, out, off_target_reads:set):
+    bam_obj = pysam.AlignmentFile(bam, "rb")
+    new_obj = pysam.AlignmentFile(out, 'wb', template=bam_obj)
+    for read in bam_obj.fetch():
+        if read.query_name not in off_target_reads:
+            new_obj.write(read)
+    bam_obj.close()
+    new_obj.close()
 
 
 if __name__ == '__main__':
