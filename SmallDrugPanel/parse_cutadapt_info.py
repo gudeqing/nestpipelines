@@ -23,6 +23,7 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     # 统计primer测序错误的情况
     base_num = 0
     total_error = 0
+    total_error_primer = 0  # 用于计算error的总primer数
     transition = dict()
     transition_base_num = 0
     if primer_fasta:
@@ -68,6 +69,7 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
                 if abs(primer_len - (end - start)) <= 3:
                     total_error += errors
                     base_num += primer_len
+                    total_error_primer += 1
 
                 if primer_len == (end - start) and primer_fasta:
                     transition_base_num += primer_len
@@ -83,13 +85,24 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
             read_number = i + 1
 
     # print seq error info
-    print(f'primer总体错误率={total_error}/{base_num}={total_error/base_num:.2%}')
+    error_dict = dict()
+    error_dict['overall_error_rate'] = total_error/base_num
+    error_dict['mean_error_per_primer'] = total_error/total_error_primer
     total_trans_times = sum(transition.values())
     overall_trans_rate = total_trans_times/transition_base_num
+    overall_error_rate = total_error/base_num
+    print(f'primer总体错误率={total_error}/{base_num}={overall_error_rate:.4%}')
     print(f'Overall transition/transversion rate {overall_trans_rate:.4%}')
     for k in sorted(transition.keys()):
         num = transition[k]
-        print(f'{k[0]}>{k[1]}: {num/transition_base_num:.4%} | {num/total_trans_times:.4%}')
+        new_key = f'{k[0]}>{k[1]}'
+        trans_rate = num/total_trans_times
+        print(f'{new_key}: {num/transition_base_num:.4%} | {trans_rate:.4%}')
+        error_dict[new_key] = trans_rate
+    with open('primer_error_stat.txt', 'w') as f:
+        for k in sorted(error_dict.keys()):
+            v = error_dict[k]
+            f.write(f'{k}\t{v}\n')
 
     primer_number = len(primer_dict)
     has_primer_number = read_number - no_primer
