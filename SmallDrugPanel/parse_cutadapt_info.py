@@ -74,13 +74,13 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
                 if primer_len == (end - start) and primer_fasta:
                     transition_base_num += primer_len
                     primer_fa = primer_fa_dict[primer_name]
-                    if primer_fa != lst[5].upper():
-                        # print(primer_fa)
-                        # print(lst[5])
-                        for ref, alt in zip(primer_fa, lst[5].upper()):
-                            if ref != alt:
-                                transition.setdefault((ref, alt), 0)
-                                transition[(ref, alt)] += 1
+                    # if primer_fa != lst[5].upper():
+                    #     # print(primer_fa)
+                    #     # print(lst[5])
+                    for ref, alt in zip(primer_fa, lst[5].upper()):
+                        if ref != alt:
+                            transition.setdefault((ref, alt), 0)
+                            transition[(ref, alt)] += 1
         else:
             read_number = i + 1
 
