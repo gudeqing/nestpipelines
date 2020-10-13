@@ -35,7 +35,7 @@ import pysam
 """
 
 
-def stat(bam, out_prefix, tol=15, keep_off_target=False):
+def stat(bam, out_prefix, tol=15, keep_off_target=False, primer_trimmed=False):
     specific = dict()
     unspecific = dict()
     bam_obj = pysam.AlignmentFile(bam, "rb")
@@ -48,17 +48,29 @@ def stat(bam, out_prefix, tol=15, keep_off_target=False):
         primer = ':'.join(primer_lst)
         umi = read_name.rsplit(':', 1)[1]
         map_strand = '-' if read.is_reverse else '+'
-
+        chr_name = read.reference_name
+        if not chr_name.startswith('chr'):
+            chr_name = 'chr' + chr_name
         target = False
-        if primer_lst[0] == read.reference_name and (map_strand == primer_lst[3]):
+        if primer_lst[0] == chr_name and (map_strand == primer_lst[3]):
             ps, pe = primer_lst[1].split('-')
-            if map_strand == '+':
-                if abs(int(pe) - read.reference_start) < tol:
-                    target = True
-            else:
-                if read.reference_end is not None:
-                    if abs(int(ps) - read.reference_end) < tol:
+            if primer_trimmed:
+                # primer 已经从序列中切除
+                if map_strand == '+':
+                    if abs(int(pe) - read.reference_start) < tol:
                         target = True
+                else:
+                    if read.reference_end is not None:
+                        if abs(int(ps) - read.reference_end) < tol:
+                            target = True
+            else:
+                if map_strand == '+':
+                    if abs(int(ps) - read.reference_start) < tol:
+                        target = True
+                else:
+                    if read.reference_end is not None:
+                        if abs(int(pe) - read.reference_end) < tol:
+                            target = True
 
         specific.setdefault(primer, set())
         unspecific.setdefault(primer, set())
