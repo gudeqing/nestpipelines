@@ -93,13 +93,15 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     overall_error_rate = total_error/base_num
     print(f'primer总体错误率={total_error}/{base_num}={overall_error_rate:.4%}')
     print(f'Overall transition/transversion rate {overall_trans_rate:.4%}')
+    print('转换类型: 转换发生率 | 转换类型占比率')
     for k in sorted(transition.keys()):
         num = transition[k]
         new_key = f'{k[0]}>{k[1]}'
         trans_rate = num/total_trans_times
         print(f'{new_key}: {num/transition_base_num:.4%} | {trans_rate:.4%}')
         error_dict[new_key] = trans_rate
-    with open('primer_error_stat.txt', 'w') as f:
+
+    with open(out_prefix+'.PrimerErrorStat.txt', 'w') as f:
         for k in sorted(error_dict.keys()):
             v = error_dict[k]
             f.write(f'{k}\t{v}\n')
