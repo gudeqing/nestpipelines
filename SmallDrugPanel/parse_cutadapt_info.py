@@ -13,9 +13,9 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     no_primer = 0
     prefix_primer = 0
     middle_primer = 0
-    # perfect_primer仅允许2个错配, 且长度一致
+    # perfect_primer仅允许2个错配, 且长度一致相差在3bp以内
     perfect_primer = 0
-    # 错误>=4 或者和预期primer长度相差超过4bp
+    # 错误>=3 或者和预期primer长度相差超过3bp
     dubious_primer = 0
     read_number = 0
     primer_dict = dict()
@@ -26,6 +26,7 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     total_error_primer = 0  # 用于计算error的总primer数
     transition = dict()
     transition_base_num = 0
+    umi_set = set()
     if primer_fasta:
         fasta = open(primer_fasta).readlines()
         names = [x[1:].strip() for x in fasta[0::2]]
@@ -37,60 +38,73 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
 
     with open(file) as f:
         for i, line in enumerate(f):
+            read_number += 1
             lst = line.split('\t')
             read_name = lst[0]
+            # if '/' in read_name[-2:]:
+            #     is_read1 = read_name[-1] == '1'
+            # else:
+            #     is_read1 = read_name.split()[1][0] == '1'
+            # if not is_read1:
+            #     continue
+            # 由于cutadapt默认只输出read1包含的primer匹配情况，无需上面的判断
+
             errors = int(lst[1])
             if errors == -1:
                 no_primer += 1
+                # print(line)
             else:
                 start = int(lst[2])
                 end = int(lst[3])
+                umi = read_name.split()[0].split(':')[-1]
                 primer_name = lst[7]
-                # primer_len = int(primer_name.split(':', 3)[2].split('=')[1])
                 primer_len = int(primer_name.split(':', 3)[2])
                 if start == 0:
                     prefix_primer += 1
                 else:
                     middle_primer += 1
-                if errors <= 2 and primer_len == (end - start):
+                if errors <= 2 and abs(primer_len - (end - start)) <= 3:
                     perfect_primer += 1
-                    # update stat dict
-                    primer_dict.setdefault(primer_name, 0)
-                    primer_dict[primer_name] += 1
-                    # umi = read_name.split()[0].split(':')[-1][:11]
-                    umi = read_name.split()[0].split(':')[-1]
-                    umi_dict.setdefault(primer_name, set())
-                    umi_dict[primer_name].add(umi)
                 else:
-                    if errors >= 4 or abs(primer_len - end + start) >= 4:
-                        dubious_primer += 1
+                    # if errors >= 3 or abs(primer_len - end + start) >= 4:
+                    dubious_primer += 1
 
                 # 统计primer测序错误的情况
-                if abs(primer_len - (end - start)) <= 3:
-                    total_error += errors
-                    base_num += primer_len
-                    total_error_primer += 1
+                if umi not in umi_set:
+                    umi_set.add(umi)
+                    base_num += primer_len  # 只要包含primer，则都将进入统计作为分母
+                    if errors > 0:
+                        total_error += errors
+                        total_error_primer += 1
+                    # 统计碱基之间的转换情况. 尽量排除indel带来的影响，所以需要下面的if
+                    if primer_len == (end - start) and primer_fasta:
+                        transition_base_num += primer_len
+                        primer_fa = primer_fa_dict[primer_name]
+                        # if primer_fa != lst[5].upper():
+                        #     print(primer_fa)
+                        #     print(lst[5])
+                        for ref, alt in zip(primer_fa, lst[5].upper()):
+                            if ref != alt:
+                                transition.setdefault((ref, alt), 0)
+                                transition[(ref, alt)] += 1
 
-                if primer_len == (end - start) and primer_fasta:
-                    transition_base_num += primer_len
-                    primer_fa = primer_fa_dict[primer_name]
-                    # if primer_fa != lst[5].upper():
-                    #     # print(primer_fa)
-                    #     # print(lst[5])
-                    for ref, alt in zip(primer_fa, lst[5].upper()):
-                        if ref != alt:
-                            transition.setdefault((ref, alt), 0)
-                            transition[(ref, alt)] += 1
-        else:
-            read_number = i + 1
+                # update stat dict
+                primer_dict.setdefault(primer_name, 0)
+                primer_dict[primer_name] += 1  # 相当于统计每个primer包含多少条reads
+                umi_dict.setdefault(primer_name, set())
+                umi_dict[primer_name].add(umi)
 
     # print seq error info
+    print('统计时，只考虑UMI第一次出现所对应的那条reads, 其他包含相同UMI的read不进入统计，目的是要估计第一轮PCR导致的错误率')
     error_dict = dict()
     error_dict['overall_error_rate'] = total_error/base_num
-    error_dict['mean_error_per_primer'] = total_error/total_error_primer
     total_trans_times = sum(transition.values())
     overall_trans_rate = total_trans_times/transition_base_num
     overall_error_rate = total_error/base_num
+    print('Read1 数量为', read_number)
+    print('包含primer的read1数量为', read_number - no_primer)
+    print('包含primer的read1所包含的Uniq UMI数量为', len(umi_set))
+    print('平均每条primer包含碱基错误数量为', total_error/len(umi_set))
     print(f'primer总体错误率={total_error}/{base_num}={overall_error_rate:.4%}')
     print(f'Overall transition/transversion rate {overall_trans_rate:.4%}')
     print('转换类型: 转换发生率 | 转换类型占比率')
