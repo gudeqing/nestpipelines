@@ -35,7 +35,7 @@ import pysam
 """
 
 
-def stat(bam, out_prefix, tol=15, keep_off_target=False, primer_trimmed=False, primer_fasta=None):
+def stat(bam, out_prefix, tol=15, keep_off_target=False, primer_trimmed=False):
     """
     :param bam: read1以primer开头，read name记录了primer的坐标信息
     :param out_prefix:
@@ -92,6 +92,7 @@ def stat(bam, out_prefix, tol=15, keep_off_target=False, primer_trimmed=False, p
 
     # discard off target
     if not keep_off_target:
+        print(f'Discard {len(off_target_reads)} reads: 因为和预期比对坐标相差超过{tol}bp')
         discard_off_target(bam, f'{out_prefix}.onTarget.bam', off_target_reads)
         with open(f'{out_prefix}.offTarget.reads.txt', 'w') as f:
             for each in off_target_reads:
@@ -217,49 +218,6 @@ def discard_off_target(bam, out, off_target_reads:set):
     bam_obj.close()
     new_obj.close()
 
-
-def primer_error_stat(bam, primer_fasta):
-    # 由于没有办法分析primer的错配情况，下面的统计偏差太大，无法使用
-    fasta = open(primer_fasta).readlines()
-    names = [x[1:].strip() for x in fasta[0::2]]
-    fa = [x.strip().strip('^').upper() for x in fasta[1::2]]
-    primer_fa_dict = dict(zip(names, fa))
-
-    bam_obj = pysam.AlignmentFile(bam, "rb")
-    read_num = 0
-    base_num = 0
-    trans = dict()
-    for read in bam_obj.fetch():
-        if (not read.is_read1) or read.is_secondary:
-            continue
-        # return the original read sequence.
-        seq = read.get_forward_sequence().upper()
-        read_name = read.query_name
-        primer_name = ':'.join(read_name.split(':', 5)[:5])
-        primer_fa = primer_fa_dict[primer_name]
-        primer_len = len(primer_fa)
-        if sum(x==y for x, y in zip(seq[:10], primer_fa[:10])) <= 3:
-            print(seq)
-            print(primer_fa)
-            # 粗略判读read是否包含完整的primer
-            read_num += 1
-            base_num += primer_len
-            # 这里仅统计了mismatch，无法准确统计insertion或del，insertion或indel的存在也会使mismatch的统计存在误差
-            for ref, alt in zip(primer_fa, seq[:primer_len]):
-                if ref != alt:
-                    key = ref+'>'+alt
-                    trans.setdefault(key, 0)
-                    trans[key] += 1
-
-    total_trans_bases = sum(trans.values())
-    if base_num:
-        print(total_trans_bases, base_num)
-        overall_error_rate = total_trans_bases/base_num
-        trans = {k:v/total_trans_bases for k,v in trans.items()}
-        print(overall_error_rate)
-        print(trans)
-    else:
-        print('No primer seq error found !?')
 
 
 if __name__ == '__main__':
