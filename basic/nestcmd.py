@@ -589,7 +589,8 @@ class RunCommands(CommandNetwork):
                         self.logger.warning('{}th run {}'.format(try_times, cmd.name))
                     # 把运行状态设为running
                     self.state[cmd.name]['state'] = 'running'
-                    self._draw_state()
+                    with self.__LOCK__:
+                        self._draw_state()
                     cmd.run(remote_run=remote_run)
                     if cmd.proc.returncode == 0:
                         break
