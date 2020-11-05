@@ -15,7 +15,20 @@ def get_seq_qual(contig, start, end, bam, min_bq=15):
         ignore_orphans=False,
         ignore_overlaps=False,
     )
-    seq_qual = [(col.get_query_sequences(), col.get_query_qualities()) for col in cols]
+    seq_qual = [[col.get_query_sequences(add_indels=True), col.get_query_qualities()] for col in cols]
+
+    for index in range(len(seq_qual)):
+        seqs = []
+        for i in seq_qual[index][0]:
+            if '+' in i:
+                seqs.append('I')
+            elif '*' in i:
+                seqs.append('D')
+            elif '-' in i:
+                seqs.append(i.split('-')[0])
+            else:
+                seqs.append(i)
+        seq_qual[index][0] = seqs
     return seq_qual
 
 
@@ -49,98 +62,106 @@ def run(bed, bam, prefix, center_size=1, only_alt_site=False, exclude_sites=None
     """
     gn =pysam.FastaFile(genome)
     bam = pysam.AlignmentFile(bam)
-    mdict = dict()
     # excludes = {29497966,178922273,55228052,55249062,43613842,25386062,25391238,25400205}
     if exclude_sites:
         excludes = {tuple(x.strip().split()[:2]) for x in open(exclude_sites) if not x.startswith('#')}
     else:
         excludes = set()
-    with open(bed) as f, open(f'{prefix}.each_site.txt', 'w') as fw:
-        for line in f:
-            r, s, t, _ = line.strip().split()
-            s, t = int(s), int(t)
-            seq_quals = get_seq_qual(r, s, t, bam)
 
-            for pos, seq_qual in zip(range(s, t), seq_quals):
-                if (r, str(pos+1)) in excludes:
-                    # print('skip', pos)
-                    continue
-                seq_counter = Counter(x.upper() for x in seq_qual[0])
-                qual_counter = Counter(seq_qual[1])
-                center_seq = get_center_seq(r, pos, gn, size=center_size)
-                ref = center_seq[len(center_seq)//2]
+    alt_dict = dict()
+    for alt_type in ['A', 'T', 'C', 'G', 'I', 'D']:
+        mdict = dict()
+        # 在确定突变目标的情况下，统计突变为指定目标突变的概率
+        with open(bed) as f, open(f'{prefix}.each_site.{alt_type}.txt', 'w') as fw:
+            for line in f:
+                r, s, t, _ = line.strip().split()
+                s, t = int(s), int(t)
+                seq_quals = get_seq_qual(r, s, t, bam)
 
-                alt_base = seq_counter.keys() - {ref.upper(), ref.lower()}
-                alt_num = sum(seq_counter[x] for x in alt_base)
-                total = sum(seq_counter.values())
-                alt_freq = alt_num / total
-                if alt_freq > 0.15 and sum(seq_counter.values()) > 10:
-                    # 这里的判断可以较大程度的剔除真实突变的位点，目的是为了防止这些突变导致高估测序错误率
-                    # 当然，对于测序比较浅的时候，这个过滤的作用不大
-                    continue
+                for pos, seq_qual in zip(range(s, t), seq_quals):
+                    if (r, str(pos+1)) in excludes:
+                        # print('skip', pos)
+                        continue
+                    seq_counter = Counter(x.upper() for x in seq_qual[0])
+                    qual_counter = Counter(seq_qual[1])
+                    center_seq = get_center_seq(r, pos, gn, size=center_size)
+                    ref = center_seq[len(center_seq)//2]
 
-                if not only_alt_site:
-                    # 统计所有位点，即使没有发生任何突变的位点
-                    alt_base = {True}
-                else:
-                    pass
-                    # if 'C' not in alt_base:
-                    #     alt_base = {}
+                    alt_bases = seq_counter.keys() - {ref.upper()}
+                    alt_num = sum(seq_counter[x] for x in alt_bases)
+                    total = sum(seq_counter.values())
+                    alt_freq = alt_num / total
+
+                    if alt_freq > 0.15 and sum(seq_counter.values()) > 10:
+                        # 这里的判断可以较大程度的剔除真实突变的位点，目的是为了防止这些突变导致高估测序错误率
+                        # 当然，对于测序比较浅的时候，这个过滤的作用不大
+                        continue
+
+                    if not only_alt_site:
+                        # 统计所有位点，即使没有发生任何突变的位点
+                        alt_bases = {True}
+                    else:
+                        if alt_type not in alt_bases:
+                            alt_bases = {}
 
 
-                if alt_base:
-                    mdict.setdefault(center_seq, Counter())
-                    mdict[center_seq] += seq_counter
-                    # alt_num = sum(seq_counter[x] for x in alt_base)
-                    # mdict[center_seq] += {'alt':alt_num}
-                    info = [
-                        r, pos, ref,
-                        center_seq,
-                        len(seq_qual[0]),
-                        dict(seq_counter.most_common()),
-                        dict(qual_counter.most_common())
-                    ]
-                    fw.write('\t'.join(str(x) for x in info)+'\n')
+                    if alt_bases:
+                        mdict.setdefault(center_seq, Counter())
+                        mdict[center_seq] += seq_counter
+                        # alt_num = sum(seq_counter[x] for x in alt_base)
+                        # mdict[center_seq] += {'alt':alt_num}
+                        info = [
+                            r, pos, ref,
+                            center_seq,
+                            len(seq_qual[0]),
+                            dict(seq_counter.most_common()),
+                            dict(qual_counter.most_common())
+                        ]
+                        fw.write('\t'.join(str(x) for x in info)+'\n')
 
-    print(len(mdict))
+        print(len(mdict))
 
-    # 注释到下面的代码的原因, 因为要考虑反向互补的情况:由于观察到A->C时，可能是pcr时把A错配成C, 也有可能pcr时把互补链的T错配为G
-    # mdict = dict(sorted(zip(mdict.keys(), mdict.values()), key=lambda x:x[0]))
-    # with open(f'{prefix}.centered_site.txt', 'w') as fw:
-    #     for k, v in mdict.items():
-    #         # print(k, v)
-    #         # total = sum(v.values()) - v['alt']
-    #         total = sum(v.values())
-    #         v = dict(v.most_common())
-    #         freq = [(x, v[x]/total) for x in v]
-    #         fw.write('\t'.join([k] + [f'{x}:{y:.2e}' for x, y in freq])+'\n')
+        # 注释到下面的代码的原因, 因为要考虑反向互补的情况:由于观察到A->C时，可能是pcr时把A错配成C, 也有可能pcr时把互补链的T错配为G
+        # mdict = dict(sorted(zip(mdict.keys(), mdict.values()), key=lambda x:x[0]))
+        # with open(f'{prefix}.centered_site.txt', 'w') as fw:
+        #     for k, v in mdict.items():
+        #         # print(k, v)
+        #         # total = sum(v.values()) - v['alt']
+        #         total = sum(v.values())
+        #         v = dict(v.most_common())
+        #         freq = [(x, v[x]/total) for x in v]
+        #         fw.write('\t'.join([k] + [f'{x}:{y:.2e}' for x, y in freq])+'\n')
 
-    # 由于观察到A->C时，可能是pcr时把A错配成C, 也有可能pcr时把互补链的T错配为G
-    # 当参考基因组为CAT时，中间的A测错为C的概率，可以由mdict中的CAT和GTA的值共同决定
-    result = dict()
-    for base in ['A', 'T', 'C', 'G', '']:
-        for key in mdict:
-            result.setdefault(key, Counter())
-            result[key][base] = mdict[key][base]
-            r_key = reverse_complement(key)
-            r_base = reverse_complement(base)
-            if r_key in mdict and r_base in mdict[r_key]:
-                result[key][base] += mdict[r_key][r_base]
+        # 由于观察到A->C时，可能是pcr时把A错配成C, 也有可能pcr时把互补链的T错配为G
+        # 当参考基因组为CAT时，中间的A测错为C的概率，可以由mdict中的CAT和GTA的值共同决定
+        result = dict()
+        for base in ['A', 'T', 'C', 'G', 'I', 'D']:
+            for key in mdict:
+                result.setdefault(key, Counter())
+                result[key][base] = mdict[key][base]
+                r_key = reverse_complement(key)
+                r_base = reverse_complement(base)
+                if r_key in mdict and r_base in mdict[r_key]:
+                    result[key][base] += mdict[r_key][r_base]
 
-    mdict = dict(sorted(zip(result.keys(), result.values()), key=lambda x: x[0]))
-    result = dict()
-    # with open(f'{prefix}.centered{center_size}_site.txt', 'w') as fw:
-    for k, v in mdict.items():
-        # print(k, v)
-        # total = sum(v.values()) - v['alt']
-        total = sum(v.values())
-        v = dict(v.most_common())
-        freq = dict([(x, v[x] / total) for x in v])
-        result[k] = freq
-        # fw.write('\t'.join([k] + [f'{x}:{y:.2e}' for x, y in freq]) + '\n')
-        # fw.write(f'{k}\t{freq}\n')
+        mdict = dict(sorted(zip(result.keys(), result.values()), key=lambda x: x[0]))
+        result = dict()
+        # with open(f'{prefix}.centered{center_size}_site.txt', 'w') as fw:
+        for k, v in mdict.items():
+            # print(k, v)
+            # total = sum(v.values()) - v['alt']
+            total = sum(v.values())
+            v = dict(v.most_common())
+            freq = dict([(x, v[x] / total) for x in v])
+            result[k] = freq
+            # fw.write('\t'.join([k] + [f'{x}:{y:.2e}' for x, y in freq]) + '\n')
+            # fw.write(f'{k}\t{freq}\n')
+        with open(f'{prefix}.centered{center_size}_site.{alt_type}.json', 'w') as fw:
+            json.dump(result, fw, indent=4)
+        alt_dict[alt_type] = result
+    print(alt_dict.keys())
     with open(f'{prefix}.centered{center_size}_site.json', 'w') as fw:
-        json.dump(result, fw, indent=4)
+        json.dump(alt_dict, fw, indent=4)
 
 
 if __name__ == '__main__':
