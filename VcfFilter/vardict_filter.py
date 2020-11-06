@@ -255,6 +255,9 @@ class VardictFilter():
         gn = pysam.FastaFile(genome)
         print(seq_error_dict.keys())
         for r in self.vcf:
+            if '<' in r.alts[0]:
+                print('skip', r.contig, r.ref, list(r.alts))
+                continue
             reasons = []
             # 1.根据测序错误率或germline突变频率过滤
             ctrl_af_as_error_rate = False
@@ -265,7 +268,10 @@ class VardictFilter():
                 # snv
                 key = gn.fetch(r.contig, r.start - key_len, r.start + 1 + key_len).upper()
                 # error_rate = seq_error_dict[key][r.alts[0]]
-                error_rate = seq_error_dict[r.alts[0]][key][r.alts[0]]
+                if key in seq_error_dict[r.alts[0]]:
+                    error_rate = seq_error_dict[r.alts[0]][key][r.alts[0]]
+                else:
+                    error_rate = 1e-6
             elif r.alts[0].startswith(r.ref):
                 # insertion
                 # error_rate = seq_error_dict[key][r.alts[0][1]]
