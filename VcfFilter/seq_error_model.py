@@ -127,7 +127,9 @@ def run(bed, bam, prefix, center_size=1, exclude_sites=None,
                     ]
                     fw.write('\t'.join(str(x) for x in info)+'\n')
 
-    print(dict(zip(alt_raw_dict.keys(), (len(v) for k, v in alt_raw_dict.items()))))
+    print(dict(zip(
+        alt_raw_dict.keys(), (len(v) for k, v in alt_raw_dict.items())
+    )))
 
     alt_dict = dict()
     for alt_type in alt_raw_dict:
@@ -149,16 +151,19 @@ def run(bed, bam, prefix, center_size=1, exclude_sites=None,
             v = result[k]
             total = sum(v.values())
             v = dict(v.most_common())  # 排序
-            # 进输出目标突变的概率
+            # 仅仅输出目标突变的概率
             freq = {x: v[x]/total for x in v if x==alt_type}
             freq_result[k] = freq
-        freq_result = dict(sorted(zip(freq_result.keys(), freq_result.values()), key=lambda x:sum(x[1].values()), reverse=True))
+        freq_result = dict(sorted(
+            zip(freq_result.keys(), freq_result.values()),
+            key=lambda x:sum(x[1].values()), reverse=True)
+        )
         alt_dict[alt_type] = freq_result
         # output
         # with open(f'{prefix}.centered{center_size}_site.{alt_type}.json', 'w') as fw:
         #     json.dump(freq_result, fw, indent=4)
 
-    print(alt_dict.keys())
+    # print(alt_dict.keys())
     with open(f'{prefix}.centered{center_size}_site.json', 'w') as fw:
         json.dump(alt_dict, fw, indent=4)
 
