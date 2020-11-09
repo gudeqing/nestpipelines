@@ -106,7 +106,7 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     print('包含primer的read1所包含的Uniq UMI数量为', len(umi_set))
     print('平均每条primer包含碱基错误数量为', total_error/len(umi_set))
     print(f'primer总体错误率={total_error}/{base_num}={overall_error_rate:.4%}')
-    print(f'Overall transition/transversion rate {overall_trans_rate:.4%}')
+    print(f'Overall transition|transversion rate {overall_trans_rate:.4%}')
     print('转换类型: 转换发生率 | 转换类型占比率')
     for k in sorted(transition.keys()):
         num = transition[k]
