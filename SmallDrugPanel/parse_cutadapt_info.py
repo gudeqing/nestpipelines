@@ -25,7 +25,7 @@ def parse_info_file(file, out_prefix='primer', primer_fasta=None):
     total_error = 0
     total_error_primer = 0  # 用于计算error的总primer数
     transition = dict()
-    transition_base_num = 0
+    transition_base_num = 1
     umi_set = set()
     if primer_fasta:
         fasta = open(primer_fasta).readlines()
