@@ -88,6 +88,8 @@ def run(bed, bam, prefix, center_size=1, exclude_sites=None,
         header = ['contig', 'pos', 'ref', 'centered_ref', 'total_reads', 'alt_stat', 'base_qual_stat']
         fw.write('\t'.join(header)+'\n')
         for line in f:
+            if line.startswith('track'):
+                continue
             r, s, t, _ = line.strip().split()
             s, t = int(s), int(t)
             seq_quals = get_seq_qual(r, s, t, bam)
@@ -98,7 +100,7 @@ def run(bed, bam, prefix, center_size=1, exclude_sites=None,
                     continue
                 seq_counter = Counter(x.upper() for x in seq_qual[0])
                 qual_counter = Counter(seq_qual[1])
-                center_seq = get_center_seq(r, pos, gn, size=center_size)
+                center_seq = get_center_seq(r, pos, gn, size=center_size).upper()
                 ref = center_seq[len(center_seq)//2]
 
                 alt_types = seq_counter.keys() - {ref.upper()}
