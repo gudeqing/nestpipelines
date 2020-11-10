@@ -228,7 +228,7 @@ class VardictFilter():
                 passed = False
         return passed, pstd
 
-    def filtering(self, out, genome=None, seq_error=None, tumor_index=1):
+    def filtering(self, out, genome=None, seq_error=None, tumor_index=1, center_size:tuple=None):
         discard = 0
         samples = list(self.vcf.header.samples)
         if len(samples) == 2:
@@ -267,10 +267,14 @@ class VardictFilter():
             seq_error_dict = dict()
             for i in 'ATCGID':
                 seq_error_dict[i] = tmp_dict
-            key_len = 0
+            key_left = key_right = 0
         else:
             seq_error_dict = json.load(open(seq_error))
-            key_len = max(len(x) for x in seq_error_dict['A'].keys())//2
+            if center_size:
+                key_left, key_right = map(int, center_size)
+            else:
+                key_len = max(len(x) for x in seq_error_dict['A'].keys())//2
+                key_left = key_right = key_len
 
         gn = pysam.FastaFile(genome)
         print(seq_error_dict.keys())
@@ -282,11 +286,11 @@ class VardictFilter():
             # 1.根据测序错误率或germline突变频率过滤
             ctrl_af_as_error_rate = False
             # r.pos正好是1-based
-            key = gn.fetch(r.contig, r.pos-key_len, r.pos+1+key_len).upper()
+            key = gn.fetch(r.contig, r.pos-key_left, r.pos+1+key_right).upper()
             # 下面还要判断是否为点突变，暂不考虑indel？？
             if len(r.alts[0]) == len(r.ref) == 1:
                 # snv
-                key = gn.fetch(r.contig, r.start - key_len, r.start + 1 + key_len).upper()
+                key = gn.fetch(r.contig, r.start - key_left, r.start + 1 + key_right).upper()
                 # error_rate = seq_error_dict[key][r.alts[0]]
                 if key in seq_error_dict[r.alts[0]]:
                     error_rate = seq_error_dict[r.alts[0]][key][r.alts[0]]
@@ -316,8 +320,12 @@ class VardictFilter():
             else:
                 # complex
                 # error_rate = seq_error_dict[key][r.alts[0][0]]
-                key = gn.fetch(r.contig, r.start - key_len, r.start + 1 + key_len).upper()
-                error_rate = seq_error_dict[r.alts[0][0]][key][r.alts[0][0]]
+                key = gn.fetch(r.contig, r.start - key_left, r.start + 1 + key_right).upper()
+                # print(r.pos, key, r.ref, r.alts)
+                if key in seq_error_dict[r.alts[0][0]]:
+                    error_rate = seq_error_dict[r.alts[0][0]][key][r.alts[0][0]]
+                else:
+                    error_rate = 1e-6
 
             if normal:
                 # 当存在对照样本时，如果某个位点在对照样本也存在突变，且突变频率大于seq_error时，可以把对照样本中的突变频率作为测序错误率进行过滤
@@ -378,8 +386,10 @@ class VardictFilter():
         print(f'discard {discard} variants !')
 
 
-def filterVcf(vcf, out, genome, seq_error=None, tumor_index:int=0):
-    VardictFilter(vcf).filtering(out, seq_error=seq_error, tumor_index=tumor_index, genome=genome)
+def filterVcf(vcf, out, genome, seq_error=None, tumor_index:int=0, center_size:tuple=None):
+    VardictFilter(vcf).filtering(
+        out, seq_error=seq_error, tumor_index=tumor_index, genome=genome, center_size=center_size
+    )
 
 
 

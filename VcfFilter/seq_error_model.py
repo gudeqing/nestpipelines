@@ -32,8 +32,8 @@ def get_seq_qual(contig, start, end, bam, min_bq=15):
     return seq_qual
 
 
-def get_center_seq(contig, pos, genome, size=1):
-    return genome.fetch(contig, pos-size, pos+size+1)
+def get_center_seq(contig, pos, genome, sizes=(1, 1)):
+    return genome.fetch(contig, pos-sizes[0], pos+sizes[1]+1)
 
 
 def reverse_complement(seq):
@@ -46,7 +46,7 @@ def reverse_complement(seq):
     return ''.join(complement[base] if base in complement else base for base in seq[::-1])
 
 
-def run(bed, bam, prefix, center_size=1, exclude_sites=None,
+def run(bed, bam, prefix, center_size=(1, 1), exclude_sites=None,
         genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta',):
     """
     对要目标区域的每一个位点进行统计，尝试得出测序错误条件下：碱基发生转换的条件概率
@@ -100,7 +100,7 @@ def run(bed, bam, prefix, center_size=1, exclude_sites=None,
                     continue
                 seq_counter = Counter(x.upper() for x in seq_qual[0])
                 qual_counter = Counter(seq_qual[1])
-                center_seq = get_center_seq(r, pos, gn, size=center_size).upper()
+                center_seq = get_center_seq(r, pos, gn, sizes=center_size).upper()
                 ref = center_seq[len(center_seq)//2]
 
                 alt_types = seq_counter.keys() - {ref.upper()}
@@ -166,7 +166,7 @@ def run(bed, bam, prefix, center_size=1, exclude_sites=None,
         #     json.dump(freq_result, fw, indent=4)
 
     # print(alt_dict.keys())
-    with open(f'{prefix}.centered{center_size}_site.json', 'w') as fw:
+    with open(f'{prefix}.centered{center_size[0]}{center_size[1]}_site.json', 'w') as fw:
         json.dump(alt_dict, fw, indent=4)
 
 
