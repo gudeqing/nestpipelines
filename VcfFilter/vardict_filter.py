@@ -88,7 +88,10 @@ class VardictFilter():
         dp = record.samples[sample]['DP']
         if type(dp) != int:
             dp = sum(dp)
-        if 'AF' in record.samples[sample]:
+        if 'HIAF' in record.info and 'AF' in record.info:
+            # vardict style
+            af = min([record.info['HIAF'], record.info['AF'][0]])
+        elif 'AF' in record.samples[sample]:
             af = record.samples[sample]['AF'][0]
         elif 'FREQ' in record.samples[sample]:
             # for varscan2 style
@@ -212,6 +215,19 @@ class VardictFilter():
         #
         return passed, pvalue
 
+    def pass_pstd(self, record, cutoff=1e-4):
+        """
+        vardict中PSTD表示突变在reads中位置的标准差，如果突变在reads中出现的位置一样，那么该值为0，假阳的可能性极高
+        通常，alt reads序列完全一致会导致这种情况，这意味着支持该突变的uniq read只有1条
+        """
+        passed = True
+        pstd = 0
+        if 'PSTD' in record.info:
+            pstd = record.info['PSTD']
+            if pstd <= cutoff:
+                passed = False
+        return passed, pstd
+
     def filtering(self, out, genome=None, seq_error=None, tumor_index=1):
         discard = 0
         samples = list(self.vcf.header.samples)
@@ -225,7 +241,11 @@ class VardictFilter():
             normal = None
 
         # 先给vcf的header添加新字段定义才能往添加新的字段信息
-        self.vcf.header.info.add('EFR', number=2, type='Float', description='estimated error frequency range')
+        self.vcf.header.info.add('LOD', number=2, type='Float',
+                                 description='The first value is input error rate which will be used '
+                                             'as theoretical frequency to calculate the second value. '
+                                             'The second value is the upper value of estimated error rate '
+                                             'base on assumption of simple sampling')
         self.vcf.header.filters.add('SeqErrorOrGermline', number=None, type=None, description='likely SeqErrorOrGermline')
         self.vcf.header.filters.add('SeqError', number=None, type=None, description='likely seq error')
         if 'StrandBias' not in self.vcf.header.filters:
@@ -317,7 +337,7 @@ class VardictFilter():
                     ctrl_af_as_error_rate = True
                     error_rate = normal_af
             # judge = self.pass_seq_error(r, tumor, error_rate, z=1.96, factor=1.)
-            judge = self.pass_seq_error(r, tumor, error_rate, z=2.58, factor=1.2)
+            judge = self.pass_seq_error(r, tumor, error_rate, z=2.58, factor=1)
             if not judge[0]:
                 if ctrl_af_as_error_rate:
                     reasons.append('SeqErrorOrGermline')
@@ -325,7 +345,8 @@ class VardictFilter():
                     # print(key, error_rate, r.ref, list(r.alts))
                     reasons.append('SeqError')
                 pass
-            r.info['EFR'] = (round(judge[1], 5), round(judge[2], 5))
+
+            r.info['LOD'] = (round(error_rate, 5), round(judge[2], 5))
 
             # 2.根据strand bias进行过滤
             judge2 = self.pass_strand_bias(r, cutoff=0.005, sample=tumor)
@@ -339,6 +360,11 @@ class VardictFilter():
                 if not judge3[0]:
                     reasons.append('DepthBias')
                     pass
+
+            # 4. position std filtering, 如果突变在reads中出现的位置基本不变，需要过滤掉
+            judge4 = self.pass_pstd(r, cutoff=0.00001)
+            if not judge4[0]:
+                reasons.append('pSTD')
 
             if reasons:
                 discard += 1
