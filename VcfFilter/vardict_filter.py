@@ -12,10 +12,10 @@ E = 1.96/(N/(P*(1-P)))**0.5
 则可以使用该P作为真实测序错误率对测试样本进行上述统计.
 """
 import json
-import pandas as pd
+# import pandas as pd
 import pysam
 import scipy.stats as stats
-from statistics import median_low
+import statistics
 """
 要求vcf每一行只包含一个突变，这个可以通过bcftools norm 快速实现
 变异类型的分类
@@ -126,7 +126,7 @@ class VardictFilter():
 
         lower, upper = self.poll_error_conf(error_rate, dp, z)
         # print(dp, r.qual, error_rate, lower, upper)
-        if round(upper*factor, 4) < af:
+        if af >= upper*factor:
             return True, lower, upper
         else:
             return False, lower, upper
@@ -219,12 +219,14 @@ class VardictFilter():
         """
         vardict中PSTD表示突变在reads中位置的标准差，如果突变在reads中出现的位置一样，那么该值为0，假阳的可能性极高
         通常，alt reads序列完全一致会导致这种情况，这意味着支持该突变的uniq read只有1条
+        对于UMI数据的话，上述过滤可能不合适，因此改为仅在支持的reads数目<=2的情况使用该过滤条件。
         """
         passed = True
         pstd = 0
-        if 'PSTD' in record.info:
+        if 'PSTD' in record.info and 'VD' in record.info:
             pstd = record.info['PSTD']
-            if pstd <= cutoff:
+            support_reads = record.info['VD']
+            if pstd <= cutoff and support_reads <=2:
                 passed = False
         return passed, pstd
 
@@ -277,9 +279,11 @@ class VardictFilter():
                 key_left = key_right = key_len
 
         gn = pysam.FastaFile(genome)
-        print(seq_error_dict.keys())
+        # print(seq_error_dict.keys())
+        lod_list = []
         for r in self.vcf:
             if '<' in r.alts[0]:
+                # 跳过vardict中输出的特殊突变
                 print('skip', r.contig, r.ref, list(r.alts))
                 continue
             reasons = []
@@ -344,8 +348,8 @@ class VardictFilter():
                 if normal_af > (seq_error or 0):
                     ctrl_af_as_error_rate = True
                     error_rate = normal_af
-            # judge = self.pass_seq_error(r, tumor, error_rate, z=1.96, factor=1.)
-            judge = self.pass_seq_error(r, tumor, error_rate, z=2.58, factor=1)
+            judge = self.pass_seq_error(r, tumor, error_rate, z=1.96, factor=1.2)
+            # judge = self.pass_seq_error(r, tumor, error_rate, z=2.58, factor=1.0)
             if not judge[0]:
                 if ctrl_af_as_error_rate:
                     reasons.append('SeqErrorOrGermline')
@@ -355,9 +359,9 @@ class VardictFilter():
                 pass
 
             r.info['LOD'] = (round(error_rate, 5), round(judge[2], 5))
-
+            lod_list.append(judge[2])
             # 2.根据strand bias进行过滤
-            judge2 = self.pass_strand_bias(r, cutoff=0.005, sample=tumor)
+            judge2 = self.pass_strand_bias(r, cutoff=0.003, sample=tumor)
             if not judge2[0]:
                 reasons.append('StrandBias')
                 pass
@@ -383,6 +387,9 @@ class VardictFilter():
                 vcf_out.write(r)
         vcf_out.close()
         vcf_discard.close()
+        print('median LOD:', statistics.median(lod_list))
+        print('min LOD:', min(lod_list))
+        print('max LOD:', max(lod_list))
         print(f'discard {discard} variants !')
 
 
