@@ -348,8 +348,8 @@ class VardictFilter():
                 if normal_af > (seq_error or 0):
                     ctrl_af_as_error_rate = True
                     error_rate = normal_af
-            judge = self.pass_seq_error(r, tumor, error_rate, z=1.96, factor=1.2)
-            # judge = self.pass_seq_error(r, tumor, error_rate, z=2.58, factor=1.0)
+            # judge = self.pass_seq_error(r, tumor, error_rate, z=1.96, factor=1.2)
+            judge = self.pass_seq_error(r, tumor, error_rate, z=2.58, factor=1.2)
             if not judge[0]:
                 if ctrl_af_as_error_rate:
                     reasons.append('SeqErrorOrGermline')
