@@ -108,7 +108,7 @@ def run(bed, bam, prefix, center_size=(1, 1), exclude_sites=None,
                 total = sum(seq_counter.values())
                 alt_freq = alt_num / total
 
-                if alt_freq > 0.15 and sum(seq_counter.values()) > 10:
+                if alt_freq >= 0.1 and sum(seq_counter.values()) >= 10:
                     # 这里的判断可以较大程度的剔除真实突变的位点，目的是为了防止这些突变导致高估测序错误率
                     # 当然，对于测序比较浅的时候，这个过滤的作用不大
                     continue
