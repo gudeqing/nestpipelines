@@ -16,15 +16,25 @@ def get_seq_qual(contig, start, end, bam, min_bq=15):
         ignore_overlaps=False,
     )
     seq_qual = [[col.get_query_sequences(add_indels=True), col.get_query_qualities()] for col in cols]
-
+    # A pattern
+    # `\+[0-9]+[ACGTNacgtn]+' indicates there is an insertion
+    # between this reference position and the next reference
+    # position. The length of the insertion is given by the
+    # integer in the pattern, followed by the inserted
+    # sequence. Similarly, a pattern `-[0-9]+[ACGTNacgtn]+'
+    # represents a deletion from the reference. The deleted bases
+    # will be presented as `*' in the following lines.
     for index in range(len(seq_qual)):
         seqs = []
         for i in seq_qual[index][0]:
             if '+' in i:
+                # 当前碱基后面有插入的碱基
                 seqs.append('I')
             elif '*' in i:
+                # 当前碱基被删除
                 seqs.append('D')
             elif '-' in i:
+                # 当前碱基的后一个碱基发生删除
                 seqs.append(i.split('-')[0])
             else:
                 seqs.append(i)
