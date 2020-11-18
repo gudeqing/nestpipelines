@@ -230,8 +230,7 @@ class VardictFilter():
                 passed = False
         return passed, pstd
 
-    def filtering(self, out, genome=None, seq_error=None, tumor_index=1, center_size:tuple=None):
-        discard = 0
+    def filtering(self, out, genome, seq_error=None, tumor_index=1, center_size:tuple=None, basic_error_dict=None):
         samples = list(self.vcf.header.samples)
         if len(samples) == 2:
             if tumor_index == 1:
@@ -277,21 +276,25 @@ class VardictFilter():
             else:
                 key_len = max(len(x) for x in seq_error_dict['A'].keys())//2
                 key_left = key_right = key_len
+        if basic_error_dict:
+            basic_error_dict = json.load(open(basic_error_dict))
 
         gn = pysam.FastaFile(genome)
         # print(seq_error_dict.keys())
         lod_list = []
+        discard = 0
+        total = 0
         for r in self.vcf:
+            total += 1
             if '<' in r.alts[0]:
+                discard += 1
                 # 跳过vardict中输出的特殊突变
                 print('skip', r.contig, r.ref, list(r.alts))
                 continue
             reasons = []
             # 1.根据测序错误率或germline突变频率过滤
             ctrl_af_as_error_rate = False
-            # r.pos正好是1-based
-            key = gn.fetch(r.contig, r.pos-key_left, r.pos+1+key_right).upper()
-            # 下面还要判断是否为点突变，暂不考虑indel？？
+            # r.pos正好是1-based, r.start 是0-based
             if len(r.alts[0]) == len(r.ref) == 1:
                 # snv
                 key = gn.fetch(r.contig, r.start - key_left, r.start + 1 + key_right).upper()
@@ -299,25 +302,42 @@ class VardictFilter():
                 if key in seq_error_dict[r.alts[0]]:
                     error_rate = seq_error_dict[r.alts[0]][key][r.alts[0]]
                 else:
-                    error_rate = 1e-6
+                    if basic_error_dict:
+                        error_rate = basic_error_dict[r.alts[0]][r.ref][r.alts[0]]
+                    else:
+                        error_rate = 1e-6
             elif r.alts[0].startswith(r.ref):
                 # insertion
-                # error_rate = seq_error_dict[key][r.alts[0][1]]
-                # print(r.pos, key, r.ref, list(r.alts), r.alts[0][1])
+                key = gn.fetch(r.contig, r.start - key_left, r.start + 1 + key_right).upper()
                 if key in seq_error_dict['I']:
                     error_rate = seq_error_dict['I'][key]['I']
+                    if len(r.alts[0])-len(r.ref) >= 3:
+                        error_rate = error_rate**2
                 else:
-                    # 模型中没有该类突变的参考频率
-                    error_rate = 1e-6
+                    if basic_error_dict:
+                        error_rate = basic_error_dict['I'][r.ref]['I']
+                        if len(r.alts[0]) - len(r.ref) >= 3:
+                            error_rate = error_rate ** 2
+                    else:
+                        # 模型中没有该类突变的参考频率
+                        error_rate = 1e-6
             elif r.ref.startswith(r.alts[0]):
                 # deletion
+                key = gn.fetch(r.contig, r.pos - key_left, r.pos + 1 + key_right).upper()
                 if 'D' in seq_error_dict['D']:
                     # error_rate = seq_error_dict[key]['']
                     if key in seq_error_dict['D']:
                         error_rate = seq_error_dict['D'][key]['D']
+                        if len(r.ref) - len(r.alts[0]) >= 3:
+                            error_rate = error_rate ** 2
                     else:
-                        # 模型中没有该类突变的参考频率
-                        error_rate = 1e-6
+                        if basic_error_dict:
+                            error_rate = basic_error_dict['D'][r.ref[1]]['D']
+                            if len(r.ref) - len(r.alts[0]) >= 3:
+                                error_rate = error_rate ** 2
+                        else:
+                            # 模型中没有该类突变的参考频率
+                            error_rate = 1e-6
                 else:
                     error_rate = 1e-6
                 # print('del', key, error_rate, r.ref, list(r.alts))
@@ -373,7 +393,7 @@ class VardictFilter():
                     reasons.append('DepthBias')
                     pass
 
-            # 4. position std filtering, 如果突变在reads中出现的位置基本不变，需要过滤掉
+            # 4. position std filtering, 如果突变在reads中出现的位置基本不变,且支持的read少于2，需要过滤掉
             judge4 = self.pass_pstd(r, cutoff=0.00001)
             if not judge4[0]:
                 reasons.append('pSTD')
@@ -390,12 +410,13 @@ class VardictFilter():
         print('median LOD:', statistics.median(lod_list))
         print('min LOD:', min(lod_list))
         print('max LOD:', max(lod_list))
-        print(f'discard {discard} variants !')
+        print(f'discard {discard} variants while keep {total-discard} ones!')
 
 
-def filterVcf(vcf, out, genome, seq_error=None, tumor_index:int=0, center_size:tuple=None):
+def filterVcf(vcf, out, genome, seq_error=None, tumor_index:int=0, center_size:tuple=None, basic_error_dict=None):
     VardictFilter(vcf).filtering(
-        out, seq_error=seq_error, tumor_index=tumor_index, genome=genome, center_size=center_size
+        out, seq_error=seq_error, tumor_index=tumor_index, genome=genome,
+        center_size=center_size, basic_error_dict=basic_error_dict
     )
 
 
