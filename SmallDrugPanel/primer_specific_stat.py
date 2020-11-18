@@ -47,7 +47,8 @@ def stat(bam, out_prefix, tol=15, keep_off_target=False, primer_trimmed=False):
     specific = dict()
     unspecific = dict()
     bam_obj = pysam.AlignmentFile(bam, "rb")
-    off_target_reads = set()
+    off_target_reads = []
+    off_target_align = []
     for read in bam_obj.fetch():
         if (not read.is_read1) or read.is_secondary:
             continue
@@ -86,17 +87,21 @@ def stat(bam, out_prefix, tol=15, keep_off_target=False, primer_trimmed=False):
             specific[primer].add(umi)
         else:
             unspecific[primer].add(umi)
-            off_target_reads.add(read_name)
+            off_target_reads.append(read_name)
+            cigar = read.cigarstring or 'no_cigarstring'
+            off_target_align.append(
+                chr_name+':'+map_strand+':'+str(read.reference_start)+'-'+str(read.reference_end)+':'+cigar
+            )
     else:
         bam_obj.close()
 
     # discard off target
     if not keep_off_target:
-        print(f'Discard {len(off_target_reads)} reads: 因为和预期比对坐标相差超过{tol}bp')
-        discard_off_target(bam, f'{out_prefix}.onTarget.bam', off_target_reads)
+        print(f'Discard {len(set(off_target_reads))} reads: 因为和预期比对坐标相差超过{tol}bp')
+        discard_off_target(bam, f'{out_prefix}.onTarget.bam', set(off_target_reads))
         with open(f'{out_prefix}.offTarget.reads.txt', 'w') as f:
-            for each in off_target_reads:
-                f.write(each+'\n')
+            for read_name, align_position in zip(off_target_reads, off_target_align):
+                f.write(read_name+'\t'+align_position+'\n')
 
     print('Primer Number:', len(specific))
     order = lambda x: (x.split(':')[-1], x.split(':')[-2])
