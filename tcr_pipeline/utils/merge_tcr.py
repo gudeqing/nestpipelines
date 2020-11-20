@@ -370,6 +370,7 @@ def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
         table = table[target_cols]
         table.columns = new_cols
         table.to_csv(out_name, sep='\t', index=False)
+    path_dict = dict(zip(samples, out_path))
     # make matadata
     if group_info:
         if group_info.endswith('xlsx'):
@@ -377,7 +378,7 @@ def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
         else:
             group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
         matched_samples = set(group_df.index) & set(samples)
-        print(f'found {len(matched_samples)} samples')
+        print(f'Found {len(matched_samples)} matched samples')
         group_df = group_df.loc[matched_samples]
         # group_df = group_df.applymap(lambda x: x.replace(' ', '_'))
         if len(set(samples) & set(group_df.index)) < 1:
@@ -386,7 +387,7 @@ def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
             raise Exception('sample id does not match!')
         # ori_order = group_df.index
         # group_df = group_df.loc[samples]
-        group_df['files'] = out_path
+        group_df['files'] = [path_dict[x] for x in group_df.index]
         group_df['sample_id'] = group_df.index
         cols = ['files', 'sample_id'] + [x for x in group_df.columns if x not in ['files', 'sample_id']]
         group_df = group_df[cols]
