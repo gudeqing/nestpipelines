@@ -1,7 +1,10 @@
+import os
 import pandas as pd
 
 
-def de50(files:list):
+def de50(files:list, out='de50.txt'):
+    out = open(out, 'w')
+    out.write('sample\tDE50\n')
     for each in files:
         a = pd.read_csv(each, header=0)
         cols = ['Total Counts', 'Frequency']
@@ -15,8 +18,11 @@ def de50(files:list):
             if sf >= 0.5:
                 #print(each)
                 #print(st, total)
-                print(each, st/total)
+                sample = os.path.basename(each).split('_', 1)[0]
+                de50_value = st/total
+                out.write(f'{sample}\t{de50_value}\n')
                 break
+    out.close()
 
 
 if __name__ == '__main__':

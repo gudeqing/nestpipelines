@@ -347,8 +347,8 @@ def mean_duplicated(df, dup_col:list, target_index=None, index_col=None, out=Non
 
 def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
     """
-    输入从IR到出的*clone_summary.txt文件
-    :param files:
+    输入从IR导出的*clone_summary.txt文件
+    :param files: *clone_summary.txt
     :param out_dir: 输出结果的绝对路径
     :param group_info: 样本分组信息，第一列为样本id，需和推断的os.path.basename(each).split('_', 1)[0]一致。
     :return:
@@ -372,7 +372,10 @@ def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
         table.to_csv(out_name, sep='\t', index=False)
     # make matadata
     if group_info:
-        group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
+        if group_info.endswith('xlsx'):
+            group_df = pd.read_excel(group_info, index_col=0, header=0)
+        else:
+            group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
         # group_df = group_df.applymap(lambda x: x.replace(' ', '_'))
         if len(set(samples) & set(group_df.index)) < 1:
             print(samples)
