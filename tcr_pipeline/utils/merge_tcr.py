@@ -33,23 +33,42 @@ def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv',
     :param out: 结果文件名
     :param group_info: 分组信息, 第一列必须是建库编号或样本名，第二列是新的样本名称，样本名称必须唯一，其他列可以是各种信息或分组信息
     :param new_name_col: 指定group_info中的一列, 作为样本别名，将放在第二列
-    :param factor_col: 指定group_info中的一列, 作为factor列，也就是分组信息, 该列信息要带入到Report.diversity.summary.csv
+    :param factor_col: 指定group_info中的一列, 作为factor列，也就是分组信息, 该列信息要带入到输出文件Report.diversity.summary.csv
     :return: 输出4个文件，有metric,count, frequency， metric.report
     """
+    new_names = [
+        'productive_reads', 'rescued_productive_reads', 'unproductive_reads',
+        'off_target_reads', 'plus_strand_counts', 'minus_strand_counts'
+    ]
+    old_names = [
+        'Productive_reads', 'Rescued_productive_reads', 'Unproductive_reads',
+        'Off_target_reads', 'Plus_strand_counts', 'Minus_strand_counts',
+    ]
+    new2old = dict(zip(new_names, old_names))
     table = pd.read_csv(file_list[0], index_col=None, header=0, sep=None, engine='python')
+    table.columns = [new2old[x.strip()] if x.strip() in new2old else x.strip() for x in table.columns]
     for each in file_list[1:]:
         each_table = pd.read_csv(each, index_col=0, header=0)
+        each_table.columns = [new2old[x.strip()] if x.strip() in new2old else x.strip() for x in each_table.columns]
         table = table.append(each_table, sort=False)
     samples = [x.strip().split(name_sep, 1)[0] for x in table['Sample_Name']]
-    table = table.iloc[:, 4:]
+    # table = table.iloc[:, 4:]
     table.index = samples
     table.index.name = 'SampleID'
     # print(table.head())
     if group_info is not None:
         # for report
         os.makedirs('1.SampleInfo/', exist_ok=True)
-        copyfile(group_info, '1.SampleInfo/sample.info.txt')
-        group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
+        # copyfile(group_info, '1.SampleInfo/sample.info.txt')
+        if group_info.endswith('xlsx'):
+            group_df = pd.read_excel(group_info, index_col=0, header=0)
+        else:
+            group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
+        group_df.to_csv('1.SampleInfo/sample.info.txt', sep='\t')
+        samples_found = group_df.index.intersection(table.index)
+        print('samples:', len(samples_found))
+        print('these samples has no sample information', table.index.difference(group_df.index))
+        group_df = group_df.loc[samples_found]
         table = group_df.join(table, how='right', sort=False)
         table = table.loc[list(group_df.index)]
     table.columns = [x.strip() for x in table.columns]
@@ -75,15 +94,12 @@ def merge_metric_matrix(file_list:list, name_sep='_', out='merged.metric.csv',
     if factor_col is not None:
         target_cols += [factor_col]
     if new_name_col is not None:
-        target_cols +=[
-            new_name_col, 'Clones', 'Evenness', 'Reads', 'Shannon_diversity',
-            'convergent_TCR_frequency', 'clone_gini_index'
-        ]
-    else:
-        target_cols += [
-            'Clones', 'Evenness', 'Reads', 'Shannon_diversity',
-            'convergent_TCR_frequency', 'clone_gini_index'
-        ]
+        target_cols += [new_name_col]
+    target_cols += [
+        'Clones', 'Evenness', 'Reads', 'Shannon_diversity',
+        'convergent_TCR_frequency', 'clone_gini_index'
+    ]
+    # target_cols += [x for x in table.columns if x.endswith('downsample')]
     os.makedirs('1.DiversitySummary', exist_ok=True)
     outfile = os.path.join('1.DiversitySummary', 'Report.diversity.summary.csv')
     table.loc[:, target_cols].to_csv(outfile)

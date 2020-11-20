@@ -2,11 +2,21 @@
 
 1. 从https://10.62.2.16/ir/secure/analyses.html下载数据，可以选择多个样本后批量下载
 
-2. unzip下载的数据，放在目录FromIR中，每个样本占一个子目录，里面包含了IR对每个样本的分析结果
+2. unzip下载的数据，放在目录FromIR中，每个样本占一个子目录，里面包含了IR对每个样本的分析结果：先解压出每个样本的压缩文件，再对循环对每个压缩文件进行解压
+cd FromIR
+for i in `ls |sed 's/_All.zip//'`; do unzip ${i}_All.zip -d $i; done
+rm *_All.zip
 
 3. 合并不同样本的分析数据：
-python ~/PycharmProjects/nestcmd/tcr_pipeline/utils/merge_tcr.py merge_metric_matrix -file ../FromIR/*/RESULTS/*.metrics.csv -group sample.info.txt -new_name_col sample
-* 输入文件中的sample.info.txt的第一列必须是样本id，如果不确定id，可以先不使用该参数得到结果后查看，其他列可以是分组信息或新的样本名或其他临床信息等
+cd ../
+mkdir MergeMetrics
+cd MergeMetrics
+python ~/PycharmProjects/nestcmd/tcr_pipeline/utils/merge_tcr.py merge_metric_matrix -file ../FromIR/*/RESULTS/*.metrics.csv -group sample.info.txt -new_name_col sample -factor_col group
+* 该脚本将自动使用'_'作为分隔符从目录名中提取出第一个字符串作为样本id
+* 输入文件中的sample.info.txt的第一列必须是样本id，如果不确定id长啥样，可以先不使用该参数得到结果后查看。
+* -new_name_col: 指定group_info中的一列, 作为样本别名，将放在第二列，这列信息将作为分析用名
+* -factor_col: 指定group_info中的一列, 作为factor列，也就是分组信息, 该列信息要带入到Report.diversity.summary.csv
+* 输出4个文件，有metric,count, frequency， metric.report
 * 该步骤生成的目录 1.SampleInfo和2.SampleQC和1.DiversitySummary用于后续报告整理
 
 4. 把IR的数据转换为vdjtools的输入, 也就是生成一个metadata.txt文件作为流程的输入
