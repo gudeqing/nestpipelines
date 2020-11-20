@@ -376,18 +376,21 @@ def convert2vdjtools(files:list, out_dir='Vdjtools_input', group_info=None):
             group_df = pd.read_excel(group_info, index_col=0, header=0)
         else:
             group_df = pd.read_csv(group_info, index_col=0, header=0, sep=None, engine='python')
+        matched_samples = set(group_df.index) & set(samples)
+        print(f'found {len(matched_samples)} samples')
+        group_df = group_df.loc[matched_samples]
         # group_df = group_df.applymap(lambda x: x.replace(' ', '_'))
         if len(set(samples) & set(group_df.index)) < 1:
             print(samples)
             print(set(group_df.index))
             raise Exception('sample id does not match!')
-        ori_order = group_df.index
-        group_df = group_df.loc[samples]
+        # ori_order = group_df.index
+        # group_df = group_df.loc[samples]
         group_df['files'] = out_path
         group_df['sample_id'] = group_df.index
         cols = ['files', 'sample_id'] + [x for x in group_df.columns if x not in ['files', 'sample_id']]
         group_df = group_df[cols]
-        group_df = group_df.loc[[x for x in ori_order if x in samples]]
+        # group_df = group_df.loc[[x for x in ori_order if x in samples]]
         group_df.to_csv('metadata.txt', sep='\t', index=False)
 
 
