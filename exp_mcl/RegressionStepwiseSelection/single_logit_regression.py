@@ -17,13 +17,13 @@ def single_lgr(data, y_col=None, target_rows=None, drop_cols:list=None, target_c
                factorize:tuple=None, prefix='Result', transpose=False):
     """
     对每一个feature，使用statsmodels中的Logit进行逻辑回归，并适用auc和pvalue进行排序
-    :param data:
-    :param y_col: 数据中哪一列是分组信息
+    :param data: 数据矩阵文件路径
+    :param y_col: 数据中哪一列是分组信息或者一个文件，如果是一个文件，则提取这个文件的第一列作为目标数据fields信息
     :param target_rows: 提取指定行的数据进行分析
-    :param drop_cols:
+    :param drop_cols: 不考虑文件中的哪些列，默认对所有列进行逐一进行单因素逻辑回归分析
     :param target_cols: 文件路径参数，提取该文件中的第一列的feature用于分析, 若提供，要包含y_col
-    :param prefix:
-    :param factorize:
+    :param prefix: 输出文件前缀
+    :param factorize: 如‘A 1 B 0’ 表示A组定义为1，B组定义为0
     :param transpose: 如果每一列为样本，则可以通过该参数进行转置使得每一列信息为feature, 该参数执行的操作会在载入数据后第一时间执行。
     :return:
     """
