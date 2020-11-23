@@ -260,6 +260,26 @@ def scatter(df, data_col, group_cols:list, hue_cols:list=None, style_cols:list=N
 
 
 def diff_diversity_test(df, data_cols:tuple, group_df, cmp_info, index_col=None, target_index=None, paired=False, out=None):
+    """
+    进行秩和检验分析，目前支持三种:
+    scipy.stats.ranksums: Does not handle ties, equivalent to R's
+    wilcox.test with exact=False and correct=False
+    scipy.stats.mannwhitneyu: Handles ties, equivalent to R's wilcox.test with exact=False and correct=use_continuity
+    https://grokbase.com/t/scipy.org/scipy-user/12a92e4vy2/stats-ranksums-vs-stats-mannwhitneyu
+    1. Wilcoxon_rank_sum: 和下面的一样，这个不考虑ties情况。
+    2. Mann_Whitney_U: Use only when the number of observation in each sample is > 20 and you have 2 independent samples of ranks.
+        This test corrects for ties and by default uses a continuity correction.）。看到R语言的有人说适合样本数<30
+    3. Wilcoxon_signed_rank: 适合配对或应用于两个related samples
+    :param df: 矩阵文件路径，要求每行是一个样本信息，第一列为样本id
+    :param data_cols: 指定对那些列(feature)进行差异分析，可以直接指定多个字段，用空格分开，也可以输入一个文件，此时从文件第一列提取目标信息
+    :param group_df: 分组矩阵文件，第一行为header，第一列为样本id
+    :param cmp_info: 比较信息，第一列为对照
+    :param index_col: 指定使用矩阵文件中哪一列为样本id，必须和group_df对应
+    :param target_index: 输入一个文件，提取文件第一列信息说明将指定使用哪些样本进行分析
+    :param paired: 只是是否配对分析
+    :param out:
+    :return:
+    """
     # prepare data
     if type(df) is str:
         if df.endswith('xlsx'):
@@ -297,6 +317,11 @@ def diff_diversity_test(df, data_cols:tuple, group_df, cmp_info, index_col=None,
     # test
     if out is None:
         out = 'test.result.txt'
+
+    # data cols
+    if len(data_cols) == 1 and os.path.exists(data_cols[0]):
+        # 提取文件的第一列作为差异分析的目标fields
+        data_cols = [x.strip().split()[0] for x in open(data_cols[0])]
     with open(out, 'w') as f:
         f.write('feature\tctrl_group\ttest_group\ttest_method\tpvalue\tstatistic\tctrl_size\ttest_size\tctrl_data\ttest_data\n')
         for data_col in data_cols:
