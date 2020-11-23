@@ -272,6 +272,7 @@ def diff_diversity_test(df, data_cols:tuple, group_df, cmp_info, index_col=None,
         data.set_index(index_col, inplace=True)
     if target_index is not None:
         targets = [x.strip().split()[0] for x in open(target_index)]
+        targets = [x for x in targets if x in data.index]
         data = data.loc[targets]
     data.columns = [x.strip() for x in data.columns]
 

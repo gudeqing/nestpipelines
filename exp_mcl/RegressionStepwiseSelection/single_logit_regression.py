@@ -1,3 +1,4 @@
+import  os
 import matplotlib
 matplotlib.use('agg')
 
@@ -12,7 +13,7 @@ from bokeh.layouts import gridplot
 import sys
 
 
-def single_lgr(data, y_col=None, target_rows:list=None, drop_cols:list=None, target_cols=None,
+def single_lgr(data, y_col=None, target_rows=None, drop_cols:list=None, target_cols=None,
                factorize:tuple=None, prefix='Result', transpose=False):
     """
     对每一个feature，使用statsmodels中的Logit进行逻辑回归，并适用auc和pvalue进行排序
@@ -20,48 +21,60 @@ def single_lgr(data, y_col=None, target_rows:list=None, drop_cols:list=None, tar
     :param y_col: 数据中哪一列是分组信息
     :param target_rows: 提取指定行的数据进行分析
     :param drop_cols:
-    :param target_cols: 文件路径参数，提取该文件中的第一列的feature用于分析
+    :param target_cols: 文件路径参数，提取该文件中的第一列的feature用于分析, 若提供，要包含y_col
     :param prefix:
     :param factorize:
     :param transpose: 如果每一列为样本，则可以通过该参数进行转置使得每一列信息为feature, 该参数执行的操作会在载入数据后第一时间执行。
     :return:
     """
-    df = pd.read_csv(data, header=0, sep=None, index_col=0, engine='python')
-    if transpose:
-        df = df.T
-
-    # Dependent and Independent Variables
-    if factorize is not None:
-        fac = {x:int(y) for x, y in zip(factorize[::2], factorize[1:][::2])}
-        print(df.columns)
-        y_data = [fac[x] for x in df[y_col]]
+    if data.endswith('xlsx'):
+        data = pd.read_excel(data, header=0, index_col=0)
     else:
-        if df[y_col].dtype != int:
-            y_data, rule = df[y_col].factorize()
-            print(dict(zip(rule, range(len(rule)))))
-        else:
-            y_data = df[y_col]
+        data = pd.read_csv(data, header=0, sep=None, index_col=0, engine='python')
+    if transpose:
+        data = data.T
 
-    data = df.drop(columns=y_col)
     if target_cols:
         targets = [x.strip().split()[0] for x in open(target_cols)]
-        targets = [x for x in targets if x in df.columns]
+        targets = [x for x in targets if x in data.columns]
+        print(targets)
         data = data[targets]
 
     if drop_cols:
         for each in drop_cols:
             data = data.drop(columns=each)
+
     if target_rows:
-        data = df.loc[target_rows]
+        target_rows = [x.strip().split()[0] for x in open(target_rows)]
+        target_rows = [x for x in target_rows if x in data.index]
+        data = data.loc[target_rows]
 
     print('data size:', data.shape)
+    print(data.head())
 
-    target_cols = data.columns
+    if os.path.exists(y_col):
+        print('Use group info from {}'.format(y_col))
+        gd = dict(x.strip().split() for x in open(y_col))
+        data[y_col] = [gd[x] for x in data.index]
+
+    # Dependent and Independent Variables
+    if factorize is not None:
+        fac = {x: int(y) for x, y in zip(factorize[::2], factorize[1:][::2])}
+        y_data = [fac[x] for x in data[y_col]]
+    else:
+        if data[y_col].dtype != int:
+            y_data, rule = data[y_col].factorize()
+            print(dict(zip(rule, range(len(rule)))))
+        else:
+            y_data = data[y_col]
 
     data[y_col] = y_data
-    if target_cols or drop_cols:
+
+    # data = df.drop(columns=y_col)
+    if target_cols is not None or drop_cols is not None:
         data.to_csv('used_data.csv')
     # manually add the intercept
+    target_cols = [x for x in data.columns if x != y_col]
     data['intercept'] = 1.0
 
     # # 一起做回归分析
@@ -89,7 +102,7 @@ def single_lgr(data, y_col=None, target_rows:list=None, drop_cols:list=None, tar
         my_data = data[[y_col, col, 'intercept']].dropna()
         y_data = my_data[y_col]
         train_data = my_data[[col, 'intercept']]
-        print(y_data)
+        # print(y_data)
         unfit_model = sm.Logit(y_data, train_data)
         model = unfit_model.fit()
         print(model.summary())
@@ -147,7 +160,8 @@ def single_lgr(data, y_col=None, target_rows:list=None, drop_cols:list=None, tar
     p = gridplot(plots, sizing_mode='stretch_{}'.format('width'), ncols=3)
     output_file(f'{prefix}.top{len(plots)}.ROC.html', title="ROC")
     save(p)
-    pd.concat(res_data).sort_values(by='pvalues').to_csv(f'{prefix}.xls', sep='\t')
+    pd.concat(res_data).sort_values(by='pvalues').to_csv(f'{prefix}.txt', sep='\t')
+    pd.concat(res_data).sort_values(by='pvalues').to_excel(f'{prefix}.xlsx')
 
 
 
