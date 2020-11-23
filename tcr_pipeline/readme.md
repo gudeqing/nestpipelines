@@ -23,8 +23,9 @@ python ~/PycharmProjects/nestcmd/tcr_pipeline/utils/merge_tcr.py merge_metric_ma
 python ~/PycharmProjects/nestcmd/tcr_pipeline/utils/merge_tcr.py convert2vdjtools -file FromIR/*/RESULTS/*.clone_summary.csv -g sample.info.txt -o vdjtools_input
 * 输入的sample.info.txt和第三步输入的一样
 * 该步骤的输出的目录可直接用于后续报告整理
+* 在当前目录生成一个metadata.txt, 并且生成一个vdjtools_input目录
 
-5. 跑流程：
+5. 跑流程：本流程是对vdjtools的包装和结果适当整理
 cp ~/PycharmProjects/nestcmd/tcr_pipeline/arguments.ini .
 修改arguments.ini
 nohup python ~/PycharmProjects/nestcmd/tcr_pipeline/TcrPipeline.py -arg arguments.ini &

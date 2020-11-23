@@ -259,10 +259,13 @@ def scatter(df, data_col, group_cols:list, hue_cols:list=None, style_cols:list=N
     plt.savefig(out_name, dpi=300)
 
 
-def diff_diversity_test(df, data_col, group_df, cmp_info, index_col=None, target_index=None, paired=False, out=None):
+def diff_diversity_test(df, data_cols:tuple, group_df, cmp_info, index_col=None, target_index=None, paired=False, out=None):
     # prepare data
     if type(df) is str:
-        data = pd.read_csv(df, index_col=0, header=0, sep=None, engine='python')
+        if df.endswith('xlsx'):
+            data = pd.read_excel(df, index_col=0, header=0)
+        else:
+            data = pd.read_csv(df, index_col=0, header=0, sep=None, engine='python')
     else:
         data = df
     if index_col is not None:
@@ -294,26 +297,27 @@ def diff_diversity_test(df, data_col, group_df, cmp_info, index_col=None, target
     if out is None:
         out = 'test.result.txt'
     with open(out, 'w') as f:
-        f.write('ctrl_group\ttest_group\ttest_method\tpvalue\tstatistic\tctrl_size\ttest_size\tctrl_data\ttest_data\n')
-        for ctrl, test in cmp_list:
-            ctrl_samples = [x for x in group_dict[ctrl] if x in data.index]
-            test_samples = [x for x in group_dict[test] if x in data.index]
-            ctrl_data = data.loc[ctrl_samples, data_col]
-            test_data = data.loc[test_samples, data_col]
-            if len(ctrl_samples) < 2 and len(test_samples) < 2:
-                print(f'ctrl or test group has too few samples for testing, skip {ctrl} vs {test}')
-                continue
-            ctrl_data_str = ','.join(str(round(x, 3)) for x in ctrl_data)
-            test_data_str = ','.join(str(round(x, 3)) for x in test_data)
-            data_detail = f'{len(ctrl_data)}\t{len(test_data)}\t{ctrl_data_str}\t{test_data_str}'
-            statistic, pvalue = stats.ranksums(ctrl_data, test_data)
-            f.write(f'{ctrl}\t{test}\tWilcoxon_rank_sum\t{pvalue}\t{statistic}\t{data_detail}\n')
-            statistic, pvalue = stats.mannwhitneyu(ctrl_data, test_data)
-            f.write(f'{ctrl}\t{test}\tMann_Whitney_U\t{pvalue}\t{statistic}\t{data_detail}\n')
-            if paired:
-                if len(ctrl_data) == len(test_data):
-                    statistic, pvalue = stats.wilcoxon(ctrl_data, test_data)
-                f.write(f'{ctrl}\t{test}\t Wilcoxon_signed_rank\t{pvalue}\t{statistic}\t{data_detail}\n')
+        f.write('feature\tctrl_group\ttest_group\ttest_method\tpvalue\tstatistic\tctrl_size\ttest_size\tctrl_data\ttest_data\n')
+        for data_col in data_cols:
+            for ctrl, test in cmp_list:
+                ctrl_samples = [x for x in group_dict[ctrl] if x in data.index]
+                test_samples = [x for x in group_dict[test] if x in data.index]
+                ctrl_data = data.loc[ctrl_samples, data_col]
+                test_data = data.loc[test_samples, data_col]
+                if len(ctrl_samples) < 2 and len(test_samples) < 2:
+                    print(f'ctrl or test group has too few samples for testing, skip {ctrl} vs {test}')
+                    continue
+                ctrl_data_str = ','.join(str(round(x, 3)) for x in ctrl_data)
+                test_data_str = ','.join(str(round(x, 3)) for x in test_data)
+                data_detail = f'{len(ctrl_data)}\t{len(test_data)}\t{ctrl_data_str}\t{test_data_str}'
+                statistic, pvalue = stats.ranksums(ctrl_data, test_data)
+                f.write(f'{data_col}\t{ctrl}\t{test}\tWilcoxon_rank_sum\t{pvalue}\t{statistic}\t{data_detail}\n')
+                statistic, pvalue = stats.mannwhitneyu(ctrl_data, test_data)
+                f.write(f'{data_col}\t{ctrl}\t{test}\tMann_Whitney_U\t{pvalue}\t{statistic}\t{data_detail}\n')
+                if paired:
+                    if len(ctrl_data) == len(test_data):
+                        statistic, pvalue = stats.wilcoxon(ctrl_data, test_data)
+                    f.write(f'{data_col}\t{ctrl}\t{test}\t Wilcoxon_signed_rank\t{pvalue}\t{statistic}\t{data_detail}\n')
     df = pd.read_csv(out, header=0, index_col=None, sep='\t')
     df.to_excel(out.rsplit('.', 1)[0]+'.xlsx', index=False)
 
