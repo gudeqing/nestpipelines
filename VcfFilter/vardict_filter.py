@@ -227,7 +227,9 @@ class VardictFilter():
         """
         vardict中PSTD表示突变在reads中位置的标准差，如果突变在reads中出现的位置一样，那么该值为0，假阳的可能性极高
         通常，alt reads序列完全一致会导致这种情况，这意味着支持该突变的uniq read只有1条
-        对于UMI数据的话，上述过滤可能不合适，因此改为仅在支持的reads数目<=2的情况使用该过滤条件。
+        对于QIA的数据预处理，由于会统一去除primer序列，这使得最终同一个primer捕获的插入片段的测序结果中read1的起始位置都一致
+        对于测通的情况，read1和read2包含的序列信息还会完全一致
+        所以针对上述过滤可能不大合适，因此改为仅在支持的reads数目<=2的情况使用该过滤条件。
         """
         passed = True
         pstd = 0
@@ -238,7 +240,7 @@ class VardictFilter():
                 passed = False
         return passed, pstd
 
-    def filtering(self, out_prefix, genome, seq_error=None, tumor_index=1, center_size:tuple=None, basic_error_dict=None):
+    def filtering(self, genome, out_prefix=None, seq_error=None, tumor_index=1, center_size:tuple=None, basic_error_dict=None):
         samples = list(self.vcf.header.samples)
         if len(samples) == 2:
             if tumor_index == 1:
@@ -265,7 +267,8 @@ class VardictFilter():
                                             description="not enough depth bias between norm and tumor")
         if self.vcf.header.contigs.__len__() < 1:
             self.add_contig_header()
-
+        if out_prefix is None:
+            out_prefix = self.vcf_path.rsplit('.', 1)[0]
         vcf_out = pysam.VariantFile(out_prefix+'.filtered.vcf', "w", header=self.vcf.header)
         vcf_discard = pysam.VariantFile(out_prefix+'.discarded.vcf', "w", header=self.vcf.header)
 
@@ -421,9 +424,10 @@ class VardictFilter():
         print(f'discard {discard} variants while keep {total-discard} ones!')
 
 
-def filterVcf(vcf, out_prefix, genome, seq_error=None, tumor_index:int=0, center_size:tuple=None, basic_error_dict=None):
+def filterVcf(vcf, genome, out_prefix=None,  seq_error=None, tumor_index:int=0,
+              center_size:tuple=None, basic_error_dict=None):
     VardictFilter(vcf).filtering(
-        out_prefix, seq_error=seq_error, tumor_index=tumor_index, genome=genome,
+        out_prefix=out_prefix, seq_error=seq_error, tumor_index=tumor_index, genome=genome,
         center_size=center_size, basic_error_dict=basic_error_dict
     )
 
