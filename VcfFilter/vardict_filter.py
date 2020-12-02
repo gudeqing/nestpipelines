@@ -421,9 +421,9 @@ class VardictFilter():
         print(f'discard {discard} variants while keep {total-discard} ones!')
 
 
-def filterVcf(vcf, out, genome, seq_error=None, tumor_index:int=0, center_size:tuple=None, basic_error_dict=None):
+def filterVcf(vcf, out_prefix, genome, seq_error=None, tumor_index:int=0, center_size:tuple=None, basic_error_dict=None):
     VardictFilter(vcf).filtering(
-        out, seq_error=seq_error, tumor_index=tumor_index, genome=genome,
+        out_prefix, seq_error=seq_error, tumor_index=tumor_index, genome=genome,
         center_size=center_size, basic_error_dict=basic_error_dict
     )
 
