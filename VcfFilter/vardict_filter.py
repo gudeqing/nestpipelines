@@ -1,15 +1,23 @@
 """
-跟测序错误过滤突变的思路：
+测序错误过滤突变的思路：
 假设事先知道测序过程中发生的碱基转换的概率，例如，知道A被错误测成T的概率为0.001，
 针对一个突变位点A-T，其AF=0.008，是否可以将当前位点判定为假阳性呢?
 假设还知道当前位点深度为1000，根据这1000 Reads，在95%的置信水平下，估计出来的测序错误概率与真实的错误概率偏差可以使用如下公式推算：
 E = 1.96/(N/(P*(1-P)))**0.5
 99的置信水平：E = 2.58/(N/(P*(1-P)))**0.5
 代入 N=1000, P=0.001得 E=0.00196，也就是，如果A>T是测序错误导致的，那么这个错误频率的置信区间为
-[P-E, P+E] = [0, 0.00296], 由于现在测得的AF=0.008 已经在置信区间水平以外，所以不应该过滤掉。
+[P-E, P+E] = [0, 0.00296], 由于现在测得的AF=0.008 已经远在置信区间水平以外，所以不应该过滤掉。
+
 思考2：
 当有对照样本时，且对照样本中该位点也存在突变，设其突变频率为ctrP, 如果使用上述方法判定该突变为假阳，
-则可以使用该P作为真实测序错误率对测试样本进行上述统计.
+则可以使用该P作为真实测序错误率对测试样本进行上述类似的统计.
+
+思考3：
+当没有对照样本时，而只有阴性设计样本如NA12878时，我们可以通过统计阴性样本中碱基测序错误率作为上述过滤思路的输入
+
+思考4：
+当既没有对照样本，又没有阴性样本，我们假设肿瘤样本中call出来的低频突变中绝大部分为假阳性突变，那么我们也可以根据肿瘤样本粗略估计测序错误。
+最后可以用肿瘤样本自己作为输入并实现过滤。
 """
 import json
 # import pandas as pd
@@ -230,7 +238,7 @@ class VardictFilter():
                 passed = False
         return passed, pstd
 
-    def filtering(self, out, genome, seq_error=None, tumor_index=1, center_size:tuple=None, basic_error_dict=None):
+    def filtering(self, out_prefix, genome, seq_error=None, tumor_index=1, center_size:tuple=None, basic_error_dict=None):
         samples = list(self.vcf.header.samples)
         if len(samples) == 2:
             if tumor_index == 1:
@@ -258,8 +266,8 @@ class VardictFilter():
         if self.vcf.header.contigs.__len__() < 1:
             self.add_contig_header()
 
-        vcf_out = pysam.VariantFile(out, "w", header=self.vcf.header)
-        vcf_discard = pysam.VariantFile(out+'.discard.vcf', "w", header=self.vcf.header)
+        vcf_out = pysam.VariantFile(out_prefix+'.filtered.vcf', "w", header=self.vcf.header)
+        vcf_discard = pysam.VariantFile(out_prefix+'.discarded.vcf', "w", header=self.vcf.header)
 
         # 读取seq error信息，解析成字典，记录每个序列突变成ATCG和''的频率
         if seq_error.replace(".", "", 1).isdigit():
@@ -393,7 +401,7 @@ class VardictFilter():
                     reasons.append('DepthBias')
                     pass
 
-            # 4. position std filtering, 如果突变在reads中出现的位置基本不变,且支持的read少于2，需要过滤掉
+            # 4. position std filtering, 如果突变在reads中出现的位置基本不变,且支持的read<=2，需要过滤掉
             judge4 = self.pass_pstd(r, cutoff=0.00001)
             if not judge4[0]:
                 reasons.append('pSTD')
