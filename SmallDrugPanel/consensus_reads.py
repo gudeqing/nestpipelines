@@ -29,7 +29,7 @@ def set_logger(name='log.info', logger_id='x'):
     return logger
 
 
-def group_reads(bam, contig, start:int, end:int, method='directional'):
+def group_reads(bam, primer, contig, start:int, end:int, method='directional'):
     if type(bam) == str:
         bam = pysam.AlignmentFile(bam)
     group_umi_by_primer = dict()
@@ -47,10 +47,10 @@ def group_reads(bam, contig, start:int, end:int, method='directional'):
             overlap_start = overlap_end = read.reference_end + 1
         read_name = read.query_name
         primer_lst = read_name.split(':', 5)[:5]
-        primer = ':'.join(primer_lst)
-        umi = read_name.rsplit(':', 1)[1]
-        group_umi_by_primer.setdefault(primer, list())
-        group_umi_by_primer[primer].append((umi, read_name, overlap_start, overlap_end))
+        if ':'.join(primer_lst) == primer:
+            umi = read_name.rsplit(':', 1)[1]
+            group_umi_by_primer.setdefault(primer, list())
+            group_umi_by_primer[primer].append((umi, read_name, overlap_start, overlap_end))
 
     cluster = UMIClusterer(cluster_method=method)
     result = dict()
@@ -121,8 +121,20 @@ def consensus_base(bases, quals, insertions, depth):
     return represent, [rep_qual]*len(represent), [confidence]*len(represent)
 
 
-def consensus_reads(bam, contig, start:int, end:int, read_type=64, min_bq=0):
+def consensus_reads(bam, primer, read_type=64, min_bq=0):
     # logger = set_logger('consensus.log.txt', logger_id='consensus')
+    # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
+    primer_lst = primer.split(':')
+    contig = primer_lst[0]
+    pos = primer_lst[1]
+    if primer_lst[-2] == "+":
+        start = int(pos.split('-')[1])
+        end = start + 350
+    else:
+        end = int(pos.split('-')[0])
+        start = end - 350
+    print(contig, start, end)
+
     if read_type == 64:
         print('getting consensus read1')
     elif read_type == 128:
@@ -133,7 +145,7 @@ def consensus_reads(bam, contig, start:int, end:int, read_type=64, min_bq=0):
     if type(bam) == str:
         bam = pysam.AlignmentFile(bam)
     # group reads by primer and umi
-    read2group = group_reads(bam, contig, start, end, method='directional')
+    read2group = group_reads(bam, primer, contig, start, end, method='directional')
     group2read = dict()
     group2overlap_start = dict()
     group2overlap_end = dict()
