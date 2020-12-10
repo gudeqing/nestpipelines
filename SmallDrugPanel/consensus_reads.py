@@ -70,15 +70,14 @@ def consensus_base(bases, quals, insertions, depth):
     # 返回1(全票支持), 返回2(大部分选票支持），返回3（票选相当，靠qual取胜）
     if not bases:
         # 当前位置完全没有read支持
-        return '', [25], [1]
+        return 'X', [25], [1]
     elif len(bases) < depth * 0.33:
         # 当前位点支持的reads数量少于当前考察范围的测序深度的33%时，认为当前位点无read支持
-        return '', [25], [2]
+        return 'X', [25], [2]
     else:
         # 接下来的所有情况必须满足：当前位点测序深度不能低于depth的33%
         pass
 
-    # read1和read2存在overlap时，肯定会导致overlap部分存在大小写的不一致，这不利于consensus
     bases = [x.upper() for x in bases]
     base_counter = Counter(bases)
     top = base_counter.most_common(3)
@@ -117,6 +116,8 @@ def consensus_base(bases, quals, insertions, depth):
             i_counter = Counter(x[i] for x in inserts)
             represent += i_counter.most_common(1)[0]
     rep_len = 1 if represent == '' else len(represent)
+    if represent == '':
+        represent = 'X'
     return represent, [rep_qual]*rep_len, [confidence]*rep_len
 
 
@@ -173,6 +174,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
         max_depth=30000,
         fastafile=None,
         flag_require=read_type,
+        flag_filter=4,
     )
     ## 初始化pileup存储容器
     pileup_dict = dict()
@@ -248,6 +250,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
     with ThreadPoolExecutor(1) as pool:
         tasks = []
         for group_name, data in pileup_dict.items():
+            if len(data) == 0:
+                print(f'{group_name} is empty')
+                continue
             tasks.append([group_name, pool.submit(consensus_read, data)])
 
         for group_name, task in tasks:
@@ -256,8 +261,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
             print(f'median coverage is {median_cov}')
             print(f'top3 coverage frequency is {top}')
             print(''.join(x[0] for x in consistent_bases))
-            print(consistent_bases)
-            print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' or x[0] != 'X'))
+            # print(consistent_bases)
+            print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
 
 
 def consensus_read(data):
