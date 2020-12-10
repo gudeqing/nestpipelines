@@ -116,24 +116,24 @@ def consensus_base(bases, quals, insertions, depth):
         for i in range(len(inserts)):
             i_counter = Counter(x[i] for x in inserts)
             represent += i_counter.most_common(1)[0]
-    if represent == '': #测试用
-        represent = 'X'
-    return represent, [rep_qual]*len(represent), [confidence]*len(represent)
+    rep_len = 1 if represent == '' else len(represent)
+    return represent, [rep_qual]*rep_len, [confidence]*rep_len
 
 
 def consensus_reads(bam, primer, read_type=64, min_bq=0):
-    # logger = set_logger('consensus.log.txt', logger_id='consensus')
     # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
+    # logger = set_logger('consensus.log.txt', logger_id='consensus')
     primer_lst = primer.split(':')
     contig = primer_lst[0]
     pos = primer_lst[1]
+    extend = 350 if read_type == 128 else 200
     if primer_lst[-2] == "+":
         start = int(pos.split('-')[1])
-        end = start + 350
+        end = start + extend
     else:
         end = int(pos.split('-')[0])
-        start = end - 350
-    print(contig, start, end)
+        start = end - extend
+    print(f"parsing region of {contig}:{start}-{end}")
 
     if read_type == 64:
         print('getting consensus read1')
@@ -159,7 +159,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
     else:
         print(f'there are {len(group2read)} groups!')
         group_sizes = [len(v) for k, v in group2read.items()]
-        print('median group size', statistics.median(group_sizes))
+        median_size = statistics.median(group_sizes)
+        print('median group size', median_size)
 
     # 获得每个分组的pileup列表
     cols = bam.pileup(
@@ -251,9 +252,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
 
         for group_name, task in tasks:
             consistent_bases, median_cov, top = task.result()
-            print('>', group_name)
-            print('median coverage is', median_cov)
-            print('top3 coverage frequency is', top)
+            print(f'>{group_name}')
+            print(f'median coverage is {median_cov}')
+            print(f'top3 coverage frequency is {top}')
             print(''.join(x[0] for x in consistent_bases))
             print(consistent_bases)
             print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' or x[0] != 'X'))
