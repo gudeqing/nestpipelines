@@ -95,14 +95,20 @@ python /data/users/dqgu/PycharmProjects/nestcmd/rnaseq_report/report.py -project
 进入Report目录，修改或增加必要信息，如：
     确认1.Workflow的信息是否正确，
     在2.QCSummary增加或修改样本信息，删除不必要的质控结果统计表，
-    在3.QCFigures中删除不必要的质控图，由于网页版的图占很大内存，影响报告发生，可以考虑替换图片，尤其是饱和度分析的图等
+    在3.QCFigures中删除不必要的质控图，由于网页版的图占很大内存，影响报告发生，可以考虑替换图片，尤其是饱和度分析的图等，
+    可以考虑删除inner distribution图
+    删除1.ExpPCA和2.ExpDensity里不必要的数据表，保留图片即可
+    建议保留：1.GeneBodyCoverage/         2.ReadDistribution/         3.ChrReadDistribution/      4.ExpSaturation/
+    手动增加4.ExpAnalysis/4.ExpressionMatrix，可参考项目80011077_RNA/Report/4.ExpAnalysis
     删除报告流程生成的日志文件等信息
     其他
-整理和确认好Report目录后，执行如下命令生成网页版报告
+
+6.生成网页报告
+整理和确认好Report目录后，回到report目录，执行如下命令生成网页版报告
 python /data/users/dqgu/PycharmProjects/nestcmd/rnaseq_report/plotly/makeHtmlReport.py make_report -cfg_from ./
 执行成功后，会生成index.html文件，把整个报告目录复制到window，双击index.html即可浏览网页报告，最后的结果目录可能如下
 1.Workflow  2.QCSummary  3.QCFigures  4.ExpAnalysis  5.DiffGene  6.GoEnrichment  7.KEGGEnrichment  html.utils  index.html
-
+可手动删除report.yml文件
 
 Questions
 1. 如何知道该流程中包含哪些步骤？
