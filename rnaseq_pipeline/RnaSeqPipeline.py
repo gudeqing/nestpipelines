@@ -20,6 +20,11 @@ parser.add_argument('-group', help="样本分组信息文件,至少两列,第一
 parser.add_argument('-compare', help="比较信息文件,两列,第1列是对照组名,第2列是实验组名")
 args = parser.parse_args()
 args.script_path = script_path
+if args.group is not None:
+    args.group = os.path.abspath(args.group)
+    args.compare = os.path.abspath(args.compare)
+if args.fastq_info is not None:
+    args.fastq_info = os.path.abspath(args.fastq_info)
 
 if args.only_show_steps:
     if args.fastq_info is None:
