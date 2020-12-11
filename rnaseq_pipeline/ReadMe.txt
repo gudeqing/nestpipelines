@@ -95,7 +95,7 @@ python /data/users/dqgu/PycharmProjects/nestcmd/rnaseq_report/report.py -project
 进入Report目录，修改或增加必要信息，如：
     确认1.Workflow的信息是否正确，
     在2.QCSummary增加或修改样本信息，删除不必要的质控结果统计表，
-    在3.QCFigures中删除不必要的质控图
+    在3.QCFigures中删除不必要的质控图，由于网页版的图占很大内存，影响报告发生，可以考虑替换图片，尤其是饱和度分析的图等
     删除报告流程生成的日志文件等信息
     其他
 整理和确认好Report目录后，执行如下命令生成网页版报告
