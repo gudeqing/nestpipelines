@@ -192,6 +192,7 @@ def diff_exp(**kwargs):
     cmd += '-pool {} '.format(kwargs['threads'])
     cmd += '-pvalue {} '.format(kwargs['pvalue'])
     cmd += '-fc {} '.format(kwargs['fc'])
+    cmd += '--gene_annot {} '.format(kwargs['gene_annot'])
     cmd += '-sig_type {} '.format(kwargs['sig_type'])
     # cmd += '-padjust_way {} '.format(kwargs['padjust_way'])
     cmd += '--dispersion {} '.format(kwargs['dispersion'])
