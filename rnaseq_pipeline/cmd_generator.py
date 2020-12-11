@@ -227,6 +227,7 @@ def kegg_enrich(**kwargs):
     cmd += '-g2p {} '.format(kwargs['g2p'])
     # cmd += '-k2p {} '.format(kwargs['k2p'])
     cmd += '-k2e {} '.format(kwargs['k2e'])
+    cmd += '-geneid2symbol {} '.format(kwargs['geneid2symbol'])
     cmd += '-dn {} '.format(kwargs['dn'])
     cmd += '--FDR '
     cmd += '-o {} '.format(kwargs['outdir'])

@@ -524,6 +524,8 @@ class NestedCmd(Basic):
                     continue
                 ctrl, test = line.strip().split()
                 diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.DE.list'.format(ctrl, test)))
+                diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.up.list'.format(ctrl, test)))
+                diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.down.list'.format(ctrl, test)))
         for each in diff_list_files:
             args = dict(self.arg_pool['goatools'])
             args['study'] = each
@@ -558,6 +560,8 @@ class NestedCmd(Basic):
                     continue
                 ctrl, test = line.strip().split()
                 diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.DE.list'.format(ctrl, test)))
+                diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.up.list'.format(ctrl, test)))
+                diff_list_files.append(os.path.join(depend_info['result_dir'], '{}_vs_{}.*.down.list'.format(ctrl, test)))
         for each in diff_list_files:
             args = dict(self.arg_pool['kegg_enrich'])
             args['deg'] = each
