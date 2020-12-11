@@ -1,8 +1,9 @@
 import re
 import statistics
 from collections import Counter
+from functools import partial
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 import pysam
 from umi_tools import UMIClusterer
 
@@ -55,41 +56,48 @@ def group_reads(bam, primer, contig, start:int, end:int, method='directional'):
     cluster = UMIClusterer(cluster_method=method)
     result = dict()
     for primer, umi_read in group_umi_by_primer.items():
-        umi_lst = [x[0].encode() for x in umi_read]
-        group_lst = cluster(Counter(umi_lst), threshold=1)
+        group_lst = cluster(Counter(x[0].encode() for x in umi_read), threshold=1)
         for group in group_lst:
             represent_umi = group[0].decode()
-            for umi in group:
-                for u, r, s, e in umi_read:
-                    if u == umi.decode():
-                        result[r] = (primer+':'+represent_umi, s, e)
+            umi_set = set(group)
+            for u, r, s, e in umi_read:
+                if u.encode() in umi_set:
+                    result[r] = (primer+':'+represent_umi, s, e)
     return result
 
 
 def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
-    # 返回1(全票支持), 返回2(大部分选票支持），返回3（票选相当，靠qual取胜）
+    # 返回3(相对depth以75%以上的比例票支持), 返回2(大部分选票支持），返回1（票选相当，靠qual取胜）
+    current_depth = len(bases)
+
     if not bases:
         # 当前位置完全没有read支持
-        return 'X', [25], [1], 0, contig, position, ref_seq
-    elif len(bases) < depth * 0.33:
-        # 当前位点支持的reads数量少于当前考察范围的测序深度的33%时，认为当前位点无read支持
-        return 'X', [25], [2], len(bases), contig, position, ref_seq
+        return 'X', [25], [3], current_depth, contig, position, ref_seq
+    elif len(bases) < depth * 0.35:
+        # 当前位点支持的reads数量少于当前考察范围的测序深度的35%时，认为当前位点无read支持
+        return 'X', [25], [2], depth-current_depth, contig, position, ref_seq
     else:
-        # 接下来的所有情况必须满足：当前位点测序深度不能低于depth的33%
+        # 接下来的所有情况必须满足：当前位点测序深度不能低于depth的35%
         pass
 
     bases = [x.upper() for x in bases]
     base_counter = Counter(bases)
     top = base_counter.most_common(3)
-    if len(top) == 1:
-        represent = bases[0]
-        confidence = 1
+    top1_ratio = top[0][1]/depth
+    if top1_ratio >= 0.75:
+        represent = top[0][0]
+        confidence = 3
+    elif len(top) == 1:
+        represent = top[0][0]
+        confidence = 2
     else:
         if top[0][1]/top[1][1] > 1.5:
+            # such as 5/3 > 1.5
             represent = top[0][0]
             confidence = 2
         else:
-            confidence = 3
+            # such as 3/2 < 1.5
+            confidence = 1
             # 当第一名和第二名相差很接近时，根据碱基质量的平均值来选择base
             # 当只有2个read时，同样如此处理，虽然或许不大对
             # 也有可能只有3条reads，而且它们互不一致
@@ -107,20 +115,21 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
 
     # 取最大支持的qual作为consensus结果的qual
     rep_qual = max(q for b, q in zip(bases, quals) if b == represent)
-
+    support_depth = sum(b == represent for b in bases)
     # 针对insertion进行consensus
     if represent.startswith('I'):
         inserts = [i for b, i in zip(bases, insertions) if b == represent]
         represent = ''
-        for i in range(len(inserts)):
-            i_counter = Counter(x[i] for x in inserts)
-            represent += i_counter.most_common(1)[0]
+        for insert_lst in zip(*inserts):
+            i_counter = Counter(insert_lst)
+            # 取出现次数最多的作为代表
+            represent += i_counter.most_common(1)[0][0]
         represent = '<' + represent + '>'
     rep_len = 1 if represent == '' else len(represent)
-    return represent, [rep_qual]*rep_len, [confidence]*rep_len, len(bases), contig, position, ref_seq
+    return represent, [rep_qual]*rep_len, [confidence]*rep_len, support_depth, contig, position, ref_seq
 
 
-def consensus_reads(bam, primer, read_type=64, min_bq=0):
+def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
     # logger = set_logger('consensus.log.txt', logger_id='consensus')
     primer_lst = primer.split(':')
@@ -145,23 +154,33 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
 
     if type(bam) == str:
         bam = pysam.AlignmentFile(bam)
+
     # group reads by primer and umi
     read2group = group_reads(bam, primer, contig, start, end, method='directional')
+
     group2read = dict()
-    group2overlap_start = dict()
-    group2overlap_end = dict()
+    group2overlap = dict()
     for k, v in read2group.items():
         group2read.setdefault(v[0], set())
         group2read[v[0]].add(k)
-        group2overlap_start.setdefault(v[0], list())
-        group2overlap_end.setdefault(v[0], list())
-        group2overlap_start[v[0]].append(v[1])
-        group2overlap_end[v[0]].append(v[2])
+        group2overlap.setdefault(v[0], [])
+        if read_type == 128 or read_type == 64:
+            group2overlap[v[0]].append(0)
+        else:
+            if v[1] == v[2]:
+                group2overlap[v[0]].append(0)
+            else:
+                group2overlap[v[0]].append(1)
     else:
         print(f'there are {len(group2read)} groups!')
         group_sizes = [len(v) for k, v in group2read.items()]
         median_size = statistics.median(group_sizes)
         print('median group size', median_size)
+        for k, v in group2overlap.items():
+            if sum(v)/len(v) > 0.6:
+                group2overlap[k] = 1
+            else:
+                group2overlap[k] = 0
 
     # 获得每个分组的pileup列表
     cols = bam.pileup(
@@ -177,7 +196,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
         flag_filter=4,
     )
     # 在pos处带入ref信息
-    genome = pysam.FastaFile('/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta')
+    genome = pysam.FastaFile(genome)
     refs = genome.fetch(contig, start, end)
     ## 初始化pileup存储容器
     pileup_dict = dict()
@@ -208,16 +227,16 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
                 base = re.split('-\d+', base)[0]
             elif '*' in base:
                 base = '-'
-
-            data = pileup_dict[read2group[read][0]]
+            group_info = read2group[read]
+            data = pileup_dict[group_info[0]]
             pos = (col.reference_pos, ref, contig)
-            # data.setdefault(pos, [[base], [qual], [read], [insertion]])
-            data.setdefault(pos, [[], [], [], []])
-            data[pos][0].append(base)
-            data[pos][1].append(qual)
-            data[pos][2].append(read)
-            data[pos][3].append(insertion)
-
+            # data.setdefault(pos, [[base], [qual], [read], [insertion], [is_overlap])
+            base_info = data.setdefault(pos, [[], [], [], [], []])
+            base_info[0].append(base)
+            base_info[1].append(qual)
+            base_info[2].append(read)
+            base_info[3].append(insertion)
+            data[pos][4].append(group2overlap[group_info[0]])
     # 上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
     # 基于上面的结果，最后的consenus reads将不包含clipped掉的reads
     # 下面尝试把clipped的序列找回来，使consenus read结果包含clipped碱基
@@ -265,36 +284,69 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0):
         print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
         # print(consistent_bases)
         for base, qual, confidence, depth, *key in consistent_bases:
-            base = base.replace('S', '').replace('<', '').replace('>', '')
+            # base = base.replace('S', '').replace('<', '').replace('>', '')
+            base = base.replace('S', '')
             if base != 'X':
                 key = tuple(key)
                 result.setdefault(key, [])
                 result[key].append((base, confidence, depth))
-
-    # call variant
-    for (contig, position, ref_seq), base_info in result.items():
-        bases = [x[0] for x in base_info]
-        depth = len(bases)
-        base_counter = Counter(bases)
-        for base, freq in base_counter.items():
-            if base != ref_seq:
-                # print(base_counter)
-                ad = (depth, freq)
-                af = freq/depth
-                confidences = [x[1][0] for x in base_info if x[0] == base]
-                covs = [x[2] for x in base_info if x[0] == base]
-                # 记录每个突变背后支持的证据情况
-                print(contig, position+1, ref_seq, base, ad, af, confidences, covs)
+    return result
 
 
 def consensus_read(data):
     consistent_bases = []
     coverages = [len(v[0]) for k, v in data.items()]
     top = Counter(coverages).most_common(3)
-    for (pos, ref, c), (bases, quals, reads, insertions) in data.items():
+    for (pos, ref, c), (bases, quals, reads, insertions, overlap) in data.items():
         coverages.append(len(bases))
-        consistent_bases.append(consensus_base(bases, quals, insertions, top[0][0], c, pos, ref))
+        if Counter(overlap).most_common(1)[0] == 1:
+            mean_depth = top[0][0]/2
+        else:
+            mean_depth = top[0][0]
+        consistent_bases.append(consensus_base(bases, quals, insertions, mean_depth, c, pos, ref))
     return consistent_bases, statistics.median(coverages), top
+
+
+def call_variant(result, out='mutation.txt', min_reads=2, min_conf=5, min_raw_reads=5):
+    # call variant
+    ordered_keys = sorted(result.keys(), key=lambda x:(x[0], x[1], x[2]))
+    f = open(out, 'w')
+    for key in ordered_keys:
+        base_info = result[key]
+        contig, position, ref_seq = key
+        bases = [x[0] for x in base_info]
+        depth = len(bases)
+        base_counter = Counter(bases)
+        for base, freq in base_counter.items():
+            if base.upper() != ref_seq.upper():
+                # print(base_counter)
+                ad = (depth, freq)
+                af = freq / depth
+                confidences = [x[1][0] for x in base_info if x[0] == base]
+                covs = [x[2] for x in base_info if x[0] == base]
+                # 记录每个突变背后支持的证据情况
+                if len(covs) >= min_reads and sum(confidences) >= min_conf and sum(covs) >= min_raw_reads:
+                    # 5意味着至少要有2个一致性比较高的base支持
+                    lst = (contig, position + 1, ref_seq, base, ad, af, confidences, covs)
+                    f.write('\t'.join(str(x) for x in lst)+'\n')
+
+
+def run_all(primers, bam, read_type=64, min_bq=5, cores=6, out='mutation.txt', min_reads=2, min_conf=5,
+            genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
+    primers = [x.strip() for x in open(primers)]
+    cores = len(primers) if len(primers) <= cores else cores
+    if cores <= 1:
+        result = dict()
+        for primer in primers:
+            result.update(consensus_reads(bam, primer, read_type, min_bq, genome))
+    else:
+        get_consensus_reads = partial(consensus_reads, bam, read_type=read_type, min_bq=min_bq, genome=genome)
+        with ProcessPoolExecutor(cores) as pool:
+            result_list = pool.map(get_consensus_reads, primers)
+            result = dict()
+            _ = [result.update(x) for x in result_list]
+
+    call_variant(result, out, min_reads, min_conf)
 
 
 if __name__ == '__main__':
