@@ -40,6 +40,7 @@ def group_reads(bam, primer, contig, start:int, end:int, method='directional'):
             continue
         if read.reference_id == read.next_reference_id and (read.next_reference_start is not None):
             if read.next_reference_start - read.reference_end <= 0:
+                # overlap is true
                 overlap_start = read.next_reference_start
                 overlap_end = read.reference_end
             else:
@@ -68,6 +69,7 @@ def group_reads(bam, primer, contig, start:int, end:int, method='directional'):
 
 def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     # 返回3(相对depth以75%以上的比例票支持), 返回2(大部分选票支持），返回1（票选相当，靠qual取胜）
+    # 输入的base中，'D'表示deletion, ‘I\d’表示insertion ‘S[ATCG]'表示clipped
     current_depth = len(bases)
 
     if not bases:
@@ -75,6 +77,8 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
         return 'X', [25], [3], current_depth, contig, position, ref_seq
     elif len(bases) < depth * 0.35:
         # 当前位点支持的reads数量少于当前考察范围的测序深度的35%时，认为当前位点无read支持
+        # 这里有可能原本表示deletion的碱基表示成X，所以后续得到的序列如果中间出现X，可以考虑把X替换为D
+        # 更有可能把clipped的位置表示未X，这是这段程序的目的之一
         return 'X', [25], [2], depth-current_depth, contig, position, ref_seq
     else:
         # 接下来的所有情况必须满足：当前位点测序深度不能低于depth的35%
@@ -88,6 +92,7 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
         represent = top[0][0]
         confidence = 3
     elif len(top) == 1:
+        # 只有一种碱基
         represent = top[0][0]
         confidence = 2
     else:
@@ -124,8 +129,9 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
             i_counter = Counter(insert_lst)
             # 取出现次数最多的作为代表
             represent += i_counter.most_common(1)[0][0]
+        # 用<>表示整体的插入序列
         represent = '<' + represent + '>'
-    rep_len = 1 if represent == '' else len(represent)
+    rep_len = len(represent)
     return represent, [rep_qual]*rep_len, [confidence]*rep_len, support_depth, contig, position, ref_seq
 
 
@@ -135,7 +141,12 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
     primer_lst = primer.split(':')
     contig = primer_lst[0]
     pos = primer_lst[1]
-    extend = 350 if read_type >= 128 else 200
+    if read_type == 64:
+        # 只解析read1
+        extend = 200
+    else:
+        # 不仅仅解析read1, 还可能解析read2
+        extend = 350
     if primer_lst[-2] == "+":
         start = int(pos.split('-')[1])
         end = start + extend
@@ -157,7 +168,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
 
     # group reads by primer and umi
     read2group = group_reads(bam, primer, contig, start, end, method='directional')
-
+    if not read2group:
+        print('primer has no corresponding reads!')
     group2read = dict()
     group2overlap = dict()
     for k, v in read2group.items():
@@ -165,8 +177,10 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         group2read[v[0]].add(k)
         group2overlap.setdefault(v[0], [])
         if read_type == 128 or read_type == 64:
+            # 单端read，直接判断为非overlap
             group2overlap[v[0]].append(0)
         else:
+            # 判断是否overlap
             if v[1] == v[2]:
                 group2overlap[v[0]].append(0)
             else:
@@ -178,6 +192,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print('median group size', median_size)
         for k, v in group2overlap.items():
             if sum(v)/len(v) > 0.6:
+                # 超过60%的read说当前read出现overlap
                 group2overlap[k] = 1
             else:
                 group2overlap[k] = 0
@@ -226,9 +241,10 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 # such as 'G-1N'
                 base = re.split('-\d+', base)[0]
             elif '*' in base:
-                base = '-'
-            group_info = read2group[read]
-            data = pileup_dict[group_info[0]]
+                # 这里使得每一个碱基的deletion都用D表示，所以长的deletion只能分开识别后最后合并
+                base = 'D'
+            group_name = read2group[read][0]
+            data = pileup_dict[group_name]
             pos = (col.reference_pos, ref, contig)
             # data.setdefault(pos, [[base], [qual], [read], [insertion], [is_overlap])
             base_info = data.setdefault(pos, [[], [], [], [], []])
@@ -236,10 +252,11 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
             base_info[1].append(qual)
             base_info[2].append(read)
             base_info[3].append(insertion)
-            data[pos][4].append(group2overlap[group_info[0]])
-    # 上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
+            base_info[4].append(group2overlap[group_name])
+    # pileup并不记录clipped情形，上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
     # 基于上面的结果，最后的consenus reads将不包含clipped掉的reads
     # 下面尝试把clipped的序列找回来，使consenus read结果包含clipped碱基
+    # 思路是根据cigar判断是否clipped，然后推断发生clipped对应的参考基因组位置，并标记S
     for read in bam.fetch(contig, start, end):
         if read.query_name in read2group and read.cigartuples is not None:
             if read.cigartuples[0][0] == 4:
@@ -264,16 +281,19 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 if pos in tmp_dict:
                     for i, (b, r) in enumerate(zip(data[0], data[2])):
                         if r == read.query_name:
-                            # 找某条read对应的位置发生clipped, 带入'S'标签
+                            # 找某条read对应的位置发生clipped, 每个被clipped的base带入'S'标签，也许日后可以用到
                             data[0][i] = 'S'+tmp_dict[pos]
-                            if b != '': # 测试后可以删除该判断
-                                Exception('clip_contradiction:'+read.to_string())
                             break
     # consensus
     result = dict()
     for group_name, data in pileup_dict.items():
         if len(data) == 0:
-            print(f'{group_name} is empty')
+            # 某个分组在目标区域没有对应的reads,
+            # 当read_type=64或128时，由于fetch也会同时抓出read2和read1，下面这种情况经常发生
+            # 当read_type=0时，read1和read2都要考虑的，那如果还出现这种情况？
+            print(f'{group_name} is empty, but raw group_size is {len(group2read[group_name])}, ???')
+            if len(group2read[group_name]) > 20:
+                print(group2read[group_name])
             continue
         consistent_bases, median_cov, top = consensus_read(data)
         print(f'>{group_name}')
@@ -299,7 +319,7 @@ def consensus_read(data):
     top = Counter(coverages).most_common(3)
     for (pos, ref, c), (bases, quals, reads, insertions, overlap) in data.items():
         coverages.append(len(bases))
-        if Counter(overlap).most_common(1)[0] == 1:
+        if Counter(overlap).most_common(1)[0][0] == 1:
             mean_depth = top[0][0]/2
         else:
             mean_depth = top[0][0]
