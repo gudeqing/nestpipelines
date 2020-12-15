@@ -199,7 +199,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print(f'there are {len(group2read)} groups!')
         group_sizes = [len(v) for k, v in group2read.items()]
         median_size = statistics.median(group_sizes)
-        print('median group size', median_size)
+        print('(min, median, max) group size', (min(group_sizes), median_size, max(group_sizes)))
         for k, v in group2overlap.items():
             if sum(v)/len(v) > 0.6:
                 # 超过60%的read说当前read出现overlap
