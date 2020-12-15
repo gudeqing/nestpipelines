@@ -58,7 +58,7 @@ def group_reads(bam, primer, contig, start: int, end: int, method='directional',
     # cluster = UMIClusterer(cluster_method='adjacency')
     result = dict()
     for primer, umi_read in group_umi_by_primer.items():
-        group_lst = cluster(Counter(x[0].encode() for x in umi_read), threshold=1)
+        group_lst = cluster(Counter(x[0].encode() for x in umi_read), threshold=2)
         for group in group_lst:
             represent_umi = group[0].decode()
             umi_set = set(group)
