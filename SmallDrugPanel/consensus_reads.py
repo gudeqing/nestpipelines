@@ -30,7 +30,7 @@ def set_logger(name='log.info', logger_id='x'):
     return logger
 
 
-def group_reads(bam, primer, contig, start:int, end:int, method='directional'):
+def group_reads(bam, primer, contig, start:int, end:int, method='directional', out_bam=None):
     if type(bam) == str:
         bam = pysam.AlignmentFile(bam)
     group_umi_by_primer = dict()
@@ -64,6 +64,16 @@ def group_reads(bam, primer, contig, start:int, end:int, method='directional'):
             for u, r, s, e in umi_read:
                 if u.encode() in umi_set:
                     result[r] = (primer+':'+represent_umi, s, e)
+
+    # 通读输出新的bam, 修改read_group
+    if out_bam is not None:
+        ob =  pysam.AlignmentFile(out_bam, 'wb', template=bam)
+        for read in bam.fetch(contig, start, end):
+            if read.query_name in result:
+                read.set_tag('RG', result[read.query_name][0])
+                ob.write(read)
+        ob.close()
+        pysam.index(out_bam)
     return result
 
 
@@ -301,6 +311,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print(f'median coverage is {median_cov}')
         print(f'top3 coverage frequency is {top}')
         consensus_seq = ''.join(x[0] for x in consistent_bases).strip('X')
+        print(f'consensus sequence length is {len(consensus_seq)}')
+        print(f'we deem there is {group2overlap[group_name]}overlap between read1 and read2')
         print(consensus_seq)
         print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
         # print(consistent_bases)
