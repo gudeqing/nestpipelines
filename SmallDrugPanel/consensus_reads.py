@@ -208,6 +208,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 group2overlap[k] = 0
 
     # 获得每个分组的pileup列表, 返回的第一个位点不一定是start指定的，而是由实际比对情况决定的！
+    # 对于clipped 的base， pileup不会纳入，因此后面有代码把这些base找回来。
     cols = bam.pileup(
         contig, start, end,
         stepper='samtools',
