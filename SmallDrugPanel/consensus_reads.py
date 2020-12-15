@@ -326,13 +326,14 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print(consensus_seq)
         print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
         # print(consistent_bases)
+        umi = group_name.rsplit(':', 1)[-1]
         for base, qual, confidence, alt_depth, *key in consistent_bases:
             # base = base.replace('S', '').replace('<', '').replace('>', '')
             base = base.replace('S', '')
             if base != 'X':
                 key = tuple(key)
                 result.setdefault(key, [])
-                result[key].append((base, confidence, alt_depth))
+                result[key].append((base, confidence, alt_depth, umi))
     return result
 
 
@@ -367,24 +368,24 @@ def call_variant(result, out='mutation.txt', min_reads=2, min_conf=4, min_raw_re
                 af = freq / depth
                 confidences = [x[1][0] for x in base_info if x[0] == base]
                 covs = [x[2] for x in base_info if x[0] == base]
+                umis = [x[3] for x in base_info if x[0] == base]
                 # filtering
                 if len(covs) >= min_reads and sum(confidences) >= min_conf and sum(covs) >= min_raw_reads:
                     # min_conf意味着至少要有2个一致性比较高的base支持
-                    continue
-                # format output
-                if base.startswith('D'):
-                    # deletion
-                    ref = base[1:]
-                    alt = ref_seq
-                elif base.startswith('<'):
-                    # insertion
-                    ref = ref_seq
-                    alt = base[1:-1]
-                else:
-                    ref = ref_seq
-                    alt = base
-                lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
-                f.write('\t'.join(str(x) for x in lst)+'\n')
+                    # format output
+                    if base.startswith('D'):
+                        # deletion
+                        ref = base[1:]
+                        alt = ref_seq
+                    elif base.startswith('<'):
+                        # insertion
+                        ref = ref_seq
+                        alt = base[1:-1]
+                    else:
+                        ref = ref_seq
+                        alt = base
+                    lst = (contig, position + 1, ref, alt, ad, af, confidences, covs, umis)
+                    f.write('\t'.join(str(x) for x in lst)+'\n')
 
 
 def run_all(primers, bam, read_type=64, min_bq=5, cores=6, out='mutation.txt', min_reads=2, min_conf=5,
