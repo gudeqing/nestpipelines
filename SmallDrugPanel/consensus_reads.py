@@ -55,6 +55,7 @@ def group_reads(bam, primer, contig, start: int, end: int, method='directional',
             group_umi_by_primer[primer].append((umi, read_name, overlap_start, overlap_end))
 
     cluster = UMIClusterer(cluster_method=method)
+    # cluster = UMIClusterer(cluster_method='adjacency')
     result = dict()
     for primer, umi_read in group_umi_by_primer.items():
         group_lst = cluster(Counter(x[0].encode() for x in umi_read), threshold=1)
@@ -99,9 +100,11 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     top = base_counter.most_common(3)
     top1_ratio = top[0][1]/depth
     if len(top) == 1:
-        # 只有一条reads支持这个碱基，可信度调低为1
         represent = top[0][0]
-        confidence = 1
+        if depth <= 2:
+            confidence = 1
+        else:
+            confidence = 3
     elif top1_ratio >= 0.75:
         represent = top[0][0]
         confidence = 3
