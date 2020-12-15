@@ -205,7 +205,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         min_base_quality=min_bq,
         ignore_orphans=False,
         ignore_overlaps=False,
-        max_depth=30000,
+        # 这里的max_depth一定要设的足够大，否则有可能漏掉reads
+        max_depth=300000,
         fastafile=None,
         flag_require=read_type,
         flag_filter=4,
@@ -226,6 +227,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 col.get_query_qualities(),
                 col.get_query_names()):
             # print(base, qual, read)
+            # print(col.reference_pos)
+            # print('FIND', read)
             if read not in read2group:
                 continue
             insertion = ''
@@ -288,11 +291,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
     result = dict()
     for group_name, data in pileup_dict.items():
         if len(data) == 0:
-            # 某个分组在目标区域没有对应的reads,
-            # 当read_type=64或128时，由于fetch也会同时抓出read2和read1，下面这种情况经常发生
-            # 当read_type=0时，read1和read2都要考虑的，那如果还出现这种情况？
+            # 某个分组在目标区域没有对应的reads?
             print(f'{group_name} is empty, but raw group_size is {len(group2read[group_name])}, ???')
-            if len(group2read[group_name]) > 20:
+            if len(group2read[group_name]) > 5:
                 print(group2read[group_name])
             continue
         consistent_bases, median_cov, top = consensus_read(data)
