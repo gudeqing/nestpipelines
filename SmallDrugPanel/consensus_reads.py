@@ -251,16 +251,18 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 # such as 'G+2AT'
                 # 对于insertion，也可能测错误，所以需要单独collapse，
                 # 使用'I'代替是否有insertion，然后对insertion进行call consensus
-                # 只能对相同长度的insertion进行校正
+                # 只能对相同长度的insertion进行校正, 下面的insertion包含ref
                 insertion = re.sub('\+\d+',  '', base)
                 base = 'I'+str(len(insertion))
                 # logger.info('insertion:' + read.to_string())
             elif '-' in base:
                 # such as 'G-1N'
-                base = re.split('-\d+', base)[0]
+                # base = re.split('-\d+', base)[0]
+                deletion_len = int(base.split('-')[1].upper().rstrip('N'))
+                base = 'D' + genome.fetch(contig, col.reference_pos, col.reference_pos+deletion_len+1)
             elif '*' in base:
-                # 这里使得每一个碱基的deletion都用D表示，所以长的deletion只能分开识别后最后合并
-                base = 'D'
+                # 这里deletion信息已经在deletion的上一个碱基进行了合并表示
+                base = ref
             elif base == '':
                 # 如果该位点没有覆盖，该处的base为''
                 base = 'X'
@@ -367,8 +369,19 @@ def call_variant(result, out='mutation.txt', min_reads=2, min_conf=5, min_raw_re
                 covs = [x[2] for x in base_info if x[0] == base]
                 # 记录每个突变背后支持的证据情况
                 if len(covs) >= min_reads and sum(confidences) >= min_conf and sum(covs) >= min_raw_reads:
-                    # 5意味着至少要有2个一致性比较高的base支持
-                    lst = (contig, position + 1, ref_seq, base, ad, af, confidences, covs)
+                    # min_conf意味着至少要有2个一致性比较高的base支持
+                    if base.startswith('D'):
+                        # deletion
+                        ref = base[1:]
+                        alt = ref_seq
+                    elif base.startswith('<'):
+                        # insertion
+                        ref = ref_seq
+                        alt = base[1:-1]
+                    else:
+                        ref = ref_seq
+                        alt = base
+                    lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
                     f.write('\t'.join(str(x) for x in lst)+'\n')
 
 
