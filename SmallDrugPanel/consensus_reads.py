@@ -321,13 +321,13 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print(consensus_seq)
         print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
         # print(consistent_bases)
-        for base, qual, confidence, depth, *key in consistent_bases:
+        for base, qual, confidence, alt_depth, *key in consistent_bases:
             # base = base.replace('S', '').replace('<', '').replace('>', '')
             base = base.replace('S', '')
             if base != 'X':
                 key = tuple(key)
                 result.setdefault(key, [])
-                result[key].append((base, confidence, depth))
+                result[key].append((base, confidence, alt_depth))
     return result
 
 
