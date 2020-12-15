@@ -350,7 +350,7 @@ def consensus_read(data):
     return consistent_bases, statistics.median(coverages), top
 
 
-def call_variant(result, out='mutation.txt', min_reads=2, min_conf=5, min_raw_reads=5):
+def call_variant(result, out='mutation.txt', min_reads=2, min_conf=4, min_raw_reads=5):
     # call variant
     ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1], x[2]))
     f = open(out, 'w')
@@ -367,22 +367,24 @@ def call_variant(result, out='mutation.txt', min_reads=2, min_conf=5, min_raw_re
                 af = freq / depth
                 confidences = [x[1][0] for x in base_info if x[0] == base]
                 covs = [x[2] for x in base_info if x[0] == base]
-                # 记录每个突变背后支持的证据情况
+                # filtering
                 if len(covs) >= min_reads and sum(confidences) >= min_conf and sum(covs) >= min_raw_reads:
                     # min_conf意味着至少要有2个一致性比较高的base支持
-                    if base.startswith('D'):
-                        # deletion
-                        ref = base[1:]
-                        alt = ref_seq
-                    elif base.startswith('<'):
-                        # insertion
-                        ref = ref_seq
-                        alt = base[1:-1]
-                    else:
-                        ref = ref_seq
-                        alt = base
-                    lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
-                    f.write('\t'.join(str(x) for x in lst)+'\n')
+                    continue
+                # format output
+                if base.startswith('D'):
+                    # deletion
+                    ref = base[1:]
+                    alt = ref_seq
+                elif base.startswith('<'):
+                    # insertion
+                    ref = ref_seq
+                    alt = base[1:-1]
+                else:
+                    ref = ref_seq
+                    alt = base
+                lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
+                f.write('\t'.join(str(x) for x in lst)+'\n')
 
 
 def run_all(primers, bam, read_type=64, min_bq=5, cores=6, out='mutation.txt', min_reads=2, min_conf=5,
