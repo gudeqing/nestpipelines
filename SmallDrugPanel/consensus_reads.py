@@ -68,7 +68,7 @@ def group_reads(bam, primer, contig, start: int, end: int, method='directional',
 
     # 通读输出新的bam, 修改read_group
     if out_bam is not None:
-        ob =  pysam.AlignmentFile(out_bam, 'wb', template=bam)
+        ob = pysam.AlignmentFile(out_bam, 'wb', template=bam)
         for read in bam.fetch(contig, start, end):
             if read.query_name in result:
                 read.set_tag('RG', result[read.query_name][0])
