@@ -30,7 +30,7 @@ def set_logger(name='log.info', logger_id='x'):
     return logger
 
 
-def group_reads(bam, primer, contig, start:int, end:int, method='directional', out_bam=None):
+def group_reads(bam, primer, contig, start: int, end: int, method='directional', out_bam=None):
     if type(bam) == str:
         bam = pysam.AlignmentFile(bam)
     group_umi_by_primer = dict()
@@ -256,6 +256,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
             elif '*' in base:
                 # 这里使得每一个碱基的deletion都用D表示，所以长的deletion只能分开识别后最后合并
                 base = 'D'
+            elif base == '':
+                # 如果该位点没有覆盖，该处的base为''
+                base = 'X'
             group_name = read2group[read][0]
             data = pileup_dict[group_name]
             pos = (col.reference_pos, ref, contig)
@@ -301,8 +304,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
     result = dict()
     for group_name, data in pileup_dict.items():
         if len(data) == 0:
-            # 某个分组在目标区域没有对应的reads?
-            print(f'{group_name} is empty, but raw group_size is {len(group2read[group_name])}, ???')
+            # 某个分组在目标区域没有对应的reads?, 之前发现是pileup时参数max_depth不够大导致漏掉
+            print(f'{group_name} is empty, but raw group_size is {len(group2read[group_name])}?')
             if len(group2read[group_name]) > 5:
                 print(group2read[group_name])
             continue
@@ -342,7 +345,7 @@ def consensus_read(data):
 
 def call_variant(result, out='mutation.txt', min_reads=2, min_conf=5, min_raw_reads=5):
     # call variant
-    ordered_keys = sorted(result.keys(), key=lambda x:(x[0], x[1], x[2]))
+    ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1], x[2]))
     f = open(out, 'w')
     for key in ordered_keys:
         base_info = result[key]
