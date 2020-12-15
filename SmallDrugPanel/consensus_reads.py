@@ -98,13 +98,13 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     base_counter = Counter(bases)
     top = base_counter.most_common(3)
     top1_ratio = top[0][1]/depth
-    if top1_ratio >= 0.75:
+    if len(top) == 1:
+        # 只有一条reads支持这个碱基，可信度调低为1
+        represent = top[0][0]
+        confidence = 1
+    elif top1_ratio >= 0.75:
         represent = top[0][0]
         confidence = 3
-    elif len(top) == 1:
-        # 只有一种碱基
-        represent = top[0][0]
-        confidence = 2
     else:
         if top[0][1]/top[1][1] > 1.5:
             # such as 5/3 > 1.5
