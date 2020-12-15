@@ -207,7 +207,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
             else:
                 group2overlap[k] = 0
 
-    # 获得每个分组的pileup列表
+    # 获得每个分组的pileup列表, 返回的第一个位点不一定是start指定的，而是由实际比对情况决定的！
     cols = bam.pileup(
         contig, start, end,
         stepper='samtools',
@@ -223,14 +223,15 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
     )
     # 在pos处带入ref信息
     genome = pysam.FastaFile(genome)
-    refs = genome.fetch(contig, start, end)
+
     ## 初始化pileup存储容器
     pileup_dict = dict()
     for group_name in group2read:
         pileup_dict[group_name] = dict()
 
     ## 逐一循环每一个位置，并按组分配
-    for col, ref in zip(cols, refs):
+    for col in cols:
+        ref = genome.fetch(contig, col.reference_pos, col.reference_pos+1)
         for base, qual, read in zip(
                 # 如不加add_indels参数，那么将无法知晓插入的碱基序列
                 col.get_query_sequences(add_indels=True),
