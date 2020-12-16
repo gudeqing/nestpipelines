@@ -140,7 +140,7 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
             i_counter = Counter(insert_lst)
             # 取出现次数最多的作为代表
             represent += i_counter.most_common(1)[0][0]
-        # 用<>表示整体的插入序列
+        # 用<>表示整体的插入序列, 用()表示deletion
         represent = '<' + represent + '>'
     rep_len = len(represent)
     return represent, [rep_qual]*rep_len, [confidence]*rep_len, support_depth, contig, position, ref_seq
@@ -257,7 +257,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 # such as 'G-1N'
                 # base = re.split('-\d+', base)[0]
                 deletion_len = int(base.split('-')[1].upper().rstrip('N'))
-                base = 'D' + genome.fetch(contig, col.reference_pos, col.reference_pos+deletion_len+1)
+                # 用'<'表示deletion
+                base = '(' + genome.fetch(contig, col.reference_pos, col.reference_pos+deletion_len+1) + ')'
             elif '*' in base:
                 # 这里deletion信息已经在deletion的上一个碱基进行了合并表示
                 base = ref
@@ -324,14 +325,13 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print(consensus_seq)
         print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
         # print(consistent_bases)
-        umi = group_name.rsplit(':', 1)[-1]
+        # umi = group_name.rsplit(':', 1)[-1]
         for base, qual, confidence, alt_depth, *key in consistent_bases:
-            # base = base.replace('S', '').replace('<', '').replace('>', '')
             base = base.replace('S', '')
             if base != 'X':
                 key = tuple(key)
                 result.setdefault(key, [])
-                result[key].append((base, confidence, alt_depth, umi))
+                result[key].append((base, confidence, alt_depth))
     return result
 
 
@@ -349,7 +349,7 @@ def consensus_read(data):
     return consistent_bases, statistics.median(coverages), top
 
 
-def call_variant(result, out='mutation.txt', min_reads=2, min_conf=4, min_raw_reads=5):
+def call_variant(result, out='mutation.txt', min_umi_depth=5, min_reads=2, min_conf=4, min_raw_reads=5):
     # call variant
     ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1], x[2]))
     f = open(out, 'w')
@@ -366,14 +366,15 @@ def call_variant(result, out='mutation.txt', min_reads=2, min_conf=4, min_raw_re
                 af = freq / depth
                 confidences = [x[1][0] for x in base_info if x[0] == base]
                 covs = [x[2] for x in base_info if x[0] == base]
-                umis = [x[3] for x in base_info if x[0] == base]
+                # umis = [x[3] for x in base_info if x[0] == base]
                 # filtering
-                if len(covs) >= min_reads and sum(confidences) >= min_conf and sum(covs) >= min_raw_reads:
+                if len(covs) >= min_reads and sum(confidences) >= min_conf \
+                        and sum(covs) >= min_raw_reads and depth >= min_umi_depth:
                     # min_conf意味着至少要有2个一致性比较高的base支持
                     # format output
-                    if base.startswith('D'):
+                    if base.startswith('('):
                         # deletion
-                        ref = base[1:]
+                        ref = base[1:-1]
                         alt = ref_seq
                     elif base.startswith('<'):
                         # insertion
@@ -382,7 +383,7 @@ def call_variant(result, out='mutation.txt', min_reads=2, min_conf=4, min_raw_re
                     else:
                         ref = ref_seq
                         alt = base
-                    lst = (contig, position + 1, ref, alt, ad, af, confidences, covs, umis)
+                    lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
                     f.write('\t'.join(str(x) for x in lst)+'\n')
 
 
