@@ -88,8 +88,6 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
         return 'X', [25], [3], current_depth, contig, position, ref_seq
     elif len(bases) < depth * 0.35:
         # 当前位点支持的reads数量少于当前考察范围的测序深度的35%时，认为当前位点无read支持
-        # 这里有可能原本表示deletion的碱基表示成X，所以后续得到的序列如果中间出现X，可以考虑把X替换为D
-        # 更有可能把clipped的位置表示未X，这是这段程序的目的之一
         return 'X', [25], [2], depth-current_depth, contig, position, ref_seq
     else:
         # 接下来的所有情况必须满足：当前位点测序深度不能低于depth的35%
