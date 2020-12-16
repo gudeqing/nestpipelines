@@ -4,6 +4,7 @@ from collections import Counter
 from functools import partial
 import logging
 from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool, Manager
 import pysam
 from umi_tools import UMIClusterer
 
@@ -146,7 +147,16 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     return represent, [rep_qual]*rep_len, [confidence]*rep_len, support_depth, contig, position, ref_seq
 
 
-def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
+def format_consensus_bases(bqc):
+    b, q, c = bqc
+    if b.startswith('<'):
+        return b[1:-1], ''.join([chr(q[0]+33)] * (len(b) - 2)), ''.join([str(c[0])] * (len(b) - 2))
+    else:
+        return b[0], chr(q[0]+33), str(c[0])
+
+
+def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
+                    genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
     # logger = set_logger('consensus.log.txt', logger_id='consensus')
     primer_lst = primer.split(':')
@@ -320,11 +330,12 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
         print(f'median coverage is {median_cov}')
         print(f'top3 coverage frequency is {top}')
         consensus_seq = ''.join(x[0] for x in consistent_bases).strip('X')
-        print(f'consensus sequence length is {len(consensus_seq)}')
-        print(f'we deem there is {group2overlap[group_name]}overlap between read1 and read2')
         print(consensus_seq)
-        print(''.join(''.join(str(i) for i in x[2]) for x in consistent_bases if x[0] != '' and x[0] != 'X'))
+        # print(f'consensus sequence length is {len(consensus_seq)}')
+        # print(f'we deem there is {group2overlap[group_name]}overlap between read1 and read2')
         # print(consistent_bases)
+
+        # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
         for base, qual, confidence, alt_depth, *key in consistent_bases:
             base = base.replace('S', '')
@@ -332,6 +343,28 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, genome='/nfs2/database/
                 key = tuple(key)
                 result.setdefault(key, [])
                 result[key].append((base, confidence, alt_depth))
+
+        if fq_lst is not None:
+            # 想办法去掉两端的X
+            consensus_seq = ''.join(x[0] for x in consistent_bases)
+            lm = re.match('X+', consensus_seq)
+            left_start = 0 if lm is None else len(lm.group())
+            rm = re.match('X+', consensus_seq[::-1])
+            right_end = len(consistent_bases) if rm is None else len(consistent_bases) - len(rm.group())
+            # 整理fastq的信息
+            bqc = [x[:3] for x in consistent_bases[left_start:right_end]]
+            # 处理indel的标签信息
+            bqc = list(map(format_consensus_bases, bqc))
+            seqs = ''.join(x[0] for x in bqc)
+            quals = ''.join(x[1] for x in bqc)
+            # confs = '+' + ''.join(x[2] for x in bqc)[1:]
+            confs = '+'
+            header = f'@{group_name} read_number:N:{int(median_cov)}:{group2overlap[group_name]}'
+            fq_lst.append([read_type, header, seqs, confs, quals])
+    else:
+        if fq_lst is not None:
+            fq_lst.append([primer])
+
     return result
 
 
@@ -387,20 +420,82 @@ def call_variant(result, out='mutation.txt', min_umi_depth=5, min_reads=2, min_c
                     f.write('\t'.join(str(x) for x in lst)+'\n')
 
 
-def run_all(primers, bam, read_type=64, min_bq=5, cores=6, out='mutation.txt', min_reads=2, min_conf=5,
+def write_fastq(fq_lst, primer_number, r1='Consensus.R1.fq', r2='Consensus.R2.fq'):
+    # {primer: {group_name:[[read_name,read_seq,+, read_qual], ...]}, ...}
+    primers = set()
+    read1_obj = set_logger(r1, 'read1')
+    read2_obj = set_logger(r2, 'read2')
+    while 1:
+        if fq_lst:
+            info = fq_lst.pop(0)
+            if len(info) == 1:
+                primers.add(info[0])
+                if len(primers) == primer_number:
+                    break
+            else:
+                t, *fq_info = info
+                if t in [64, 128]:
+                    if 'X' not in fq_info[1]:
+                        if t == 64:
+                            fq_info[0] = fq_info[0].replace('read_number', '1')
+                            _ = [read1_obj.info(x) for x in fq_info]
+                        else:
+                            fq_info[0] = fq_info[0].replace('read_number', '2')
+                            _ = [read2_obj.info(x) for x in fq_info]
+                    else:
+                        print('Discard', fq_info)
+                else:
+                    # fq_info里同时包含了read1和read2
+                    # 认为X为read1和read2的分割标志
+                    tmp = re.split('X+', fq_info[1])
+                    if len(tmp) == 1:
+                        # overlap, 则read1和read2一样
+                        read1_info = fq_info.copy()
+                        read1_info[0] = fq_info[0].replace('read_number', '1')
+                        _ = [read1_obj.info(x) for x in read1_info]
+
+                        read2_info = fq_info.copy()
+                        read2_info[0] = fq_info[0].replace('read_number', '2')
+                        _ = [read2_obj.info(x) for x in read2_info]
+                    elif len(tmp) == 2:
+                        left_ind = fq_info[1].find('X')
+                        right_ind = fq_info[1].rfind('X')
+                        read1_info = [fq_info[0].replace('read_number', '1'),
+                                      fq_info[1][:left_ind], fq_info[2], fq_info[3][:left_ind]]
+                        _ = [read1_obj.info(x) for x in read1_info]
+
+                        read2_info = [fq_info[0].replace('read_number', '2'),
+                                      fq_info[1][right_ind+1:], fq_info[2], fq_info[3][right_ind+1:]]
+                        _ = [read2_obj.info(x) for x in read2_info]
+                    else:
+                        print('Discard', fq_info)
+
+
+def run_all(primers, bam, read_type=64, cores=8, out='mutation.txt', min_reads=2, min_conf=5, min_bq=5,
             genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     primers = [x.strip() for x in open(primers)]
     cores = len(primers) if len(primers) <= cores else cores
+    # 开拓进程之间的共享空间, 即使用一个进程间可以共享的list，
+    # N-1个进程往list里添加信息，剩下一个进程从list清空信息并输出到同一个文件
+    manager = Manager()
+    fq_lst = manager.list()
+
+    result = dict()
     if cores <= 1:
-        result = dict()
         for primer in primers:
-            result.update(consensus_reads(bam, primer, read_type, min_bq, genome))
+            result.update(consensus_reads(bam, primer, read_type, min_bq, fq_lst, genome))
+            write_fastq(fq_lst, 1)
     else:
-        get_consensus_reads = partial(consensus_reads, bam, read_type=read_type, min_bq=min_bq, genome=genome)
+        get_consensus_reads = partial(
+            consensus_reads, bam, read_type=read_type, min_bq=min_bq, fq_lst=fq_lst, genome=genome
+        )
         with ProcessPoolExecutor(cores) as pool:
-            result_list = pool.map(get_consensus_reads, primers)
-            result = dict()
-            _ = [result.update(x) for x in result_list]
+            tasks = [pool.submit(write_fastq, fq_lst, len(primers))]
+            for each in primers:
+                tasks.append(pool.submit(get_consensus_reads, each))
+            futures = [x.result() for x in tasks[1:]]
+            tasks[0].result()
+            _ = [result.update(x) for x in futures]
 
     call_variant(result, out, min_reads, min_conf)
 
