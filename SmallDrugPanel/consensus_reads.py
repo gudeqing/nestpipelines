@@ -151,6 +151,8 @@ def format_consensus_bases(bqc):
     b, q, c = bqc
     if b.startswith('<'):
         return b[1:-1], ''.join([chr(q[0]+33)] * (len(b) - 2)), ''.join([str(c[0])] * (len(b) - 2))
+    elif b.startswith(('s', '(')):
+        return b[1], chr(q[1]+33), str(c[1])
     else:
         return b[0], chr(q[0]+33), str(c[0])
 
@@ -167,7 +169,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
         extend = 200
     else:
         # 不仅仅解析read1, 还可能解析read2
-        extend = 350
+        extend = 400
     if primer_lst[-2] == "+":
         start = int(pos.split('-')[1])
         end = start + extend
@@ -313,8 +315,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
                 if pos in tmp_dict:
                     for i, (b, r) in enumerate(zip(data[0], data[2])):
                         if r == read.query_name:
-                            # 找某条read对应的位置发生clipped, 每个被clipped的base带入'S'标签，也许日后可以用到
-                            data[0][i] = 'S'+tmp_dict[pos]
+                            # 找某条read对应的位置发生clipped, 每个被clipped的base带入's'标签，也许日后可以用到
+                            data[0][i] = 's'+tmp_dict[pos]
                             break
     # consensus
     result = dict()
@@ -338,12 +340,13 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
         # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
         for base, qual, confidence, alt_depth, *key in consistent_bases:
-            base = base.replace('S', '')
-            if base != 'X':
+            if base[0] not in ['s', 'X']:
+                # clipped 和没有read支持的位置不能call突变
                 key = tuple(key)
                 result.setdefault(key, [])
                 result[key].append((base, confidence, alt_depth))
 
+        # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
         if fq_lst is not None:
             # 想办法去掉两端的X
             consensus_seq = ''.join(x[0] for x in consistent_bases)
@@ -351,6 +354,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
             left_start = 0 if lm is None else len(lm.group())
             rm = re.match('X+', consensus_seq[::-1])
             right_end = len(consistent_bases) if rm is None else len(consistent_bases) - len(rm.group())
+
             # 整理fastq的信息
             bqc = [x[:3] for x in consistent_bases[left_start:right_end]]
             # 处理indel的标签信息
