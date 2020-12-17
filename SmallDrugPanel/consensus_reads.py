@@ -151,7 +151,7 @@ def format_consensus_bases(bqc):
     b, q, c = bqc
     if b.startswith('<'):
         return b[1:-1], ''.join([chr(q[0]+33)] * (len(b) - 2)), ''.join([str(c[0])] * (len(b) - 2))
-    elif b.startswith(('s', '(')):
+    elif b.startswith(('S', '(')):
         return b[1], chr(q[1]+33), str(c[1])
     else:
         return b[0], chr(q[0]+33), str(c[0])
@@ -315,8 +315,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
                 if pos in tmp_dict:
                     for i, (b, r) in enumerate(zip(data[0], data[2])):
                         if r == read.query_name:
-                            # 找某条read对应的位置发生clipped, 每个被clipped的base带入's'标签，也许日后可以用到
-                            data[0][i] = 's'+tmp_dict[pos]
+                            # 找某条read对应的位置发生clipped, 每个被clipped的base带入'S'标签，也许日后可以用到
+                            data[0][i] = 'S'+tmp_dict[pos]
                             break
     # consensus
     result = dict()
@@ -340,7 +340,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
         # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
         for base, qual, confidence, alt_depth, *key in consistent_bases:
-            if base[0] not in ['s', 'X']:
+            if base[0] not in ['S', 'X']:
                 # clipped 和没有read支持的位置不能call突变
                 key = tuple(key)
                 result.setdefault(key, [])
