@@ -432,7 +432,7 @@ def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
     return vcf
 
 
-def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_reads=2, min_conf=4, min_raw_reads=5):
+def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min_conf=4, min_raw_alt_num=5):
     # call variant
     ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1], x[2]))
     sample = out.split('.', 1)[0]
@@ -454,8 +454,8 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_reads=2, min_c
                 covs = [x[2] for x in base_info if x[0] == base]
                 # umis = [x[3] for x in base_info if x[0] == base]
                 # filtering
-                if len(covs) >= min_reads and sum(confidences) >= min_conf \
-                        and sum(covs) >= min_raw_reads and depth >= min_umi_depth:
+                if len(covs) >= min_alt_num and sum(confidences) >= min_conf \
+                        and sum(covs) >= min_raw_alt_num and depth >= min_umi_depth:
                     # min_conf意味着至少要有2个一致性比较高的base支持
                     variant_number += 1
                     # format output
@@ -540,7 +540,8 @@ def write_fastq(fq_lst, primer_number, r1='Consensus.R1.fq', r2='Consensus.R2.fq
                         print('Discard', fq_info)
 
 
-def run_all(primers, bam, read_type=64, cores=8, out='mutation.vcf', min_reads=2, min_conf=5, min_bq=5,
+def run_all(primers, bam, read_type=0, cores=8, out='mutation.vcf', min_bq=10,
+            min_umi_depth=8, min_alt_num=2, min_conf=5, min_raw_alt_num=5,
             genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     primers = [x.strip() for x in open(primers)]
     cores = len(primers) if len(primers) <= cores else cores
@@ -566,7 +567,8 @@ def run_all(primers, bam, read_type=64, cores=8, out='mutation.vcf', min_reads=2
             tasks[0].result()
             _ = [result.update(x) for x in futures]
 
-    call_variant(result, out, min_reads, min_conf)
+    call_variant(result, out, min_umi_depth=min_umi_depth, min_alt_num=min_alt_num,
+                 min_conf=min_conf, min_raw_alt_num=min_raw_alt_num)
 
 
 if __name__ == '__main__':
