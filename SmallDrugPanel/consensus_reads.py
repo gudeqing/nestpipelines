@@ -357,8 +357,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
 
             # 整理fastq的信息
             bqc = [x[:3] for x in consistent_bases[left_start:right_end]]
-            # 处理indel的标签信息
+            # 处理indel和clipped的标签信息
             bqc = list(map(format_consensus_bases, bqc))
+            # 形成fastq信息
             seqs = ''.join(x[0] for x in bqc)
             quals = ''.join(x[1] for x in bqc)
             # confs = '+' + ''.join(x[2] for x in bqc)[1:]
