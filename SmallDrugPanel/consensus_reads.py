@@ -245,7 +245,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
 
     ## 逐一循环每一个位置，并按组分配
     for col in cols:
-        ref = genome.fetch(contig, col.reference_pos, col.reference_pos+1)
+        ref = genome.fetch(contig, col.reference_pos, col.reference_pos+1).upper()
         for base, qual, read in zip(
                 # 如不加add_indels参数，那么将无法知晓插入的碱基序列
                 col.get_query_sequences(add_indels=True),
@@ -387,10 +387,58 @@ def consensus_read(data):
     return consistent_bases, statistics.median(coverages), top
 
 
-def call_variant(result, out='mutation.txt', min_umi_depth=5, min_reads=2, min_conf=4, min_raw_reads=5):
+def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
+    vcf = pysam.VariantFile(vcf_path, 'w')
+    contig_info = [
+        '##fileformat=VCFv4.3',
+        f'##assembly={genome}',
+        "##contig=<ID=chr1,length=249250621>",
+        "##contig=<ID=chr2,length=243199373>",
+        "##contig=<ID=chr3,length=198022430>",
+        "##contig=<ID=chr4,length=191154276>",
+        "##contig=<ID=chr5,length=180915260>",
+        "##contig=<ID=chr6,length=171115067>",
+        "##contig=<ID=chr7,length=159138663>",
+        "##contig=<ID=chr8,length=146364022>",
+        "##contig=<ID=chr9,length=141213431>",
+        "##contig=<ID=chr10,length=135534747>",
+        "##contig=<ID=chr11,length=135006516>",
+        "##contig=<ID=chr12,length=133851895>",
+        "##contig=<ID=chr13,length=115169878>",
+        "##contig=<ID=chr14,length=107349540>",
+        "##contig=<ID=chr15,length=102531392>",
+        "##contig=<ID=chr16,length=90354753>",
+        "##contig=<ID=chr17,length=81195210>",
+        "##contig=<ID=chr18,length=78077248>",
+        "##contig=<ID=chr19,length=59128983>",
+        "##contig=<ID=chr20,length=63025520>",
+        "##contig=<ID=chr21,length=48129895>",
+        "##contig=<ID=chr22,length=51304566>",
+        "##contig=<ID=chrMT,length=16569>",
+        "##contig=<ID=chrX,length=155270560>",
+        "##contig=<ID=chrY,length=59373566>",
+        '##FILTER=<ID=PASS,Description="All filters passed">',
+        '##INFO=<ID=Confidences,Number=1,Type=String,Description="convince of level of consuensus">',
+        '##INFO=<ID=RawAltNumber,Number=1,Type=String,Description="raw read number that support the alt">',
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
+        '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
+        '##FORMAT=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
+        '##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">',
+    ]
+    if chrom_name_is_numeric:
+        contig_info = [x.replace('=chr', '=') for x in contig_info]
+    for line in contig_info:
+        vcf.header.add_line(line)
+    return vcf
+
+
+def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_reads=2, min_conf=4, min_raw_reads=5):
     # call variant
     ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1], x[2]))
-    f = open(out, 'w')
+    sample = out.split('.', 1)[0]
+    vcf = create_vcf(out)
+    vcf.header.add_sample(sample)
+    variant_number = 0
     for key in ordered_keys:
         base_info = result[key]
         contig, position, ref_seq = key
@@ -398,7 +446,7 @@ def call_variant(result, out='mutation.txt', min_umi_depth=5, min_reads=2, min_c
         depth = len(bases)
         base_counter = Counter(bases)
         for base, freq in base_counter.items():
-            if base.upper() != ref_seq.upper():
+            if base.upper() != ref_seq:
                 # print(base_counter)
                 ad = (depth, freq)
                 af = freq / depth
@@ -409,6 +457,7 @@ def call_variant(result, out='mutation.txt', min_umi_depth=5, min_reads=2, min_c
                 if len(covs) >= min_reads and sum(confidences) >= min_conf \
                         and sum(covs) >= min_raw_reads and depth >= min_umi_depth:
                     # min_conf意味着至少要有2个一致性比较高的base支持
+                    variant_number += 1
                     # format output
                     if base.startswith('('):
                         # deletion
@@ -421,8 +470,23 @@ def call_variant(result, out='mutation.txt', min_umi_depth=5, min_reads=2, min_c
                     else:
                         ref = ref_seq
                         alt = base
-                    lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
-                    f.write('\t'.join(str(x) for x in lst)+'\n')
+                    # lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
+                    info = dict(Confidences=str(confidences), RawAltNumber=str(covs))
+                    record = vcf.new_record()
+                    record.contig = contig
+                    record.start = position
+                    record.ref = ref
+                    record.alts = [alt]
+                    record.qual = None
+                    record.filter.add('PASS')
+                    record.info.update(info)
+                    record.samples[sample]['DP'] = depth
+                    record.samples[sample]['VD'] = freq
+                    record.samples[sample]['AF'] = af
+                    vcf.write(record)
+    else:
+        vcf.close()
+        print('variant number', variant_number)
 
 
 def write_fastq(fq_lst, primer_number, r1='Consensus.R1.fq', r2='Consensus.R2.fq'):
@@ -476,7 +540,7 @@ def write_fastq(fq_lst, primer_number, r1='Consensus.R1.fq', r2='Consensus.R2.fq
                         print('Discard', fq_info)
 
 
-def run_all(primers, bam, read_type=64, cores=8, out='mutation.txt', min_reads=2, min_conf=5, min_bq=5,
+def run_all(primers, bam, read_type=64, cores=8, out='mutation.vcf', min_reads=2, min_conf=5, min_bq=5,
             genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     primers = [x.strip() for x in open(primers)]
     cores = len(primers) if len(primers) <= cores else cores
