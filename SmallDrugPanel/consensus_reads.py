@@ -147,17 +147,18 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     return represent, [rep_qual]*rep_len, [confidence]*rep_len, support_depth, contig, position, ref_seq
 
 
-def format_consensus_bases(bqc):
-    b, q, c = bqc
+def format_consensus_bases(base_info):
+    # base, qual, confidence, support_depth, contig, position, ref_seq
+    b, q, c, s, _, p, r = base_info
     if b.startswith('<'):
-        return b[1:-1], ''.join([chr(q[0]+33)] * (len(b) - 2)), ''.join([str(c[0])] * (len(b) - 2))
+        return b[1:-1], ''.join([chr(q[0]+33)] * (len(b) - 2)), ''.join([str(c[0])] * (len(b) - 2)), p
     elif b.startswith(('S', '(')):
-        return b[1], chr(q[1]+33), str(c[1])
+        return b[1], chr(q[1]+33), str(c[1]), p
     else:
-        return b[0], chr(q[0]+33), str(c[0])
+        return b[0], chr(q[0]+33), str(c[0]), p
 
 
-def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
+def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_overlaps=False,
                     genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
     # logger = set_logger('consensus.log.txt', logger_id='consensus')
@@ -228,7 +229,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
         truncate=True,
         min_base_quality=min_bq,
         ignore_orphans=False,
-        ignore_overlaps=False,
+        ignore_overlaps=ignore_overlaps,  # set 为True则意味着取质量高的base作为代表
         # 这里的max_depth一定要设的足够大，否则有可能漏掉reads
         max_depth=300000,
         fastafile=None,
@@ -287,6 +288,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
             base_info[2].append(read)
             base_info[3].append(insertion)
             base_info[4].append(group2overlap[group_name])
+
+    # 当同时进行read1和read2 consensus 且 read1和read2中间没有overlap，就会出现中间有些位置没有信息
     # pileup并不记录clipped情形，上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
     # 基于上面的结果，最后的consenus reads将不包含clipped掉的reads
     # 下面尝试把clipped的序列找回来，使consenus read结果包含clipped碱基
@@ -331,8 +334,6 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
         print(f'>{group_name}')
         print(f'median coverage is {median_cov}')
         print(f'top3 coverage frequency is {top}')
-        consensus_seq = ''.join(x[0] for x in consistent_bases).strip('X')
-        print(consensus_seq)
         # print(f'consensus sequence length is {len(consensus_seq)}')
         # print(f'we deem there is {group2overlap[group_name]}overlap between read1 and read2')
         # print(consistent_bases)
@@ -356,14 +357,19 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
             right_end = len(consistent_bases) if rm is None else len(consistent_bases) - len(rm.group())
 
             # 整理fastq的信息
-            bqc = [x[:3] for x in consistent_bases[left_start:right_end]]
+            base_info = consistent_bases[left_start:right_end]
             # 处理indel和clipped的标签信息
-            bqc = list(map(format_consensus_bases, bqc))
+            base_info = map(format_consensus_bases, base_info)
             # 形成fastq信息
-            seqs = ''.join(x[0] for x in bqc)
-            quals = ''.join(x[1] for x in bqc)
-            # confs = '+' + ''.join(x[2] for x in bqc)[1:]
-            confs = '+'
+            base_info_dict = {p:(b, q, c) for b, q, c, p in base_info}
+            min_pos = min(base_info_dict.keys())
+            max_pos = max(base_info_dict.keys())
+            continuous_pos = range(min_pos, max_pos+1)
+            # 把没有read覆盖的位置用X填补起来
+            seqs = ''.join(base_info_dict[p][0] if p in base_info_dict else 'X' for p in continuous_pos)
+            print(seqs)
+            quals = ''.join(base_info_dict[p][1] if p in base_info_dict else 'X' for p in continuous_pos)
+            confs = '+'  # 原本打算存储confidences信息，但感觉用途不大，放弃
             header = f'@{group_name} read_number:N:{int(median_cov)}:{group2overlap[group_name]}'
             fq_lst.append([read_type, header, seqs, confs, quals])
     else:
@@ -375,14 +381,10 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None,
 
 def consensus_read(data):
     consistent_bases = []
-    coverages = [len(v[0]) for k, v in data.items()]
+    coverages = [len(v[2]) for k, v in data.items()]
     top = Counter(coverages).most_common(3)
+    mean_depth = top[0][0]
     for (pos, ref, c), (bases, quals, reads, insertions, overlap) in data.items():
-        coverages.append(len(bases))
-        if Counter(overlap).most_common(1)[0][0] == 1:
-            mean_depth = top[0][0]/2
-        else:
-            mean_depth = top[0][0]
         consistent_bases.append(consensus_base(bases, quals, insertions, mean_depth, c, pos, ref))
     return consistent_bases, statistics.median(coverages), top
 
