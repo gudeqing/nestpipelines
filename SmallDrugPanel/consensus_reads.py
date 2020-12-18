@@ -163,6 +163,8 @@ def format_consensus_bases(base_info):
         return b[1:-1], ''.join([chr(q[0]+33)] * (len(b) - 2)), ''.join([str(c[0])] * (len(b) - 2)), p
     elif b.startswith(('S', '(')):
         return b[1], chr(q[1]+33), str(c[1]), p
+    elif b == '-':
+        return '', '', '', p
     else:
         return b[0], chr(q[0]+33), str(c[0]), p
 
@@ -283,7 +285,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 base = '(' + genome.fetch(contig, col.reference_pos, col.reference_pos+deletion_len+1) + ')'
             elif '*' in base:
                 # 这里deletion信息已经在deletion的上一个碱基进行了合并表示
-                base = ref
+                base = '-'
             elif base == '':
                 # 如果该位点没有覆盖，该处的base为''
                 base = 'X'
@@ -351,7 +353,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 # clipped 和没有read支持的位置不能call突变
                 key = tuple(key)
                 result.setdefault(key, [])
-                result[key].append((base, confidence, alt_depth))
+                result[key].append((base, confidence, alt_depth, group_name))
 
         # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
         if fq_lst is not None:
@@ -418,6 +420,8 @@ def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
         '##FILTER=<ID=PASS,Description="All filters passed">',
         '##INFO=<ID=Confidences,Number=1,Type=String,Description="convince of level of consuensus">',
         '##INFO=<ID=RawAltNumber,Number=1,Type=String,Description="raw read number that support the alt">',
+        '##INFO=<ID=GroupName,Number=1,Type=String,Description="group_name list">',
+        '##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant Type: SNV Insertion Deletion Complex">',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
         '##FORMAT=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
@@ -451,26 +455,30 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                 af = freq / depth
                 confidences = [x[1][0] for x in base_info if x[0] == base]
                 covs = [x[2] for x in base_info if x[0] == base]
-                # umis = [x[3] for x in base_info if x[0] == base]
+                group_name = [x[3] for x in base_info if x[0] == base]
                 # filtering
                 if len(covs) >= min_alt_num and sum(confidences) >= min_conf \
                         and sum(covs) >= min_raw_alt_num and depth >= min_umi_depth:
                     # min_conf意味着至少要有2个一致性比较高的base支持
                     variant_number += 1
+                    mut_type = 'SNP'
                     # format output
                     if base.startswith('('):
                         # deletion
                         ref = base[1:-1]
                         alt = ref_seq
+                        mut_type = 'Deletion'
                     elif base.startswith('<'):
                         # insertion
                         ref = ref_seq
                         alt = base[1:-1]
+                        mut_type = 'Insertion'
                     else:
                         ref = ref_seq
                         alt = base
-                    # lst = (contig, position + 1, ref, alt, ad, af, confidences, covs)
-                    info = dict(Confidences=str(confidences), RawAltNumber=str(covs))
+                    info = dict(
+                        Confidences=str(confidences), RawAltNumber=str(covs),
+                        GroupName=str(group_name), TYPE=mut_type)
                     record = vcf.new_record()
                     record.contig = contig
                     record.start = position
