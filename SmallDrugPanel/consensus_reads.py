@@ -349,7 +349,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
         # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
         for base, qual, confidence, alt_depth, *key in consistent_bases:
-            if base[0] not in ['S', 'X']:
+            if base[0] not in ['S', 'X', '-']:
                 # clipped 和没有read支持的位置不能call突变
                 key = tuple(key)
                 result.setdefault(key, [])
