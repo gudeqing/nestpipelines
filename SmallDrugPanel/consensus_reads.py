@@ -147,6 +147,15 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     return represent, [rep_qual]*rep_len, [confidence]*rep_len, support_depth, contig, position, ref_seq
 
 
+def consensus_read(data):
+    coverages = [len(set(v[2])) for k, v in data.items()]
+    median_depth = statistics.median(coverages)
+    consistent_bases = []
+    for (pos, ref, c), (bases, quals, reads, insertions, overlap) in data.items():
+        consistent_bases.append(consensus_base(bases, quals, insertions, median_depth, c, pos, ref))
+    return consistent_bases, median_depth, Counter(coverages).most_common(3)
+
+
 def format_consensus_bases(base_info):
     # base, qual, confidence, support_depth, contig, position, ref_seq
     b, q, c, s, _, p, r = base_info
@@ -331,12 +340,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 print(group2read[group_name])
             continue
         consistent_bases, median_cov, top = consensus_read(data)
-        print(f'>{group_name}')
-        print(f'median coverage is {median_cov}')
-        print(f'top3 coverage frequency is {top}')
-        # print(f'consensus sequence length is {len(consensus_seq)}')
+        print(f'>{group_name} overlap:{group2overlap[group_name]}')
+        print(f'median coverage is {median_cov} and base number for Top3 coverages is {top}')
         # print(f'we deem there is {group2overlap[group_name]}overlap between read1 and read2')
-        # print(consistent_bases)
 
         # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
@@ -377,16 +383,6 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
             fq_lst.append([primer])
 
     return result
-
-
-def consensus_read(data):
-    consistent_bases = []
-    coverages = [len(v[2]) for k, v in data.items()]
-    top = Counter(coverages).most_common(3)
-    mean_depth = top[0][0]
-    for (pos, ref, c), (bases, quals, reads, insertions, overlap) in data.items():
-        consistent_bases.append(consensus_base(bases, quals, insertions, mean_depth, c, pos, ref))
-    return consistent_bases, statistics.median(coverages), top
 
 
 def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
