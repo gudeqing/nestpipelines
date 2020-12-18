@@ -104,7 +104,7 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
             confidence = 1
         else:
             confidence = 3
-    elif top1_ratio >= 0.75:
+    elif top1_ratio >= 0.75 and depth > 1:
         represent = top[0][0]
         confidence = 3
     else:
