@@ -552,7 +552,7 @@ def run_all(primers, bam, read_type=0, cores=8, out='mutation.vcf', min_bq=10,
     result = dict()
     if cores <= 1:
         for primer in primers:
-            result.update(consensus_reads(bam, primer, read_type, min_bq, fq_lst, genome))
+            result.update(consensus_reads(bam, primer, read_type, min_bq, fq_lst, genome=genome))
             write_fastq(fq_lst, 1)
     else:
         get_consensus_reads = partial(
