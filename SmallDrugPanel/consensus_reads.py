@@ -439,6 +439,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
     vcf = create_vcf(out)
     vcf.header.add_sample(sample)
     variant_number = 0
+    # 目前还没有实现对相邻突变进行合并的功能
     for key in ordered_keys:
         base_info = result[key]
         contig, position, ref_seq = key
@@ -448,7 +449,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
         for base, freq in base_counter.items():
             if base.upper() != ref_seq:
                 # print(base_counter)
-                ad = (depth, freq)
+                # ad = (depth, freq)
                 af = freq / depth
                 confidences = [x[1][0] for x in base_info if x[0] == base]
                 covs = [x[2] for x in base_info if x[0] == base]
