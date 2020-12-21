@@ -119,7 +119,6 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
             # 当第一名和第二名相差很接近时，根据碱基质量的平均值来选择base
             # 当只有2个read时，同样如此处理，虽然或许不大对
             # 也有可能只有3条reads，而且它们互不一致
-            # 所以当支持的reads比例少于一定比例时不应该进行consensus？
             bqd = dict()
             for b, q in zip(bases, quals):
                 bqd.setdefault(b, set())
@@ -349,12 +348,56 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
 
         # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
-        for base, qual, confidence, alt_depth, *key in consistent_bases:
+        complex = []  # 一条reads中连续的snv合并为complex,允许中间存在一个间隔
+        gap = 0
+        for base, qual, confidence, alt_depth, chr_name, pos, ref in consistent_bases:
             if base[0] not in ['S', 'X', '-']:
                 # clipped 和没有read支持的位置不能call突变
-                key = tuple(key)
-                result.setdefault(key, [])
-                result[key].append((base, confidence, alt_depth, group_name))
+                if base != ref:
+                    if base.startswith('<') or base.startswith('('):
+                        # insertion | deletion
+                        key = (chr_name, pos, ref)
+                        result.setdefault(key, [])
+                        result[key].append((base, confidence, alt_depth, group_name))
+                    else:
+                        # SNP or Complex, 该位置的信息将在后续complex分析完成后存储
+                        gap = 0  # gap 重新从0开始计数
+                        complex.append([pos, base, ref, confidence, alt_depth])
+                else:
+                    # 对于没有突变的位点，正常更新每个位点信息
+                    key = (chr_name, pos, ref)
+                    result.setdefault(key, [])
+                    result[key].append((base, confidence, alt_depth, group_name))
+
+                    if complex:
+                        gap += 1
+                        if gap < 2:
+                            # 直接进入下一轮循环, 目的是控制complex突变中允许存在一个未变异的gap
+                            continue
+
+                        # 复合突变延长过程时第二次碰到没有突变位点时，把complex容器中的突变取出并合并为一个复合突变
+                        if len(complex) == 1:
+                            # SNP
+                            pos, base, ref, confidence, alt_depth = complex[0]
+                            key = (chr_name, pos, ref)
+                            result.setdefault(key, [])
+                            result[key].append((base, confidence, alt_depth, group_name))
+                        else:
+                            # complex
+                            p, b, r, c, a = list(zip(*complex))
+                            # 以第一个突变位置为索引进行突变信息存储
+                            key = (chr_name, p[0], r[0])
+                            alt = ''.join(r) + ':'+ ''.join(b)  # 带入ref信息方便variant的输出
+                            result.setdefault(key, [])
+                            result[key].append((alt, max(c), max(a), group_name))
+                            # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
+                            for p, b, r, c, a in complex[1:]:
+                                key = (chr_name, p, r)
+                                result.setdefault(key, [])
+                                result[key].append((r, c, a, group_name))
+
+                        # 清空之前得到的complex, 方便下一个complex突变的存储
+                        complex = []
 
         # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
         if fq_lst is not None:
@@ -420,9 +463,17 @@ def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
         "##contig=<ID=chrY,length=59373566>",
         '##FILTER=<ID=PASS,Description="All filters passed">',
         '##INFO=<ID=Confidences,Number=1,Type=String,Description="convince of level of consuensus">',
-        '##INFO=<ID=RawAltNumber,Number=1,Type=String,Description="raw read number that support the alt">',
+        '##INFO=<ID=RawAlt,Number=1,Type=String,Description="raw read number that support the alt in each umi cluster">',
         '##INFO=<ID=GroupName,Number=1,Type=String,Description="group_name list">',
         '##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant Type: SNV Insertion Deletion Complex">',
+        '##INFO=<ID=RawAltSum,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
+        '##INFO=<ID=RawAltMedian,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
+        '##INFO=<ID=ConfidenceSum,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
+        '##INFO=<ID=ConfidenceMedian,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
+        '##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
+        # '##INFO=<ID=END,Number=1,Type=Integer,Description="Chr End Position">',
+        '##INFO=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
+        '##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
         '##FORMAT=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
@@ -437,7 +488,7 @@ def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
 
 def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min_conf=4, min_raw_alt_num=5):
     # call variant
-    ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1], x[2]))
+    ordered_keys = sorted(result.keys(), key=lambda x: (x[0], x[1]))
     sample = out.split('.', 1)[0]
     vcf = create_vcf(out)
     vcf.header.add_sample(sample)
@@ -458,8 +509,14 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                 covs = [x[2] for x in base_info if x[0] == base]
                 group_name = [x[3] for x in base_info if x[0] == base]
                 # filtering
-                if len(covs) >= min_alt_num and sum(confidences) >= min_conf \
-                        and sum(covs) >= min_raw_alt_num and depth >= min_umi_depth:
+                umi_alt_depth = len(covs)
+                confidence_sum = sum(confidences)
+                raw_alt_depth = sum(covs)
+                if umi_alt_depth >= min_alt_num and confidence_sum >= min_conf \
+                        and raw_alt_depth >= min_raw_alt_num and depth >= min_umi_depth:
+                    if raw_alt_depth/umi_alt_depth < 1.2 and af < 0.02:
+                        # raw support read 太小 = UMI作用失效 = 测序错误率还是很大= 低频突变不可靠
+                        continue
                     # min_conf意味着至少要有2个一致性比较高的base支持
                     variant_number += 1
                     mut_type = 'SNP'
@@ -474,12 +531,25 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                         ref = ref_seq
                         alt = base[1:-1]
                         mut_type = 'Insertion'
+                    elif ':' in base:
+                        ref, alt = base.split(':')
+                        mut_type = 'Complex'
                     else:
                         ref = ref_seq
                         alt = base
                     info = dict(
-                        Confidences=str(confidences), RawAltNumber=str(covs),
-                        GroupName=str(group_name), TYPE=mut_type)
+                        TYPE=mut_type,
+                        AF=af,
+                        DP=depth,
+                        VD=umi_alt_depth,
+                        ConfidenceSum=confidence_sum,
+                        RawAltSum=raw_alt_depth,
+                        ConfidenceMedian=statistics.median_high(confidences),
+                        RawAltMedian=statistics.median_high(covs),
+                        Confidences=str(confidences),
+                        RawAlt=str(covs),
+                        # GroupName=str(group_name),
+                    )
                     record = vcf.new_record()
                     record.contig = contig
                     record.start = position
