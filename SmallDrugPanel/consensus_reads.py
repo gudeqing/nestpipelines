@@ -83,6 +83,7 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
     # 返回3(相对depth以75%以上的比例票支持), 返回2(大部分选票支持），返回1（票选相当，靠qual取胜）
     # 输入的base中，'D'表示deletion, ‘I\d’表示insertion ‘S[ATCG]'表示clipped
     current_depth = len(bases)
+    depth = current_depth if current_depth > depth else depth
 
     if not bases:
         # 当前位置完全没有read支持
@@ -149,7 +150,7 @@ def consensus_base(bases, quals, insertions, depth, contig, position, ref_seq):
 
 def consensus_read(data):
     coverages = [len(set(v[2])) for k, v in data.items()]
-    median_depth = statistics.median(coverages)
+    median_depth = statistics.median_high(coverages)
     consistent_bases = []
     for (pos, ref, c), (bases, quals, reads, insertions, overlap) in data.items():
         consistent_bases.append(consensus_base(bases, quals, insertions, median_depth, c, pos, ref))
@@ -223,7 +224,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
     else:
         print(f'there are {len(group2read)} groups!')
         group_sizes = [len(v) for k, v in group2read.items()]
-        median_size = statistics.median(group_sizes)
+        median_size = statistics.median_high(group_sizes)
         print('(min, median, max) group size', (min(group_sizes), median_size, max(group_sizes)))
         for k, v in group2overlap.items():
             if sum(v)/len(v) > 0.6:
