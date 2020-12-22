@@ -5,6 +5,10 @@ from functools import partial
 import logging
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import Pool, Manager
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import numpy as np
 import pysam
 from umi_tools import UMIClusterer
 
@@ -204,7 +208,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
     # group reads by primer and umi
     read2group = group_reads(bam, primer, contig, start, end, method='directional')
     if not read2group:
-        print('primer has no corresponding reads!')
+        print(f'primer {primer} has no corresponding reads!')
     group2read = dict()
     group2overlap = dict()
     for k, v in read2group.items():
@@ -221,8 +225,9 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
             else:
                 group2overlap[v[0]].append(1)
     else:
-        print(f'there are {len(group2read)} groups!')
-        group_sizes = [len(v) for k, v in group2read.items()]
+        print(f'there are {len(group2read)} groups for primer {primer}')
+        group_size_dict = {k:len(v) for k,v in group2read.items()}
+        group_sizes = group_size_dict.values()
         median_size = statistics.median_high(group_sizes)
         print('(min, median, max) group size', (min(group_sizes), median_size, max(group_sizes)))
         for k, v in group2overlap.items():
@@ -251,6 +256,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
     genome = pysam.FastaFile(genome)
 
     ## 初始化pileup存储容器
+    final_used_read = dict()
     pileup_dict = dict()
     for group_name in group2read:
         pileup_dict[group_name] = dict()
@@ -290,6 +296,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 # 如果该位点没有覆盖，该处的base为''
                 base = 'X'
             group_name = read2group[read][0]
+            final_used_read[read] = group_name
             data = pileup_dict[group_name]
             pos = (col.reference_pos, ref, contig)
             # data.setdefault(pos, [[base], [qual], [read], [insertion], [is_overlap])
@@ -299,6 +306,12 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
             base_info[2].append(read)
             base_info[3].append(insertion)
             base_info[4].append(group2overlap[group_name])
+
+     # final used read dict
+    final_group_size_dict = dict()
+    for k, v in final_used_read.items():
+        final_group_size_dict.setdefault(v, 0)
+        final_group_size_dict[v] += 1
 
     # 当同时进行read1和read2 consensus 且 read1和read2中间没有overlap，就会出现中间有些位置没有信息
     # pileup并不记录clipped情形，上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
@@ -428,13 +441,13 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
         if fq_lst is not None:
             fq_lst.append([primer])
 
-    return result
+    return result, final_group_size_dict
 
 
 def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
     vcf = pysam.VariantFile(vcf_path, 'w')
     contig_info = [
-        '##fileformat=VCFv4.3',
+        '##fileformat=VCFv4.2',
         f'##assembly={genome}',
         "##contig=<ID=chr1,length=249250621>",
         "##contig=<ID=chr2,length=243199373>",
@@ -462,14 +475,14 @@ def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
         "##contig=<ID=chrX,length=155270560>",
         "##contig=<ID=chrY,length=59373566>",
         '##FILTER=<ID=PASS,Description="All filters passed">',
-        '##INFO=<ID=Confidences,Number=1,Type=String,Description="convince of level of consuensus">',
-        '##INFO=<ID=RawAlt,Number=1,Type=String,Description="raw read number that support the alt in each umi cluster">',
+        '##INFO=<ID=Confidences,Number=1,Type=String,Description="Confidence level in range of [1, 2, 3], higher value indicates more reliable during consensusing process">',
+        '##INFO=<ID=RawAlt,Number=1,Type=String,Description="Number of Raw reads that support the mutation in each umi cluster">',
         '##INFO=<ID=GroupName,Number=1,Type=String,Description="group_name list">',
         '##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant Type: SNV Insertion Deletion Complex">',
-        '##INFO=<ID=RawAltSum,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
-        '##INFO=<ID=RawAltMedian,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
-        '##INFO=<ID=ConfidenceSum,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
-        '##INFO=<ID=ConfidenceMedian,Number=1,Type=Integer,Description="Variant Type: SNV Insertion Deletion Complex">',
+        '##INFO=<ID=RawAltSum,Number=1,Type=Integer,Description="Total number of raw reads that support the mutation">',
+        '##INFO=<ID=RawAltMedian,Number=1,Type=Integer,Description="Median number of raw reads that support the mutation">',
+        '##INFO=<ID=ConfidenceSum,Number=1,Type=Integer,Description="Sum of confidence levels ">',
+        '##INFO=<ID=ConfidenceMedian,Number=1,Type=Integer,Description="Median confidence level">',
         '##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
         # '##INFO=<ID=END,Number=1,Type=Integer,Description="Chr End Position">',
         '##INFO=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
@@ -515,7 +528,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                 if umi_alt_depth >= min_alt_num and confidence_sum >= min_conf \
                         and raw_alt_depth >= min_raw_alt_num and depth >= min_umi_depth:
                     if raw_alt_depth/umi_alt_depth < 1.2 and af < 0.02:
-                        # raw support read 太小 = UMI作用失效 = 测序错误率还是很大= 低频突变不可靠
+                        # raw support read 太小 = UMI作用失效 = 测序错误率还是很大 = 低频突变不可靠
                         continue
                     # min_conf意味着至少要有2个一致性比较高的base支持
                     variant_number += 1
@@ -618,22 +631,132 @@ def write_fastq(fq_lst, primer_number, r1='Consensus.R1.fq', r2='Consensus.R2.fq
                         print('Discard', fq_info)
 
 
-def run_all(primers, bam, read_type=0, cores=8, out='mutation.vcf', min_bq=10,
+def get_color_pool(n):
+    # https://plot.ly/ipython-notebooks/color-scales/
+    # import colorlover
+    # if n <= 8:
+    #     if n <= 3:
+    #         n = 3
+    #     return colorlover.scales[str(n)]['qual']['Set1']
+    # if n <= 12:
+    #     return colorlover.scales[str(n)]['qual']['Paired']
+    # colorlover的颜色现在不能直接输给matplotlib，需要进行转换才可以
+
+    import random
+    random.seed(666)
+
+    def get_random_color(pastel_factor=0.5):
+        return [(x + pastel_factor) / (1.0 + pastel_factor) for x in [random.uniform(0, 1.0) for i in [1, 2, 3]]]
+
+    def color_distance(c1, c2):
+        return sum([abs(x[0] - x[1]) for x in zip(c1, c2)])
+
+    def generate_new_color(existing_colors, pastel_factor=0.5):
+        max_distance = None
+        best_color = None
+        for i in range(0, 100):
+            color = get_random_color(pastel_factor=pastel_factor)
+            # exclude some colors
+            if np.absolute(np.array(color) - np.array([1, 1, 1])).sum() < 0.1:
+                continue
+            if not existing_colors:
+                return color
+            best_distance = min([color_distance(color, c) for c in existing_colors])
+            if not max_distance or best_distance > max_distance:
+                max_distance = best_distance
+                best_color = color
+        return best_color
+
+    color_pool = []
+    for i in range(0, n):
+        color_pool.append(generate_new_color(color_pool, pastel_factor=0.3))
+    # color_pool = [(int(x * 255), int(y * 255), int(z * 255)) for x, y, z in color_pool]
+    color_pool = sorted(color_pool, key=lambda x: (x[0], x[1], x[2]))
+    # color_pool = [matplotlib.colors.to_rgba(x) for x in color_pool]
+    # print(color_pool)
+    return color_pool
+
+
+def plot_bar(info_dict, colors, fontsize, rotation, out, label_bar=False, title=''):
+    fig, ax = plt.subplots()
+    x_num = len(info_dict)
+    x_pos = range(x_num)
+    rects = ax.bar(x_pos, info_dict.values(), width=0.7, color=colors)
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(info_dict.keys(), fontsize=fontsize, rotation=rotation)
+    ax.set_xlim(-1, x_num)
+    ax.tick_params(axis='y', labelsize=fontsize+1)
+    # mean_number = sum(info_dict.values()) / len(info_dict)
+    mean_number = np.mean(list(info_dict.values()))
+    median_number = np.median(list(info_dict.values()))
+    ax.axhline(y=mean_number, c="r", ls="--", lw=0.6, label=f'Mean={int(mean_number)}')
+    ax.axhline(y=median_number, c="r", ls="--", lw=0.6, label=f'Median={int(median_number)}')
+    ax.axhline(y=mean_number * 0.25, c="r", ls="--", lw=0.5, label='25%Mean')
+    ax.axhline(y=median_number * 0.25, c="r", ls="--", lw=0.5, label='25%Median')
+    ax.spines['right'].set_color('None')  # 右框不显示
+    ax.spines['top'].set_color('None')  # 上框不显示
+    if label_bar:
+        def autolabel(rects):
+            """Attach a text label above each bar in *rects*, displaying its height."""
+            for rect in rects:
+                height = rect.get_height()
+                height_percent = f'{height/sum(info_dict.values()):.2%}'
+                ax.annotate('{}'.format(height_percent),
+                            xy=(rect.get_x() + rect.get_width() / 2, height),
+                            xytext=(0, 2),  # 3 points vertical offset
+                            textcoords="offset points",
+                            ha='center', va='bottom', rotation=60, fontsize=5)
+        autolabel(rects)
+    ax.set_title(title, fontsize='small')
+    plt.tight_layout()
+    plt.legend(prop=dict(size=6))
+    plt.savefig(out)
+    plt.close()
+
+
+def draw_primer_umi_bar(primer_umi_dict, out_prefix):
+    info_dict = dict()
+    for k, v in primer_umi_dict.items():
+        primer, umi = k.rsplit(':', 1)
+        info_dict.setdefault(primer, 0)
+        info_dict[primer] += 1
+    get_gene = lambda x: x.split(':')[-1]
+    genes = sorted({get_gene(x) for x in info_dict.keys()})
+    colors = get_color_pool(len(genes))
+    color_dict = dict(zip(genes, colors))
+    colors = [color_dict[get_gene(x)] for x in info_dict.keys()]
+    title = 'Consensus UMI distribution for each primer'
+    out = f'{out_prefix}.' + title.title().replace(' ', '') + '.pdf'
+    plot_bar(info_dict, colors=colors, fontsize=3, rotation=90, out=out, title=title)
+
+    # plot group size distribution
+    group_sizes = primer_umi_dict.values()
+    plt.hist(group_sizes, bins=50)
+    plt.gca().set(title='Frequency Histogram', ylabel='Frequency', xlabel='Group size')
+    plt.savefig(f'{out_prefix}.'+'UMIGroupSize.pdf')
+    plt.close()
+
+
+def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
             min_umi_depth=8, min_alt_num=2, min_conf=5, min_raw_alt_num=5,
             genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
     primers = [x.strip() for x in open(primers)]
     cores = len(primers) if len(primers) <= cores else cores
     # 开拓进程之间的共享空间, 即使用一个进程间可以共享的list，
     # N-1个进程往list里添加信息，剩下一个进程从list清空信息并输出到同一个文件
-    manager = Manager()
-    fq_lst = manager.list()
 
     result = dict()
+    primer_umi_group = dict()
     if cores <= 1:
+        fq_lst = []
         for primer in primers:
-            result.update(consensus_reads(bam, primer, read_type, min_bq, fq_lst, genome=genome))
+            r, g = consensus_reads(bam, primer, read_type, min_bq, fq_lst, genome=genome)
+            result.update(r)
+            primer_umi_group.update(g)
             write_fastq(fq_lst, 1)
     else:
+        manager = Manager()
+        fq_lst = manager.list()
         get_consensus_reads = partial(
             consensus_reads, bam, read_type=read_type, min_bq=min_bq, fq_lst=fq_lst, genome=genome
         )
@@ -643,9 +766,31 @@ def run_all(primers, bam, read_type=0, cores=8, out='mutation.vcf', min_bq=10,
                 tasks.append(pool.submit(get_consensus_reads, each))
             futures = [x.result() for x in tasks[1:]]
             tasks[0].result()
-            _ = [result.update(x) for x in futures]
+            for r, g in futures:
+                result.update(r)
+                primer_umi_group.update(g)
 
-    call_variant(result, out, min_umi_depth=min_umi_depth, min_alt_num=min_alt_num,
+    draw_primer_umi_bar(primer_umi_group, out_prefix=out_prefix)
+    with open(f'{out_prefix}.primer_umi_stat.txt', 'w') as f:
+        total_reads = sum(primer_umi_group.values())
+        total_groups = len(primer_umi_group)
+        median_group_size = statistics.median_high(primer_umi_group.values())
+        group_size_over_5 = sum(x>=5 for x in primer_umi_group.values())
+        group_size_over_10 = sum(x>=10 for x in primer_umi_group.values())
+        group_size_over_20 = sum(x>=20 for x in primer_umi_group.values())
+        group_size_over_50 = sum(x>=50 for x in primer_umi_group.values())
+        f.write(f'##total_used_paired_reads: {total_reads}\n')
+        f.write(f'##group_number(grouped by both Primer and UMI): {total_groups}\n')
+        f.write(f'##median_group_size: {median_group_size}\n')
+        f.write(f'##number_of_group_with_size_over_5: {group_size_over_5}\n')
+        f.write(f'##number_of_group_with_size_over_10: {group_size_over_10}\n')
+        f.write(f'##number_of_group_with_size_over_20: {group_size_over_20}\n')
+        f.write(f'##number_of_group_with_size_over_50: {group_size_over_50}\n')
+        f.write(f'#group_name\tgroup_size\n')
+        for k, v in sorted(primer_umi_group.items(), key=lambda x:(x[0], -x[0])):
+            f.write(f'{k}\t{v}\n')
+
+    call_variant(result, f'{out_prefix}.mutation.vcf', min_umi_depth=min_umi_depth, min_alt_num=min_alt_num,
                  min_conf=min_conf, min_raw_alt_num=min_raw_alt_num)
 
 
