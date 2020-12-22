@@ -357,8 +357,9 @@ class VardictFilter():
                 # error_rate = seq_error_dict[key][r.alts[0][0]]
                 key = gn.fetch(r.contig, r.start - key_left, r.start + 1 + key_right).upper()
                 # print(r.pos, key, r.ref, r.alts)
-                if key in seq_error_dict[r.alts[0][0]]:
-                    error_rate = seq_error_dict[r.alts[0][0]][key][r.alts[0][0]]
+
+                if key in seq_error_dict[r.alts[0][0].upper()]:
+                    error_rate = seq_error_dict[r.alts[0][0].upper()][key][r.alts[0][0].upper()]
                 else:
                     error_rate = 1e-6
 

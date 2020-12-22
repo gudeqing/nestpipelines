@@ -280,7 +280,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 # 对于insertion，也可能测错误，所以需要单独collapse，
                 # 使用'I'代替是否有insertion，然后对insertion进行call consensus
                 # 只能对相同长度的insertion进行校正, 下面的insertion包含ref
-                insertion = re.sub('\+\d+',  '', base)
+                insertion = re.sub('\+\d+',  '', base).upper()
                 base = 'I'+str(len(insertion))
                 # logger.info('insertion:' + read.to_string())
             elif '-' in base:
