@@ -689,10 +689,10 @@ def plot_bar(info_dict, colors, fontsize, rotation, out, label_bar=False, title=
     # mean_number = sum(info_dict.values()) / len(info_dict)
     mean_number = np.mean(list(info_dict.values()))
     median_number = np.median(list(info_dict.values()))
-    ax.axhline(y=mean_number, c="r", ls="--", lw=0.6, label=f'Mean={int(mean_number)}')
-    ax.axhline(y=median_number, c="r", ls="--", lw=0.6, label=f'Median={int(median_number)}')
+    ax.axhline(y=mean_number, c="k", ls="--", lw=0.6, label=f'Mean={int(mean_number)}')
+    # ax.axhline(y=median_number, c="r", ls="--", lw=0.6, label=f'Median={int(median_number)}')
     ax.axhline(y=mean_number * 0.25, c="r", ls="--", lw=0.5, label='25%Mean')
-    ax.axhline(y=median_number * 0.25, c="r", ls="--", lw=0.5, label='25%Median')
+    # ax.axhline(y=median_number * 0.25, c="r", ls="--", lw=0.5, label='25%Median')
     ax.spines['right'].set_color('None')  # 右框不显示
     ax.spines['top'].set_color('None')  # 上框不显示
     if label_bar:
@@ -787,7 +787,7 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
         f.write(f'##number_of_group_with_size_over_20: {group_size_over_20}\n')
         f.write(f'##number_of_group_with_size_over_50: {group_size_over_50}\n')
         f.write(f'#group_name\tgroup_size\n')
-        for k, v in sorted(primer_umi_group.items(), key=lambda x:(x[0], -x[0])):
+        for k, v in sorted(primer_umi_group.items(), key=lambda x:(x[0], -x[1])):
             f.write(f'{k}\t{v}\n')
 
     call_variant(result, f'{out_prefix}.mutation.vcf', min_umi_depth=min_umi_depth, min_alt_num=min_alt_num,
