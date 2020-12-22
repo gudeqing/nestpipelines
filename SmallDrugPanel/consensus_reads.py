@@ -747,13 +747,15 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
 
     result = dict()
     primer_umi_group = dict()
+    out_fq1 = f'{out_prefix}.R1.fq'
+    out_fq2 = f'{out_prefix}.R2.fq'
     if cores <= 1:
         fq_lst = []
         for primer in primers:
             r, g = consensus_reads(bam, primer, read_type, min_bq, fq_lst, genome=genome)
             result.update(r)
             primer_umi_group.update(g)
-            write_fastq(fq_lst, 1)
+            write_fastq(fq_lst, 1, r1=out_fq1, r2=out_fq2)
     else:
         manager = Manager()
         fq_lst = manager.list()
@@ -761,7 +763,7 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
             consensus_reads, bam, read_type=read_type, min_bq=min_bq, fq_lst=fq_lst, genome=genome
         )
         with ProcessPoolExecutor(cores) as pool:
-            tasks = [pool.submit(write_fastq, fq_lst, len(primers))]
+            tasks = [pool.submit(write_fastq, fq_lst, len(primers), out_fq1, out_fq2)]
             for each in primers:
                 tasks.append(pool.submit(get_consensus_reads, each))
             futures = [x.result() for x in tasks[1:]]
