@@ -411,6 +411,29 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
 
                         # 清空之前得到的complex, 方便下一个complex突变的存储
                         complex = []
+        else:
+            # 循环结束, 清理最后一个可能的complex
+            if complex:
+                if len(complex) == 1:
+                    # SNP
+                    pos, base, ref, confidence, alt_depth = complex[0]
+                    key = (chr_name, pos, ref)
+                    result.setdefault(key, [])
+                    result[key].append((base, confidence, alt_depth, group_name))
+                else:
+                    # complex
+                    p, b, r, c, a = list(zip(*complex))
+                    # 以第一个突变位置为索引进行突变信息存储
+                    key = (chr_name, p[0], r[0])
+                    alt = ''.join(r) + ':' + ''.join(b)  # 带入ref信息方便variant的输出
+                    result.setdefault(key, [])
+                    result[key].append((alt, max(c), max(a), group_name))
+                    # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
+                    for p, b, r, c, a in complex[1:]:
+                        key = (chr_name, p, r)
+                        result.setdefault(key, [])
+                        result[key].append((r, c, a, group_name))
+                complex = []
 
         # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
         if fq_lst is not None:
