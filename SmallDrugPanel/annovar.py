@@ -16,10 +16,21 @@ def annovar_annotation(vcf):
     g_r_pro = ['refGeneWithVer', 'cytoBand']
     f_pro = [
         'avsnp150',
-        'cosmic90', 'CGI',
-        'IntOGen', 'TCGA', 'icgc21', 'CancerHotspots', 'nci60', 'clinvar_20200316',
-        'esp6500siv2_all', '1000g2015aug_all', 'exac03', 'gnomad_exome', 'gme',
-        'intervar_20180118', 'dbnsfp33a'
+        'cosmic90',
+        'CGI',
+        'IntOGen',
+        'TCGA',
+        'icgc21',
+        'CancerHotspots',
+        'nci60',
+        'clinvar_20200316',
+        'esp6500siv2_all',
+        '1000g2015aug_all',
+        'exac03',
+        'gnomad_exome',
+        'gme',
+        'intervar_20180118',
+        'dbnsfp33a'
     ]
     protocols = ','.join(g_r_pro + f_pro)
     operations = 'g,r,' + ','.join(['f'] * len(f_pro))
