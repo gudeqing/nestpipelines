@@ -355,9 +355,8 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 print(group2read[group_name])
             continue
         consistent_bases, median_cov, top = consensus_read(data)
-        print(f'>{group_name} overlap:{group2overlap[group_name]}')
-        print(f'median coverage is {median_cov} and base number for Top3 coverages is {top}')
-        # print(f'we deem there is {group2overlap[group_name]}overlap between read1 and read2')
+        # print(f'>{group_name} overlap:{group2overlap[group_name]}')
+        # print(f'median coverage is {median_cov} and base number for Top3 coverages is {top}')
 
         # 制作突变需要的字典
         # umi = group_name.rsplit(':', 1)[-1]
@@ -455,7 +454,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
             continuous_pos = range(min_pos, max_pos+1)
             # 把没有read覆盖的位置用X填补起来
             seqs = ''.join(base_info_dict[p][0] if p in base_info_dict else 'X' for p in continuous_pos)
-            print(seqs)
+            # print(seqs)
             quals = ''.join(base_info_dict[p][1] if p in base_info_dict else 'X' for p in continuous_pos)
             confs = '+'  # 原本打算存储confidences信息，但感觉用途不大，放弃
             header = f'@{group_name} read_number:N:{int(median_cov)}:{group2overlap[group_name]}'
