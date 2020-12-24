@@ -543,7 +543,6 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                 af = freq / depth
                 confidences = [x[1][0] for x in base_info if x[0] == base]
                 covs = [x[2] for x in base_info if x[0] == base]
-                group_name = [x[3] for x in base_info if x[0] == base]
                 # filtering
                 umi_alt_depth = len(covs)
                 confidence_sum = sum(confidences)
@@ -585,7 +584,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                         RawAltMedian=statistics.median_high(covs),
                         Confidences=str(confidences),
                         RawAlt=str(covs),
-                        # GroupName=str(group_name),
+                        # GroupName=str([x[3] for x in base_info if x[0] == base]),
                     )
                     record = vcf.new_record()
                     record.contig = contig
@@ -595,7 +594,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                     record.qual = None
                     record.filter.add('PASS')
                     record.info.update(info)
-                    record.samples[sample]['GT'] = '0/1' if af < 0.9 else '1/1'
+                    record.samples[sample]['GT'] = (0, 1) if af < 0.9 else (1, 1)
                     record.samples[sample]['DP'] = depth
                     record.samples[sample]['VD'] = freq
                     record.samples[sample]['AF'] = af
