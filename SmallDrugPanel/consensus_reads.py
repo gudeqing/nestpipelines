@@ -510,7 +510,7 @@ def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
         # '##INFO=<ID=END,Number=1,Type=Integer,Description="Chr End Position">',
         '##INFO=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
         '##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">',
-        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype: 0/1 if AF < 0.9 else 1/1 ">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
         '##FORMAT=<ID=VD,Number=1,Type=Integer,Description="Variant Depth">',
         '##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">',
@@ -573,6 +573,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                     else:
                         ref = ref_seq
                         alt = base
+
                     info = dict(
                         TYPE=mut_type,
                         AF=af,
@@ -594,6 +595,7 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
                     record.qual = None
                     record.filter.add('PASS')
                     record.info.update(info)
+                    record.samples[sample]['GT'] = '0/1' if af < 0.9 else '1/1'
                     record.samples[sample]['DP'] = depth
                     record.samples[sample]['VD'] = freq
                     record.samples[sample]['AF'] = af
