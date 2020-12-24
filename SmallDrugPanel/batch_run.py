@@ -12,8 +12,13 @@ PROCESS_local = weakref.WeakKeyDictionary()
 
 def generate_cmds():
     if len(sys.argv) < 3:
-        print('usage: python batch_run.py <pipeline_template.ini> <fastq.info>')
+        print('usage: python batch_run.py <pipeline_template.ini> <fastq.info> [rerun 续跑时加上]')
         exit()
+    if len(sys.argv) >= 4:
+        rerun = True
+    else:
+        rerun = False
+
     pipeline_ini = sys.argv[1]
     fastq_info = sys.argv[2]
     cfp = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
@@ -31,7 +36,10 @@ def generate_cmds():
             pipeline_path = f'{sample}/{lst[0]}.pipeline.ini'
             cfp.write(open(pipeline_path, 'w'))
             pipeline_path = os.path.abspath(pipeline_path)
-            cmd = f'python /data/users/dqgu/PycharmProjects/nestcmd/basic/nestcmd.py -cfg {pipeline_path}'
+            if rerun:
+                cmd = f'python /data/users/dqgu/PycharmProjects/nestcmd/basic/nestcmd.py -cfg {pipeline_path} --rerun'
+            else:
+                cmd = f'python /data/users/dqgu/PycharmProjects/nestcmd/basic/nestcmd.py -cfg {pipeline_path}'
             cmds.append([sample, abspath, cmd])
     return cmds
 
