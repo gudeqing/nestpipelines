@@ -1,3 +1,4 @@
+import os
 import re
 import statistics
 from collections import Counter
@@ -762,6 +763,8 @@ def draw_primer_umi_bar(primer_umi_dict, out_prefix):
 def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
             min_umi_depth=8, min_alt_num=2, min_conf=5, min_raw_alt_num=5,
             genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
+    if not os.path.exists(bam):
+        raise Exception(f'{bam} not found!')
     primers = [x.strip()[1:] for x in open(primers) if x.startswith('>')]
     cores = len(primers) if len(primers) <= cores else cores
     # 开拓进程之间的共享空间, 即使用一个进程间可以共享的list，
