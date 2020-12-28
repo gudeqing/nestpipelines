@@ -232,7 +232,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                     group2overlap[v[0]].append(1)
         else:
             print(f'there are {len(group2read)} groups for primer {primer}')
-            group_size_dict = {k:len(v) for k,v in group2read.items()}
+            group_size_dict = {k: len(v) for k, v in group2read.items()}
             group_sizes = group_size_dict.values()
             median_size = statistics.median_high(group_sizes)
             print('(min, median, max) group size', (min(group_sizes), median_size, max(group_sizes)))
@@ -260,14 +260,13 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
         )
         # 在pos处带入ref信息
         genome = pysam.FastaFile(genome)
-
-        ## 初始化pileup存储容器
+        # 初始化pileup存储容器
         final_used_read = dict()
         pileup_dict = dict()
         for group_name in group2read:
             pileup_dict[group_name] = dict()
 
-        ## 逐一循环每一个位置，并按组分配
+        # 逐一循环每一个位置，并按组分配
         for col in cols:
             ref = genome.fetch(contig, col.reference_pos, col.reference_pos+1).upper()
             for base, qual, read in zip(
@@ -286,7 +285,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                     # 对于insertion，也可能测错误，所以需要单独collapse，
                     # 使用'I'代替是否有insertion，然后对insertion进行call consensus
                     # 只能对相同长度的insertion进行校正, 下面的insertion包含ref
-                    insertion = re.sub('\+\d+',  '', base).upper()
+                    insertion = re.sub(r'\+\d+',  '', base).upper()
                     base = 'I'+str(len(insertion))
                     # logger.info('insertion:' + read.to_string())
                 elif '-' in base:
@@ -313,7 +312,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 base_info[3].append(insertion)
                 base_info[4].append(group2overlap[group_name])
 
-         # final used read dict
+        # final used read dict
         final_group_size_dict = dict()
         for k, v in final_used_read.items():
             final_group_size_dict.setdefault(v, 0)
@@ -367,7 +366,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
 
             # 制作突变需要的字典
             # umi = group_name.rsplit(':', 1)[-1]
-            complex = []  # 一条reads中连续的snv合并为complex,允许中间存在一个间隔
+            complex_mut = []  # 一条reads中连续的snv合并为complex,允许中间存在一个间隔
             gap = 0
             for base, qual, confidence, alt_depth, chr_name, pos, ref in consistent_bases:
                 if base[0] not in ['S', 'X', '-']:
@@ -381,72 +380,72 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                         else:
                             # SNP or Complex, 该位置的信息将在后续complex分析完成后存储
                             gap = 0  # gap 重新从0开始计数
-                            complex.append([pos, base, ref, confidence, alt_depth])
+                            complex_mut.append([pos, base, ref, confidence, alt_depth])
                     else:
                         # 对于没有突变的位点，正常更新每个位点信息
                         key = (chr_name, pos, ref)
                         result.setdefault(key, [])
                         result[key].append((base, confidence, alt_depth, group_name))
 
-                        if complex:
+                        if complex_mut:
                             gap += 1
                             if gap < 2:
                                 # 直接进入下一轮循环, 目的是控制complex突变中允许存在一个未变异的gap
-                                complex.append([pos, base, ref, confidence, alt_depth])
+                                complex_mut.append([pos, base, ref, confidence, alt_depth])
                             else:
                                 # 此时，complex最后一组一定是非突变的，要去掉
-                                complex = complex[:-1]
+                                complex_mut = complex_mut[:-1]
                                 # 复合突变延长过程时第二次碰到没有突变位点时，把complex容器中的突变取出并合并为一个复合突变
-                                if len(complex) == 1:
+                                if len(complex_mut) == 1:
                                     # SNP
-                                    pos, base, ref, confidence, alt_depth = complex[0]
+                                    pos, base, ref, confidence, alt_depth = complex_mut[0]
                                     key = (chr_name, pos, ref)
                                     result.setdefault(key, [])
                                     result[key].append((base, confidence, alt_depth, group_name))
                                 else:
                                     # complex
-                                    p, b, r, c, a = list(zip(*complex))
+                                    p, b, r, c, a = list(zip(*complex_mut))
                                     # 以第一个突变位置为索引进行突变信息存储
                                     key = (chr_name, p[0], r[0])
-                                    alt = ''.join(r) + ':'+ ''.join(b)  # 带入ref信息方便variant的输出
+                                    alt = ''.join(r) + ':' + ''.join(b)  # 带入ref信息方便variant的输出
                                     result.setdefault(key, [])
                                     result[key].append((alt, max(c), max(a), group_name))
                                     # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
-                                    for p, b, r, c, a in complex[1:]:
+                                    for p, b, r, c, a in complex_mut[1:]:
                                         if b != ref:
                                             key = (chr_name, p, r)
                                             result.setdefault(key, [])
                                             result[key].append((r, c, a, group_name))
 
                                 # 清空之前得到的complex, 方便下一个complex突变的存储
-                                complex = []
+                                complex_mut = []
             else:
                 # 循环结束, 清理最后一个可能的complex
-                if complex:
-                    if complex[-1][1] == complex[-1][2]:
-                        complex = complex[:-1]
+                if complex_mut:
+                    if complex_mut[-1][1] == complex_mut[-1][2]:
+                        complex_mut = complex_mut[:-1]
 
-                    if len(complex) == 1:
+                    if len(complex_mut) == 1:
                         # SNP
-                        pos, base, ref, confidence, alt_depth = complex[0]
+                        pos, base, ref, confidence, alt_depth = complex_mut[0]
                         key = (chr_name, pos, ref)
                         result.setdefault(key, [])
                         result[key].append((base, confidence, alt_depth, group_name))
                     else:
                         # complex
-                        p, b, r, c, a = list(zip(*complex))
+                        p, b, r, c, a = list(zip(*complex_mut))
                         # 以第一个突变位置为索引进行突变信息存储
                         key = (chr_name, p[0], r[0])
                         alt = ''.join(r) + ':' + ''.join(b)  # 带入ref信息方便variant的输出
                         result.setdefault(key, [])
                         result[key].append((alt, max(c), max(a), group_name))
                         # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
-                        for p, b, r, c, a in complex[1:]:
+                        for p, b, r, c, a in complex_mut[1:]:
                             if b != r:
                                 key = (chr_name, p, r)
                                 result.setdefault(key, [])
                                 result[key].append((r, c, a, group_name))
-                    complex = []
+                    complex_mut = []
 
             # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
             if fq_lst is not None:
@@ -462,7 +461,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 # 处理indel和clipped的标签信息
                 base_info = map(format_consensus_bases, base_info)
                 # 形成fastq信息
-                base_info_dict = {p:(b, q, c) for b, q, c, p in base_info}
+                base_info_dict = {p: (b, q, c) for b, q, c, p in base_info}
                 min_pos = min(base_info_dict.keys())
                 max_pos = max(base_info_dict.keys())
                 continuous_pos = range(min_pos, max_pos+1)
@@ -484,7 +483,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
         print('An error was found in one process', r)
         if fq_lst is not None:
             fq_lst.append([primer])
-        return dict(),{primer+':NoReads': 0}
+        return dict(), {primer+':NoReads': 0}
 
 
 def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
@@ -731,7 +730,7 @@ def plot_bar(info_dict, colors, fontsize, rotation, out, label_bar=False, title=
     ax.tick_params(axis='y', labelsize=fontsize+1)
     # mean_number = sum(info_dict.values()) / len(info_dict)
     mean_number = np.mean(list(info_dict.values()))
-    median_number = np.median(list(info_dict.values()))
+    # median_number = np.median(list(info_dict.values()))
     ax.axhline(y=mean_number, c="k", ls="--", lw=0.6, label=f'Mean={int(mean_number)}')
     # ax.axhline(y=median_number, c="r", ls="--", lw=0.6, label=f'Median={int(median_number)}')
     ax.axhline(y=mean_number * 0.25, c="r", ls="--", lw=0.5, label='25%Mean')
@@ -823,10 +822,10 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
         total_reads = sum(primer_umi_group.values())
         total_groups = len(primer_umi_group)
         median_group_size = statistics.median_high(primer_umi_group.values())
-        group_size_over_5 = sum(x>=5 for x in primer_umi_group.values())
-        group_size_over_10 = sum(x>=10 for x in primer_umi_group.values())
-        group_size_over_20 = sum(x>=20 for x in primer_umi_group.values())
-        group_size_over_50 = sum(x>=50 for x in primer_umi_group.values())
+        group_size_over_5 = sum(x >= 5 for x in primer_umi_group.values())
+        group_size_over_10 = sum(x >= 10 for x in primer_umi_group.values())
+        group_size_over_20 = sum(x >= 20 for x in primer_umi_group.values())
+        group_size_over_50 = sum(x >= 50 for x in primer_umi_group.values())
         f.write(f'##total_used_paired_reads: {total_reads}\n')
         f.write(f'##group_number(grouped by both Primer and UMI): {total_groups}\n')
         f.write(f'##median_group_size: {median_group_size}\n')
@@ -835,7 +834,7 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
         f.write(f'##number_of_group_with_size_over_20: {group_size_over_20}\n')
         f.write(f'##number_of_group_with_size_over_50: {group_size_over_50}\n')
         f.write(f'#group_name\tgroup_size\n')
-        for k, v in sorted(primer_umi_group.items(), key=lambda x:(x[0], -x[1])):
+        for k, v in sorted(primer_umi_group.items(), key=lambda x: (x[0], -x[1])):
             f.write(f'{k}\t{v}\n')
 
     call_variant(result, f'{out_prefix}.mutation.vcf', min_umi_depth=min_umi_depth, min_alt_num=min_alt_num,
