@@ -392,34 +392,40 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                             gap += 1
                             if gap < 2:
                                 # 直接进入下一轮循环, 目的是控制complex突变中允许存在一个未变异的gap
-                                continue
-
-                            # 复合突变延长过程时第二次碰到没有突变位点时，把complex容器中的突变取出并合并为一个复合突变
-                            if len(complex) == 1:
-                                # SNP
-                                pos, base, ref, confidence, alt_depth = complex[0]
-                                key = (chr_name, pos, ref)
-                                result.setdefault(key, [])
-                                result[key].append((base, confidence, alt_depth, group_name))
+                                complex.append([pos, base, ref, confidence, alt_depth])
                             else:
-                                # complex
-                                p, b, r, c, a = list(zip(*complex))
-                                # 以第一个突变位置为索引进行突变信息存储
-                                key = (chr_name, p[0], r[0])
-                                alt = ''.join(r) + ':'+ ''.join(b)  # 带入ref信息方便variant的输出
-                                result.setdefault(key, [])
-                                result[key].append((alt, max(c), max(a), group_name))
-                                # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
-                                for p, b, r, c, a in complex[1:]:
-                                    key = (chr_name, p, r)
+                                # 此时，complex最后一组一定是非突变的，要去掉
+                                complex = complex[:-1]
+                                # 复合突变延长过程时第二次碰到没有突变位点时，把complex容器中的突变取出并合并为一个复合突变
+                                if len(complex) == 1:
+                                    # SNP
+                                    pos, base, ref, confidence, alt_depth = complex[0]
+                                    key = (chr_name, pos, ref)
                                     result.setdefault(key, [])
-                                    result[key].append((r, c, a, group_name))
+                                    result[key].append((base, confidence, alt_depth, group_name))
+                                else:
+                                    # complex
+                                    p, b, r, c, a = list(zip(*complex))
+                                    # 以第一个突变位置为索引进行突变信息存储
+                                    key = (chr_name, p[0], r[0])
+                                    alt = ''.join(r) + ':'+ ''.join(b)  # 带入ref信息方便variant的输出
+                                    result.setdefault(key, [])
+                                    result[key].append((alt, max(c), max(a), group_name))
+                                    # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
+                                    for p, b, r, c, a in complex[1:]:
+                                        if b != ref:
+                                            key = (chr_name, p, r)
+                                            result.setdefault(key, [])
+                                            result[key].append((r, c, a, group_name))
 
-                            # 清空之前得到的complex, 方便下一个complex突变的存储
-                            complex = []
+                                # 清空之前得到的complex, 方便下一个complex突变的存储
+                                complex = []
             else:
                 # 循环结束, 清理最后一个可能的complex
                 if complex:
+                    if complex[-1][1] == complex[-1][2]:
+                        complex = complex[:-1]
+
                     if len(complex) == 1:
                         # SNP
                         pos, base, ref, confidence, alt_depth = complex[0]
@@ -436,9 +442,10 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                         result[key].append((alt, max(c), max(a), group_name))
                         # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
                         for p, b, r, c, a in complex[1:]:
-                            key = (chr_name, p, r)
-                            result.setdefault(key, [])
-                            result[key].append((r, c, a, group_name))
+                            if b != r:
+                                key = (chr_name, p, r)
+                                result.setdefault(key, [])
+                                result[key].append((r, c, a, group_name))
                     complex = []
 
             # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
@@ -542,7 +549,6 @@ def call_variant(result, out='mutation.vcf', min_umi_depth=5, min_alt_num=2, min
     vcf = create_vcf(out)
     vcf.header.add_sample(sample)
     variant_number = 0
-    # 目前还没有实现对相邻突变进行合并的功能
     for key in ordered_keys:
         base_info = result[key]
         contig, position, ref_seq = key
