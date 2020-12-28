@@ -176,296 +176,306 @@ def format_consensus_bases(base_info):
 
 def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_overlaps=False,
                     genome='/nfs2/database/1_human_reference/hg19/ucsc.hg19.fasta'):
-    # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
-    # logger = set_logger('consensus.log.txt', logger_id='consensus')
-    primer_lst = primer.split(':')
-    contig = primer_lst[0]
-    pos = primer_lst[1]
-    if read_type == 64:
-        # 只解析read1
-        extend = 200
-    else:
-        # 不仅仅解析read1, 还可能解析read2
-        extend = 400
-    if primer_lst[-2] == "+":
-        start = int(pos.split('-')[1])
-        end = start + extend
-    else:
-        end = int(pos.split('-')[0])
-        start = end - extend
-    print(f"parsing region of {contig}:{start}-{end}")
-
-    if read_type == 64:
-        print('getting consensus read1')
-    elif read_type == 128:
-        print('getting consensus read2')
-    else:
-        # Exception('Only support read_type of [64, 128]')
-        print('getting consensus for both read1 and read2')
-
-    if type(bam) == str:
-        bam = pysam.AlignmentFile(bam)
-
-    # group reads by primer and umi
-    read2group = group_reads(bam, primer, contig, start, end, method='directional')
-    if not read2group:
-        print(f'primer {primer} has no corresponding reads!')
-    group2read = dict()
-    group2overlap = dict()
-    for k, v in read2group.items():
-        group2read.setdefault(v[0], set())
-        group2read[v[0]].add(k)
-        group2overlap.setdefault(v[0], [])
-        if read_type == 128 or read_type == 64:
-            # 单端read，直接判断为非overlap
-            group2overlap[v[0]].append(0)
+    try:
+        # primer example:  chr1:115252197-115252227:31:+:NRAS, 坐标为1-based
+        # logger = set_logger('consensus.log.txt', logger_id='consensus')
+        primer_lst = primer.split(':')
+        contig = primer_lst[0]
+        pos = primer_lst[1]
+        if read_type == 64:
+            # 只解析read1
+            extend = 200
         else:
-            # 判断是否overlap
-            if v[1] == v[2]:
+            # 不仅仅解析read1, 还可能解析read2
+            extend = 400
+        if primer_lst[-2] == "+":
+            start = int(pos.split('-')[1])
+            end = start + extend
+        else:
+            end = int(pos.split('-')[0])
+            start = end - extend
+        print(f"parsing region of {contig}:{start}-{end}")
+
+        if read_type == 64:
+            print('getting consensus read1')
+        elif read_type == 128:
+            print('getting consensus read2')
+        else:
+            # Exception('Only support read_type of [64, 128]')
+            print('getting consensus for both read1 and read2')
+
+        if type(bam) == str:
+            bam = pysam.AlignmentFile(bam)
+
+        # group reads by primer and umi
+        read2group = group_reads(bam, primer, contig, start, end, method='directional')
+        if not read2group:
+            print(f'primer {primer} has no corresponding reads!')
+            if fq_lst is not None:
+                fq_lst.append([primer])
+            return dict(), dict()
+
+        group2read = dict()
+        group2overlap = dict()
+        for k, v in read2group.items():
+            group2read.setdefault(v[0], set())
+            group2read[v[0]].add(k)
+            group2overlap.setdefault(v[0], [])
+            if read_type == 128 or read_type == 64:
+                # 单端read，直接判断为非overlap
                 group2overlap[v[0]].append(0)
             else:
-                group2overlap[v[0]].append(1)
-    else:
-        print(f'there are {len(group2read)} groups for primer {primer}')
-        group_size_dict = {k:len(v) for k,v in group2read.items()}
-        group_sizes = group_size_dict.values()
-        median_size = statistics.median_high(group_sizes)
-        print('(min, median, max) group size', (min(group_sizes), median_size, max(group_sizes)))
-        for k, v in group2overlap.items():
-            if sum(v)/len(v) > 0.6:
-                # 超过60%的read说当前read出现overlap
-                group2overlap[k] = 1
-            else:
-                group2overlap[k] = 0
-
-    # 获得每个分组的pileup列表, 返回的第一个位点不一定是start指定的，而是由实际比对情况决定的！
-    # 对于clipped 的base， pileup不会纳入，因此后面有代码把这些base找回来。
-    cols = bam.pileup(
-        contig, start, end,
-        stepper='samtools',
-        truncate=True,
-        min_base_quality=min_bq,
-        ignore_orphans=False,
-        ignore_overlaps=ignore_overlaps,  # set 为True则意味着取质量高的base作为代表
-        # 这里的max_depth一定要设的足够大，否则有可能漏掉reads
-        max_depth=300000,
-        fastafile=None,
-        flag_require=read_type,
-        flag_filter=4,
-    )
-    # 在pos处带入ref信息
-    genome = pysam.FastaFile(genome)
-
-    ## 初始化pileup存储容器
-    final_used_read = dict()
-    pileup_dict = dict()
-    for group_name in group2read:
-        pileup_dict[group_name] = dict()
-
-    ## 逐一循环每一个位置，并按组分配
-    for col in cols:
-        ref = genome.fetch(contig, col.reference_pos, col.reference_pos+1).upper()
-        for base, qual, read in zip(
-                # 如不加add_indels参数，那么将无法知晓插入的碱基序列
-                col.get_query_sequences(add_indels=True),
-                col.get_query_qualities(),
-                col.get_query_names()):
-            # print(base, qual, read)
-            # print(col.reference_pos)
-            # print('FIND', read)
-            if read not in read2group:
-                continue
-            insertion = ''
-            if '+' in base:
-                # such as 'G+2AT'
-                # 对于insertion，也可能测错误，所以需要单独collapse，
-                # 使用'I'代替是否有insertion，然后对insertion进行call consensus
-                # 只能对相同长度的insertion进行校正, 下面的insertion包含ref
-                insertion = re.sub('\+\d+',  '', base).upper()
-                base = 'I'+str(len(insertion))
-                # logger.info('insertion:' + read.to_string())
-            elif '-' in base:
-                # such as 'G-1N'
-                # base = re.split('-\d+', base)[0]
-                deletion_len = int(base.split('-')[1].upper().rstrip('N'))
-                # 用'<'表示deletion
-                base = '(' + genome.fetch(contig, col.reference_pos, col.reference_pos+deletion_len+1) + ')'
-            elif '*' in base:
-                # 这里deletion信息已经在deletion的上一个碱基进行了合并表示
-                base = '-'
-            elif base == '':
-                # 如果该位点没有覆盖，该处的base为''
-                base = 'X'
-            group_name = read2group[read][0]
-            final_used_read[read] = group_name
-            data = pileup_dict[group_name]
-            pos = (col.reference_pos, ref, contig)
-            # data.setdefault(pos, [[base], [qual], [read], [insertion], [is_overlap])
-            base_info = data.setdefault(pos, [[], [], [], [], []])
-            base_info[0].append(base)
-            base_info[1].append(qual)
-            base_info[2].append(read)
-            base_info[3].append(insertion)
-            base_info[4].append(group2overlap[group_name])
-
-     # final used read dict
-    final_group_size_dict = dict()
-    for k, v in final_used_read.items():
-        final_group_size_dict.setdefault(v, 0)
-        final_group_size_dict[v] += 1
-
-    # 当同时进行read1和read2 consensus 且 read1和read2中间没有overlap，就会出现中间有些位置没有信息
-    # pileup并不记录clipped情形，上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
-    # 基于上面的结果，最后的consenus reads将不包含clipped掉的reads
-    # 下面尝试把clipped的序列找回来，使consenus read结果包含clipped碱基
-    # 思路是根据cigar判断是否clipped，然后推断发生clipped对应的参考基因组位置，并标记S
-    for read in bam.fetch(contig, start, end):
-        if read.query_name in read2group and read.cigartuples is not None:
-            if read.cigartuples[0][0] == 4:
-                # left clipped
-                aln_start = read.query_alignment_start
-                ref_start = read.reference_start
-                clip_pos = [ref_start-i-1 for i in range(aln_start)]
-                clip_base = [x for x in read.query_sequence[:aln_start][::-1]]
-            elif read.cigartuples[-1][0] == 4:
-                # right clipped
-                aln_end = read.query_alignment_end
-                clip_num = read.query_length - 1 - aln_end
-                ref_end = read.reference_end
-                clip_pos = [ref_end+i+1 for i in range(clip_num)]
-                clip_base = [x for x in read.query_sequence[aln_end+1:]]
-                # logger.info('clipped:'+read.to_string())
-            else:
-                clip_pos = []
-                clip_base = []
-            tmp_dict = dict(zip(clip_pos, clip_base))
-            for (pos, ref, c), data in pileup_dict[read2group[read.query_name][0]].items():
-                if pos in tmp_dict:
-                    for i, (b, r) in enumerate(zip(data[0], data[2])):
-                        if r == read.query_name:
-                            # 找某条read对应的位置发生clipped, 每个被clipped的base带入'S'标签，也许日后可以用到
-                            data[0][i] = 'S'+tmp_dict[pos]
-                            break
-    # consensus
-    result = dict()
-    for group_name, data in pileup_dict.items():
-        if len(data) == 0:
-            # 某个分组在目标区域没有对应的reads?, 之前发现是pileup时参数max_depth不够大导致漏掉
-            print(f'{group_name} is empty, but raw group_size is {len(group2read[group_name])}?')
-            if len(group2read[group_name]) > 5:
-                print(group2read[group_name])
-            continue
-        consistent_bases, median_cov, top = consensus_read(data)
-        # print(f'>{group_name} overlap:{group2overlap[group_name]}')
-        # print(f'median coverage is {median_cov} and base number for Top3 coverages is {top}')
-
-        # 制作突变需要的字典
-        # umi = group_name.rsplit(':', 1)[-1]
-        complex = []  # 一条reads中连续的snv合并为complex,允许中间存在一个间隔
-        gap = 0
-        for base, qual, confidence, alt_depth, chr_name, pos, ref in consistent_bases:
-            if base[0] not in ['S', 'X', '-']:
-                # clipped 和没有read支持的位置不能call突变
-                if base != ref:
-                    if base.startswith('<') or base.startswith('('):
-                        # insertion | deletion
-                        key = (chr_name, pos, ref)
-                        result.setdefault(key, [])
-                        result[key].append((base, confidence, alt_depth, group_name))
-                    else:
-                        # SNP or Complex, 该位置的信息将在后续complex分析完成后存储
-                        gap = 0  # gap 重新从0开始计数
-                        complex.append([pos, base, ref, confidence, alt_depth])
+                # 判断是否overlap
+                if v[1] == v[2]:
+                    group2overlap[v[0]].append(0)
                 else:
-                    # 对于没有突变的位点，正常更新每个位点信息
-                    key = (chr_name, pos, ref)
-                    result.setdefault(key, [])
-                    result[key].append((base, confidence, alt_depth, group_name))
+                    group2overlap[v[0]].append(1)
+        else:
+            print(f'there are {len(group2read)} groups for primer {primer}')
+            group_size_dict = {k:len(v) for k,v in group2read.items()}
+            group_sizes = group_size_dict.values()
+            median_size = statistics.median_high(group_sizes)
+            print('(min, median, max) group size', (min(group_sizes), median_size, max(group_sizes)))
+            for k, v in group2overlap.items():
+                if sum(v)/len(v) > 0.6:
+                    # 超过60%的read说当前read出现overlap
+                    group2overlap[k] = 1
+                else:
+                    group2overlap[k] = 0
 
-                    if complex:
-                        gap += 1
-                        if gap < 2:
-                            # 直接进入下一轮循环, 目的是控制complex突变中允许存在一个未变异的gap
-                            continue
+        # 获得每个分组的pileup列表, 返回的第一个位点不一定是start指定的，而是由实际比对情况决定的！
+        # 对于clipped 的base， pileup不会纳入，因此后面有代码把这些base找回来。
+        cols = bam.pileup(
+            contig, start, end,
+            stepper='samtools',
+            truncate=True,
+            min_base_quality=min_bq,
+            ignore_orphans=False,
+            ignore_overlaps=ignore_overlaps,  # set 为True则意味着取质量高的base作为代表
+            # 这里的max_depth一定要设的足够大，否则有可能漏掉reads
+            max_depth=300000,
+            fastafile=None,
+            flag_require=read_type,
+            flag_filter=4,
+        )
+        # 在pos处带入ref信息
+        genome = pysam.FastaFile(genome)
 
-                        # 复合突变延长过程时第二次碰到没有突变位点时，把complex容器中的突变取出并合并为一个复合突变
-                        if len(complex) == 1:
-                            # SNP
-                            pos, base, ref, confidence, alt_depth = complex[0]
+        ## 初始化pileup存储容器
+        final_used_read = dict()
+        pileup_dict = dict()
+        for group_name in group2read:
+            pileup_dict[group_name] = dict()
+
+        ## 逐一循环每一个位置，并按组分配
+        for col in cols:
+            ref = genome.fetch(contig, col.reference_pos, col.reference_pos+1).upper()
+            for base, qual, read in zip(
+                    # 如不加add_indels参数，那么将无法知晓插入的碱基序列
+                    col.get_query_sequences(add_indels=True),
+                    col.get_query_qualities(),
+                    col.get_query_names()):
+                # print(base, qual, read)
+                # print(col.reference_pos)
+                # print('FIND', read)
+                if read not in read2group:
+                    continue
+                insertion = ''
+                if '+' in base:
+                    # such as 'G+2AT'
+                    # 对于insertion，也可能测错误，所以需要单独collapse，
+                    # 使用'I'代替是否有insertion，然后对insertion进行call consensus
+                    # 只能对相同长度的insertion进行校正, 下面的insertion包含ref
+                    insertion = re.sub('\+\d+',  '', base).upper()
+                    base = 'I'+str(len(insertion))
+                    # logger.info('insertion:' + read.to_string())
+                elif '-' in base:
+                    # such as 'G-1N'
+                    # base = re.split('-\d+', base)[0]
+                    deletion_len = int(base.split('-')[1].upper().rstrip('N'))
+                    # 用'<'表示deletion
+                    base = '(' + genome.fetch(contig, col.reference_pos, col.reference_pos+deletion_len+1) + ')'
+                elif '*' in base:
+                    # 这里deletion信息已经在deletion的上一个碱基进行了合并表示
+                    base = '-'
+                elif base == '':
+                    # 如果该位点没有覆盖，该处的base为''
+                    base = 'X'
+                group_name = read2group[read][0]
+                final_used_read[read] = group_name
+                data = pileup_dict[group_name]
+                pos = (col.reference_pos, ref, contig)
+                # data.setdefault(pos, [[base], [qual], [read], [insertion], [is_overlap])
+                base_info = data.setdefault(pos, [[], [], [], [], []])
+                base_info[0].append(base)
+                base_info[1].append(qual)
+                base_info[2].append(read)
+                base_info[3].append(insertion)
+                base_info[4].append(group2overlap[group_name])
+
+         # final used read dict
+        final_group_size_dict = dict()
+        for k, v in final_used_read.items():
+            final_group_size_dict.setdefault(v, 0)
+            final_group_size_dict[v] += 1
+
+        # 当同时进行read1和read2 consensus 且 read1和read2中间没有overlap，就会出现中间有些位置没有信息
+        # pileup并不记录clipped情形，上面对于read中存在clip的情况无法处理，如果真实read存在clipped,
+        # 基于上面的结果，最后的consenus reads将不包含clipped掉的reads
+        # 下面尝试把clipped的序列找回来，使consenus read结果包含clipped碱基
+        # 思路是根据cigar判断是否clipped，然后推断发生clipped对应的参考基因组位置，并标记S
+        for read in bam.fetch(contig, start, end):
+            if read.query_name in read2group and read.cigartuples is not None:
+                if read.cigartuples[0][0] == 4:
+                    # left clipped
+                    aln_start = read.query_alignment_start
+                    ref_start = read.reference_start
+                    clip_pos = [ref_start-i-1 for i in range(aln_start)]
+                    clip_base = [x for x in read.query_sequence[:aln_start][::-1]]
+                elif read.cigartuples[-1][0] == 4:
+                    # right clipped
+                    aln_end = read.query_alignment_end
+                    clip_num = read.query_length - 1 - aln_end
+                    ref_end = read.reference_end
+                    clip_pos = [ref_end+i+1 for i in range(clip_num)]
+                    clip_base = [x for x in read.query_sequence[aln_end+1:]]
+                    # logger.info('clipped:'+read.to_string())
+                else:
+                    clip_pos = []
+                    clip_base = []
+                tmp_dict = dict(zip(clip_pos, clip_base))
+                for (pos, ref, c), data in pileup_dict[read2group[read.query_name][0]].items():
+                    if pos in tmp_dict:
+                        for i, (b, r) in enumerate(zip(data[0], data[2])):
+                            if r == read.query_name:
+                                # 找某条read对应的位置发生clipped, 每个被clipped的base带入'S'标签，也许日后可以用到
+                                data[0][i] = 'S'+tmp_dict[pos]
+                                break
+        # consensus
+        result = dict()
+        for group_name, data in pileup_dict.items():
+            if len(data) == 0:
+                # 某个分组在目标区域没有对应的reads?, 之前发现是pileup时参数max_depth不够大导致漏掉
+                print(f'{group_name} is empty, but raw group_size is {len(group2read[group_name])}?')
+                if len(group2read[group_name]) > 5:
+                    print(group2read[group_name])
+                continue
+            consistent_bases, median_cov, top = consensus_read(data)
+            # print(f'>{group_name} overlap:{group2overlap[group_name]}')
+            # print(f'median coverage is {median_cov} and base number for Top3 coverages is {top}')
+
+            # 制作突变需要的字典
+            # umi = group_name.rsplit(':', 1)[-1]
+            complex = []  # 一条reads中连续的snv合并为complex,允许中间存在一个间隔
+            gap = 0
+            for base, qual, confidence, alt_depth, chr_name, pos, ref in consistent_bases:
+                if base[0] not in ['S', 'X', '-']:
+                    # clipped 和没有read支持的位置不能call突变
+                    if base != ref:
+                        if base.startswith('<') or base.startswith('('):
+                            # insertion | deletion
                             key = (chr_name, pos, ref)
                             result.setdefault(key, [])
                             result[key].append((base, confidence, alt_depth, group_name))
                         else:
-                            # complex
-                            p, b, r, c, a = list(zip(*complex))
-                            # 以第一个突变位置为索引进行突变信息存储
-                            key = (chr_name, p[0], r[0])
-                            alt = ''.join(r) + ':'+ ''.join(b)  # 带入ref信息方便variant的输出
-                            result.setdefault(key, [])
-                            result[key].append((alt, max(c), max(a), group_name))
-                            # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
-                            for p, b, r, c, a in complex[1:]:
-                                key = (chr_name, p, r)
-                                result.setdefault(key, [])
-                                result[key].append((r, c, a, group_name))
-
-                        # 清空之前得到的complex, 方便下一个complex突变的存储
-                        complex = []
-        else:
-            # 循环结束, 清理最后一个可能的complex
-            if complex:
-                if len(complex) == 1:
-                    # SNP
-                    pos, base, ref, confidence, alt_depth = complex[0]
-                    key = (chr_name, pos, ref)
-                    result.setdefault(key, [])
-                    result[key].append((base, confidence, alt_depth, group_name))
-                else:
-                    # complex
-                    p, b, r, c, a = list(zip(*complex))
-                    # 以第一个突变位置为索引进行突变信息存储
-                    key = (chr_name, p[0], r[0])
-                    alt = ''.join(r) + ':' + ''.join(b)  # 带入ref信息方便variant的输出
-                    result.setdefault(key, [])
-                    result[key].append((alt, max(c), max(a), group_name))
-                    # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
-                    for p, b, r, c, a in complex[1:]:
-                        key = (chr_name, p, r)
+                            # SNP or Complex, 该位置的信息将在后续complex分析完成后存储
+                            gap = 0  # gap 重新从0开始计数
+                            complex.append([pos, base, ref, confidence, alt_depth])
+                    else:
+                        # 对于没有突变的位点，正常更新每个位点信息
+                        key = (chr_name, pos, ref)
                         result.setdefault(key, [])
-                        result[key].append((r, c, a, group_name))
-                complex = []
+                        result[key].append((base, confidence, alt_depth, group_name))
 
-        # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
-        if fq_lst is not None:
-            # 想办法去掉两端的X
-            consensus_seq = ''.join(x[0] for x in consistent_bases)
-            lm = re.match('X+', consensus_seq)
-            left_start = 0 if lm is None else len(lm.group())
-            rm = re.match('X+', consensus_seq[::-1])
-            right_end = len(consistent_bases) if rm is None else len(consistent_bases) - len(rm.group())
+                        if complex:
+                            gap += 1
+                            if gap < 2:
+                                # 直接进入下一轮循环, 目的是控制complex突变中允许存在一个未变异的gap
+                                continue
 
-            # 整理fastq的信息
-            base_info = consistent_bases[left_start:right_end]
-            # 处理indel和clipped的标签信息
-            base_info = map(format_consensus_bases, base_info)
-            # 形成fastq信息
-            base_info_dict = {p:(b, q, c) for b, q, c, p in base_info}
-            min_pos = min(base_info_dict.keys())
-            max_pos = max(base_info_dict.keys())
-            continuous_pos = range(min_pos, max_pos+1)
-            # 把没有read覆盖的位置用X填补起来
-            seqs = ''.join(base_info_dict[p][0] if p in base_info_dict else 'X' for p in continuous_pos)
-            # print(seqs)
-            quals = ''.join(base_info_dict[p][1] if p in base_info_dict else 'X' for p in continuous_pos)
-            confs = '+'  # 原本打算存储confidences信息，但感觉用途不大，放弃
-            header = f'@{group_name} read_number:N:{int(median_cov)}:{group2overlap[group_name]}'
-            fq_lst.append([read_type, header, seqs, confs, quals])
-    else:
+                            # 复合突变延长过程时第二次碰到没有突变位点时，把complex容器中的突变取出并合并为一个复合突变
+                            if len(complex) == 1:
+                                # SNP
+                                pos, base, ref, confidence, alt_depth = complex[0]
+                                key = (chr_name, pos, ref)
+                                result.setdefault(key, [])
+                                result[key].append((base, confidence, alt_depth, group_name))
+                            else:
+                                # complex
+                                p, b, r, c, a = list(zip(*complex))
+                                # 以第一个突变位置为索引进行突变信息存储
+                                key = (chr_name, p[0], r[0])
+                                alt = ''.join(r) + ':'+ ''.join(b)  # 带入ref信息方便variant的输出
+                                result.setdefault(key, [])
+                                result[key].append((alt, max(c), max(a), group_name))
+                                # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
+                                for p, b, r, c, a in complex[1:]:
+                                    key = (chr_name, p, r)
+                                    result.setdefault(key, [])
+                                    result[key].append((r, c, a, group_name))
+
+                            # 清空之前得到的complex, 方便下一个complex突变的存储
+                            complex = []
+            else:
+                # 循环结束, 清理最后一个可能的complex
+                if complex:
+                    if len(complex) == 1:
+                        # SNP
+                        pos, base, ref, confidence, alt_depth = complex[0]
+                        key = (chr_name, pos, ref)
+                        result.setdefault(key, [])
+                        result[key].append((base, confidence, alt_depth, group_name))
+                    else:
+                        # complex
+                        p, b, r, c, a = list(zip(*complex))
+                        # 以第一个突变位置为索引进行突变信息存储
+                        key = (chr_name, p[0], r[0])
+                        alt = ''.join(r) + ':' + ''.join(b)  # 带入ref信息方便variant的输出
+                        result.setdefault(key, [])
+                        result[key].append((alt, max(c), max(a), group_name))
+                        # 完成complex分析, 逐一更新之前没有更新的位点，并且标记为非突变，因为该突变信息已经在第一个位置存储
+                        for p, b, r, c, a in complex[1:]:
+                            key = (chr_name, p, r)
+                            result.setdefault(key, [])
+                            result[key].append((r, c, a, group_name))
+                    complex = []
+
+            # 为输出consensus reads做准备, fq_lst是一个可以在多进程间共享的的list
+            if fq_lst is not None:
+                # 想办法去掉两端的X
+                consensus_seq = ''.join(x[0] for x in consistent_bases)
+                lm = re.match('X+', consensus_seq)
+                left_start = 0 if lm is None else len(lm.group())
+                rm = re.match('X+', consensus_seq[::-1])
+                right_end = len(consistent_bases) if rm is None else len(consistent_bases) - len(rm.group())
+
+                # 整理fastq的信息
+                base_info = consistent_bases[left_start:right_end]
+                # 处理indel和clipped的标签信息
+                base_info = map(format_consensus_bases, base_info)
+                # 形成fastq信息
+                base_info_dict = {p:(b, q, c) for b, q, c, p in base_info}
+                min_pos = min(base_info_dict.keys())
+                max_pos = max(base_info_dict.keys())
+                continuous_pos = range(min_pos, max_pos+1)
+                # 把没有read覆盖的位置用X填补起来
+                seqs = ''.join(base_info_dict[p][0] if p in base_info_dict else 'X' for p in continuous_pos)
+                # print(seqs)
+                quals = ''.join(base_info_dict[p][1] if p in base_info_dict else 'X' for p in continuous_pos)
+                confs = '+'  # 原本打算存储confidences信息，但感觉用途不大，放弃
+                header = f'@{group_name} read_number:N:{int(median_cov)}:{group2overlap[group_name]}'
+                fq_lst.append([read_type, header, seqs, confs, quals])
+
         if fq_lst is not None:
             fq_lst.append([primer])
 
-    return result, final_group_size_dict
+        return result, final_group_size_dict
 
+    except Exception as r:
+        print('An error was found in one process', r)
+        if fq_lst is not None:
+            fq_lst.append([primer])
+        return dict(),dict()
 
 def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
     vcf = pysam.VariantFile(vcf_path, 'w')
@@ -792,8 +802,9 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
             tasks = [pool.submit(write_fastq, fq_lst, len(primers), out_fq1, out_fq2)]
             for each in primers:
                 tasks.append(pool.submit(get_consensus_reads, each))
-            futures = [x.result() for x in tasks[1:]]
+
             tasks[0].result()
+            futures = [x.result() for x in tasks[1:]]
             for r, g in futures:
                 result.update(r)
                 primer_umi_group.update(g)
