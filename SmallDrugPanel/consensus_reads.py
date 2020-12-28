@@ -353,6 +353,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                                 break
         # consensus
         result = dict()
+        tmp_fq_lst = []
         for group_name, data in pileup_dict.items():
             if len(data) == 0:
                 # 某个分组在目标区域没有对应的reads?, 之前发现是pileup时参数max_depth不够大导致漏掉
@@ -464,9 +465,10 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
                 quals = ''.join(base_info_dict[p][1] if p in base_info_dict else 'X' for p in continuous_pos)
                 confs = '+'  # 原本打算存储confidences信息，但感觉用途不大，放弃
                 header = f'@{group_name} read_number:N:{int(median_cov)}:{group2overlap[group_name]}'
-                fq_lst.append([read_type, header, seqs, confs, quals])
+                tmp_fq_lst.append([read_type, header, seqs, confs, quals])
 
         if fq_lst is not None:
+            fq_lst.extend(tmp_fq_lst)
             fq_lst.append([primer])
 
         return result, final_group_size_dict
@@ -476,6 +478,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
         if fq_lst is not None:
             fq_lst.append([primer])
         return dict(),dict()
+
 
 def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
     vcf = pysam.VariantFile(vcf_path, 'w')
