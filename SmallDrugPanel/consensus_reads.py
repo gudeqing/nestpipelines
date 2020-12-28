@@ -213,7 +213,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
             print(f'primer {primer} has no corresponding reads!')
             if fq_lst is not None:
                 fq_lst.append([primer])
-            return dict(), dict()
+            return dict(), {primer+':NoReads': 0}
 
         group2read = dict()
         group2overlap = dict()
@@ -477,7 +477,7 @@ def consensus_reads(bam, primer, read_type=64, min_bq=0, fq_lst=None, ignore_ove
         print('An error was found in one process', r)
         if fq_lst is not None:
             fq_lst.append([primer])
-        return dict(),dict()
+        return dict(),{primer+':NoReads': 0}
 
 
 def create_vcf(vcf_path, genome='hg19', chrom_name_is_numeric=False):
