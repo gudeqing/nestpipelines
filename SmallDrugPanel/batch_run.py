@@ -50,6 +50,7 @@ def run_cmd(cmd):
     PROCESS_local[proc] = cmd[0]
     timer = Timer(3600*36, proc.kill)
     try:
+        os.chdir(cmd[1])
         timer.start()
         print(f'Start running {cmd[0]}')
         stdout, stderr = proc.communicate()
