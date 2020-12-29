@@ -791,8 +791,8 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
 
     result = dict()
     primer_umi_group = dict()
-    out_fq1 = f'{out_prefix}.R1.fq'
-    out_fq2 = f'{out_prefix}.R2.fq'
+    out_fq1 = f'{out_prefix}.consensus.R1.fq'
+    out_fq2 = f'{out_prefix}.consensus.R2.fq'
     if cores <= 1:
         fq_lst = []
         for primer in primers:
@@ -818,7 +818,7 @@ def run_all(primers, bam, read_type=0, cores=8, out_prefix='result',  min_bq=10,
                 primer_umi_group.update(g)
 
     draw_primer_umi_bar(primer_umi_group, out_prefix=out_prefix)
-    with open(f'{out_prefix}.primer_umi_stat.txt', 'w') as f:
+    with open(f'{out_prefix}.consensus.primerUmi.stat.txt', 'w') as f:
         total_reads = sum(primer_umi_group.values())
         total_groups = len(primer_umi_group)
         median_group_size = statistics.median_high(primer_umi_group.values())
