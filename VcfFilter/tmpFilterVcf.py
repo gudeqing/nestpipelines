@@ -44,25 +44,30 @@ def filter_vcf(vcf, out):
     for r in vcf:
         info = r.info
         af = r.samples[samples[-1]]['AF'][0]
-        f0 = af >= 0.04
-        f1 = True if info['esp6500siv2_all'] is None else float(info['esp6500siv2_all']) <= 0.01
-        f2 = True if info['1000g2015aug_all'] is None else float(info['1000g2015aug_all']) <= 0.01
-        f3 = True if info['ExAC_ALL'] is None else float(info['ExAC_ALL']) <= 0.01
-        f4 = True if info['gnomAD_exome_ALL'] is None else float(info['gnomAD_exome_ALL']) <= 0.01
-        f5 = True if info['gnomAD_exome_EAS'] is None else float(info['gnomAD_exome_EAS']) <= 0.01
-        f6 = True if info['ExAC_EAS'] is None else float(info['ExAC_EAS']) <= 0.01
+        filter_lst = [
+            af >= 0.04,
+            True if info['esp6500siv2_all'] is None else float(info['esp6500siv2_all']) <= 0.01,
+            True if info['1000g2015aug_all'] is None else float(info['1000g2015aug_all']) <= 0.01,
+            True if info['ExAC_ALL'] is None else float(info['ExAC_ALL']) <= 0.01,
+            True if info['gnomAD_exome_ALL'] is None else float(info['gnomAD_exome_ALL']) <= 0.01,
+            True if info['gnomAD_exome_EAS'] is None else float(info['gnomAD_exome_EAS']) <= 0.01,
+            True if info['ExAC_EAS'] is None else float(info['ExAC_EAS']) <= 0.01,
+            # info['SBF'] >= 0.05,
+        ]
         for j, d in zip(
-                [f0, f1, f2, f3, f4, f5, f6],
-                ['af', 'esp6500siv2_all', '1000g2015aug_all', 'ExAC_ALL', 'gnomAD_exome_ALL', 'gnomAD_exome_EAS', 'ExAC_EAS']
+                filter_lst,
+                ['af', 'esp6500siv2_all', '1000g2015aug_all', 'ExAC_ALL',
+                 'gnomAD_exome_ALL', 'gnomAD_exome_EAS', 'ExAC_EAS']
         ):
             if not j:
                 # print(samples[-1], r.pos, r.info['Gene_refGene'], d)
                 pass
-        # f7 = a['SBF'] >= 0.05
-        if all([f0, f1, f2, f3, f4, f5, f6]):
+
+        if all(filter_lst):
             vcf_out.write(r)
     else:
         vcf_out.close()
+
 
 def filter_nirvan_json(js):
     import json
