@@ -107,6 +107,41 @@ def reorder_vcf(vcf, out):
     vcf_out.close()
 
 
+def modify_vcf(vcf, out):
+    vcf = pysam.VariantFile(vcf)
+    samples = list(vcf.header.samples)
+    sample = samples[-1]
+    vcf.subset_samples([sample])
+    vcf_out = pysam.VariantFile(out, "w", header=vcf.header, drop_samples=True)
+    print(list(vcf_out.header.samples))
+    newlines = [
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype: 0/1 if AF < 0.9 else 1/1 ">',
+        '##FORMAT=<ID=AD,Number=2,Type=Integer,Description="(total depth, Variant Depth)">',
+        '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Depth">',
+        # '##FORMAT=<ID=VF,Number=A,Type=Float,Description="Allele Frequency">'
+    ]
+    for line in newlines:
+        vcf_out.header.add_line(line)
+    #vcf_out.header.add_sample(sample)
+    for r in vcf:
+        record = vcf_out.new_record()
+        record.contig = r.contig
+        record.start = r.start
+        record.ref = r.ref
+        record.alts = r.alts
+        record.qual = r.qual
+        for each in r.filter:
+            record.filter.add(each)
+        record.info.update(r.info)
+        record.samples[sample]['GT'] = r.samples[sample]['GT']
+        record.samples[sample]['AD'] = r.samples[sample]['AD']
+        record.samples[sample]['DP'] = r.samples[sample]['DP']
+        record.samples[sample]['AF'] = r.samples[sample]['AF']
+        vcf_out.write(record)
+    vcf.close()
+    vcf_out.close()
+
+
 if __name__ == '__main__':
     from xcmds import xcmds
     xcmds.xcmds(locals())

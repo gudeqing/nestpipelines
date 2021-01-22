@@ -1,0 +1,3 @@
+CIRCexplorer2 parse -t STAR C190476.Chimeric.out.junction > C190476.CIRCexplorer2_parse.log
+CIRCexplorer2 annotate -r hg38_ref.txt -g /nfs2/database/gencode_v29/GRCh38.primary_assembly.genome.fa -b back_spliced_junction.bed -o circularRNA_known.txt > CIRCexplorer2_annotate.log
+/nfs2/software/bowtie2-2.3.5.1-linux-x86_64/bowtie2 -x /nfs2/database/CircRNA/circRNA_dataset_hg19/circRNA -1 /rdc22/hanwumei/80011044/WTS/Sample_R19049339-191107P02-T190646R2L1-191107/R19049339-191107P02-T190646R2L1-191107_combined_R1.fastq.gz -2 /rdc22/hanwumei/80011044/WTS/Sample_R19049339-191107P02-T190646R2L1-191107/R19049339-191107P02-T190646R2L1-191107_combined_R2.fastq.gz  > T190646R2L1.bam &
