@@ -403,7 +403,7 @@ class VardictFilter():
                 if normal_af >= 1:
                     normal_af = 0.999
                 # print(normal_af, seq_error)
-                if normal_af > (seq_error or 0):
+                if normal_af > (error_rate or 0):
                     ctrl_af_as_error_rate = True
                     error_rate = normal_af
             # judge = self.pass_seq_error(r, tumor, error_rate, z=1.96, factor=1.2)
