@@ -300,11 +300,10 @@ class VardictFilter():
 
         # 读取seq error信息，解析成字典，记录每个序列突变成ATCG和''的频率
         if seq_error.replace(".", "", 1).isdigit():
-            seq_error = float(seq_error)
-            tmp_dict = dict(zip('ATCGID', [seq_error]*6))
             seq_error_dict = dict()
-            for i in 'ATCGID':
-                seq_error_dict[i] = tmp_dict
+            for b in 'ATCGID':
+                for i in set('ATCG') - {b}:
+                    seq_error_dict.setdefault(b, dict())[i] = {b: float(seq_error)}
             key_left = key_right = 0
         else:
             seq_error_dict = json.load(open(seq_error))

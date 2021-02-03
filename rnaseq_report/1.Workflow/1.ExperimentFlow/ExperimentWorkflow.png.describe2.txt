@@ -1,0 +1,13 @@
+Schematic of technology in the SMART-Seq Stranded Kit. SMART technology is used in a ligation-free protocol to preserve 
+strand-of-origin information. Random priming (through the SMART scN6 Primer) allows the generation of cDNA from all RNA fragments 
+in the sample, including rRNA. When the SMARTScribe™ Reverse Transcriptase (RT) reaches the 5’ end of the RNA fragment, the 
+enzyme’s terminal transferase activity adds a few nontemplated nucleotides to the 3’ end of the cDNA (shown as Xs). The carefully 
+designed SMART-Seq Stranded Adapter (included in the SMART scTSO Mix) base-pairs with the nontemplated nucleotide stretch, 
+creating an extended template to enable the RT to continue replicating to the end of the oligonucleotide. The resulting cDNA contains 
+sequences derived from the SMART scN6 Primer and the SMART-Seq Stranded Adapter. In the next step, a first round of PCR 
+amplification (PCR1) adds full-length Illumina adapters, including barcodes. The 5’ PCR Primer binds to the SMART-Seq Stranded 
+Adapter sequence (light purple), while the 3’ PCR Primer binds to sequence associated with the SMART scN6 sequence (green). The 
+ribosomal cDNA (originating from rRNA) is then cleaved by scZapR in the presence of the mammalian-specific scR-Probes. This process 
+leaves the library fragments originating from non-rRNA molecules untouched, with priming sites available on both 5’ and 3’ ends for 
+further PCR amplification. These fragments are enriched via a second round of PCR amplification (PCR2) using primers universal to all 
+libraries. The final library contains sequences allowing clustering on any Illumina flow cell.
