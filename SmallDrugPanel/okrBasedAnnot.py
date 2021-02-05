@@ -29,22 +29,11 @@ import sqlite3
 """
 
 
-@dataclass
-class Variant(object):
-    """Class for tracking item in inventory."""
-    contig: str
-    start: int
-    end: int
-    ref: str
-    alt = str
-    chgvs: str = '.'
-    phgvs: str = '.'
-    vtype: str = 'SNV'
-    # marker_id 即variant class，临床证据搜索将依赖该id
-    marker_id: str = '.'
-
-
 def variant_to_marker_id(variant):
+    """
+    :param variant: pysam.VariantRecord
+    :return:
+    """
     pass
 
 
