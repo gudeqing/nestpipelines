@@ -874,7 +874,7 @@ def diff_volcano(files: list, outdir='', formats=('html', ), gene_annot=None,
                  fc_cutoff=2.0, sig_type='corrected_pvalue', pvalue_cutoff=0.05, # 用于描述,不重新筛选
                  limit=8, height:int=None, width:int=None, scale=3):
     """
-    :param files:
+    :param files: 需要['log2fc', 'pvalue/padjust', 'significant'(='yes' or 'no'), 'regulate'(='up' or 'down')]这些列必须存在
     :param outdir:
     :param formats:
     :param limit: 用于计算outlier q3+(q3-q1)*limit
