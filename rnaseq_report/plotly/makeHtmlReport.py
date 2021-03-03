@@ -267,8 +267,8 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=5
                     return x
 
         df = df.applymap(proc)
-        table_div = df.to_html(buf=None, header=True, index=True, na_rep='NaN',
-                               formatters=None, float_format=None, sparsify=None, index_names=False, justify=None,
+        table_div = df.to_html(buf=None, header=True, index=True, na_rep='NaN', float_format=lambda x: format(x),
+                               formatters=None, sparsify=None, index_names=False, justify=None,
                                bold_rows=True, classes=None, escape=True, max_rows=None, max_cols=None,
                                show_dimensions=True, notebook=False, decimal='.', border=None)
 
