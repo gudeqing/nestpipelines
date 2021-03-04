@@ -251,7 +251,7 @@ def table2html(table_file: list, use_cols: list=None, use_rows: list=None, top=5
             nonlocal ind
             ind += 1
             if type(x) == float:
-                if x < 0.001:
+                if 0< x < 0.001:
                     return format(x, '.2e')
                 else:
                     return round(x, 3)
